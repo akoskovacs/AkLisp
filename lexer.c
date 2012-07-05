@@ -1,34 +1,8 @@
-#include <stdio.h>
-#include <string.h>
 #include <ctype.h>
 
 #include "aklisp.h"
 
 static char buffer[256];
-
-struct akl_io_device *
-akl_new_file_device(FILE *fp)
-{
-    struct akl_io_device *dev;
-    dev = AKL_MALLOC(akl_io_device);
-    dev->iod_type = DEVICE_FILE;
-    dev->iod_source.file = fp;
-    dev->iod_pos = 0;
-    dev->iod_strlen = 0;
-    return dev;
-}
-
-struct akl_io_device *
-akl_new_string_device(const char *str)
-{
-    struct akl_io_device *dev;
-    dev = AKL_MALLOC(akl_io_device);
-    dev->iod_type = DEVICE_STRING;
-    dev->iod_source.string = str;
-    dev->iod_pos = 0;
-    dev->iod_strlen = strlen(str);
-    return dev;
-}
 
 int akl_io_getc(struct akl_io_device *dev)
 {
@@ -39,14 +13,11 @@ int akl_io_getc(struct akl_io_device *dev)
         return fgetc(dev->iod_source.file);
 
         case DEVICE_STRING:
-        if (dev->iod_strlen > dev->iod_pos)
-            return dev->source.string[dev->iod_pos];
-        else 
-            return EOF;
+        return dev->iod_source.string[dev->iod_pos];
     }
 }
 
-int akl_io_ungetc(struct akl_io_device *dev, int ch)
+int akl_io_ungetc(int ch, struct akl_io_device *dev)
 {
     if (dev == NULL)
         return EOF;
@@ -55,8 +26,7 @@ int akl_io_ungetc(struct akl_io_device *dev, int ch)
         return ungetc(ch, dev->iod_source.file);
 
         case DEVICE_STRING:
-        dev->iod_pos--;
-        return dev->source.string[dev->iod_pos];
+        return dev->iod_source.string[dev->iod_pos];
     }
 }
 
@@ -70,10 +40,7 @@ bool_t akl_io_eof(struct akl_io_device *dev)
         return feof(dev->iod_source.file);
 
         case DEVICE_STRING:
-        if (dev->iod_strlen > dev->iod_pos)
-            return FALSE; 
-        else 
-            return TRUE;
+        return dev->iod_source.string[dev->iod_pos];
     }
 }
 
@@ -105,7 +72,7 @@ size_t copy_string(struct akl_io_device *dev)
     size_t i = 0;
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
-        if (akl_io_eof(file))
+        if (akl_io_eof(dev))
             break;
         if (ch != '\"') {
             buffer[i] = ch;
@@ -149,7 +116,7 @@ token_t akl_lex(struct akl_io_device *dev)
     if (akl_io_eof(dev))
         return tEOF;
 
-    while ((ch = akl_io_ungetc(dev))) {
+    while ((ch = akl_io_getc(dev))) {
         if (isdigit(ch)) {
             akl_io_ungetc(ch, dev);
             copy_number(dev);
@@ -164,7 +131,7 @@ token_t akl_lex(struct akl_io_device *dev)
             return tLBRACE;
         } else if (ch == ')') {
             return tRBRACE;
-        } else if (ch == '\'') {
+        } else if (ch == '\'' || ch == ':') {
             return tQUOTE;
         } else if (isalpha(ch) || ispunct(ch)) {
             akl_io_ungetc(ch, dev);
