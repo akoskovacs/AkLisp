@@ -113,11 +113,10 @@ token_t akl_lex(struct akl_io_device *dev)
     int ch;
     int i;
     assert(dev);
-    if (akl_io_eof(dev))
-        return tEOF;
-
     while ((ch = akl_io_getc(dev))) {
-        if (isdigit(ch)) {
+        if (ch == EOF) {
+            return tEOF;
+        } else if (isdigit(ch)) {
             akl_io_ungetc(ch, dev);
             copy_number(dev);
             return tNUMBER;
