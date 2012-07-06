@@ -133,12 +133,30 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
     return ret;
 }
 
+void akl_eval_program(struct akl_instance *in)
+{
+    struct akl_list *plist = in->ai_program;
+    struct akl_list_entry *ent;
+    struct akl_value *val, *ret;
+    if (plist != NULL) {
+        AKL_LIST_FOREACH(ent, plist) {
+            val = AKL_ENTRY_VALUE(ent);
+            if (val->va_type == TYPE_LIST) {
+                ret = akl_eval_list(in, val->va_value.list);
+                assert(ret);
+                printf(" => ");
+                print_value(ret);
+                printf("\n");
+            }
+        }
+    }
+}
+
 int main(int argc, const char *argv[])
 {
     FILE *fp;
     struct akl_instance *inst;
     struct akl_list *list;
-    struct akl_value *val;
     if (argc > 1) {
         fp = fopen(argv[1], "r");
         if (fp == NULL) {
@@ -151,13 +169,8 @@ int main(int argc, const char *argv[])
     inst = akl_new_file_interpreter(fp);
 
     init_lib(inst);
-    while ((list = akl_parse_io(inst)) != NULL) {
-        val = akl_eval_list(inst, list);
-        assert(val);
-        printf(" => ");
-        print_value(val);
-        printf("\n");
-    }
+    list = akl_parse_io(inst);
+    akl_eval_program(inst);
     akl_free_instance(inst);
     return 0;
 }
