@@ -43,8 +43,8 @@ void akl_free_instance(struct akl_instance *in)
     RB_FOREACH_SAFE(t1, ATOM_TREE, &in->ai_atom_head, t2) {
         akl_free_atom(in, t1);
     }
-#endif
     akl_free_list(in, in->ai_program);
+#endif
 }
 
 struct akl_instance *akl_new_instance(void)
@@ -68,7 +68,7 @@ struct akl_list *akl_new_list(struct akl_instance *in)
     lh->li_head = NULL;
     lh->li_last = NULL;
     lh->is_quoted = FALSE;
-    lh->is_nil = TRUE; /* It has elements so it's NIL */
+    lh->is_nil = FALSE;
     lh->li_elem_count = 0;
     if (in != NULL)
         in->ai_list_count++;
