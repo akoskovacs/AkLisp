@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 2.8)
 set(SOURCES
     aklisp.c
     lib.c
-    memory.c
+    gc.c
     parser.c
     lexer.c)
 
