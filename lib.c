@@ -297,8 +297,8 @@ struct akl_value *about_function(struct akl_instance *in, struct akl_list *args)
 {
     printf("AkLisp version %d.%d-%s\n"
             "\tCopyleft (c) Akos Kovacs\n"
-            "\tBuilt on %s %s\n"
-            "Statistics:"
+            "\tBuilt on %s %s\n\n"
+            "GC Statics:\n"
             "\tATOMS: %d\n"
             "\tLISTS: %d\n"
             "\tNUMBERS: %d\n"
@@ -314,22 +314,34 @@ struct akl_value *about_function(struct akl_instance *in, struct akl_list *args)
 struct akl_value *range_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_list *range;
-    struct akl_value *farg, *sarg;
-    int rf, rs, i;
+    struct akl_value *farg, *sarg, *targ;
+    int rf, rs, rt, i;
     assert(args);
-    farg = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
-    sarg = AKL_ENTRY_VALUE(AKL_LIST_SECOND(args));
+    if (args->li_elem_count > 1) {
+        farg = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
+        sarg = AKL_ENTRY_VALUE(AKL_LIST_SECOND(args));
+    }
+    if (args->li_elem_count > 2) {
+        targ = AKL_LIST_SECOND(args)->le_next->le_value;
+        if (targ && targ->va_type == TYPE_NUMBER)
+            rt = *akl_get_number_value(targ);
+        else 
+            rt = 1;
+    } else {
+        rt = 1;
+    }
+
     if (farg && sarg && farg->va_type == TYPE_NUMBER
             && sarg->va_type == TYPE_NUMBER) {
         range = akl_new_list(in);
         rf = *akl_get_number_value(farg);
         rs = *akl_get_number_value(sarg);
         if (rf < rs) {
-            for (i = rf; i <= rs; i++) {
+            for (i = rf; i <= rs; i += rt) {
                 akl_list_append(in, range, akl_new_number_value(in, i));
             }
         } else if (rf > rs) {
-            for (i = rs; i > rf; i--) {
+            for (i = rf; i >= rs; i -= rt) {
                 akl_list_append(in, range, akl_new_number_value(in, i));
             }
         } else {
