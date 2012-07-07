@@ -41,6 +41,7 @@ void akl_free_instance(struct akl_instance *in)
     struct akl_atom *t1, *t2;
 #if 0
     RB_FOREACH_SAFE(t1, ATOM_TREE, &in->ai_atom_head, t2) {
+        ATOM_TREE_RB_REMOVE(t1, &in->ai_atom_head);
         akl_free_atom(in, t1);
     }
     akl_free_list(in, in->ai_program);
@@ -212,8 +213,11 @@ void akl_free_atom(struct akl_instance *in, struct akl_atom *atom)
 {
     if (atom == NULL)
         return;
-
-    AKL_FREE(atom->at_name);
+    if (atom->at_value != NULL 
+        && atom->at_value->va_type != TYPE_CFUN) {
+        AKL_FREE(atom->at_name);
+        AKL_FREE(atom->at_desc);
+    }
     akl_free_value(in, atom->at_value);
     AKL_FREE(atom);
     if (in != NULL)
