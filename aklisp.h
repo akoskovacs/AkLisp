@@ -26,7 +26,9 @@ typedef enum { FALSE, TRUE } bool_t;
 typedef enum { DEVICE_FILE, DEVICE_STRING } device_type_t;
 typedef struct akl_value*(*akl_cfun_t)(struct akl_instance *, struct akl_list *);
 
+#ifndef __unused
 #define __unused __attribute__((unused))
+#endif // __unused
 
 #define AKL_IS_NIL(type) ((type)->is_nil)
 #define AKL_IS_QUOTED(type) ((type)->is_quoted)
