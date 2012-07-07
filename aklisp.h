@@ -54,8 +54,8 @@ static struct akl_value {
 static struct akl_value TRUE_VALUE = {
     .va_type = TYPE_TRUE,
     .va_value.number = 1,
-    .is_quoted = FALSE,
-    .is_nil = TRUE,
+    .is_quoted = TRUE,
+    .is_nil = FALSE,
 };
 
 struct akl_atom {
