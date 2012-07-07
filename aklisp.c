@@ -12,9 +12,9 @@ akl_add_global_cfun(struct akl_instance *in, const char *name
         , akl_cfun_t fn, const char *desc)
 {
     assert(name);
-    struct akl_atom *atom = akl_new_atom(in, strdup(name));
+    struct akl_atom *atom = akl_new_atom(in, (char *)name);
     if (desc != NULL)
-        atom->at_desc = strdup(desc);
+        atom->at_desc = (char *)desc;
     atom->at_value = akl_new_value(in);
     atom->at_value->va_type = TYPE_CFUN;
     atom->at_value->va_value.cfunc = fn;
@@ -102,7 +102,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
                    if (aval->at_value != NULL)
                        ent->le_value = aval->at_value;
                    aval = akl_get_global_atom(in, aval->at_name);
-                   if (aval->at_value != NULL) {
+                   if (aval != NULL && aval->at_value != NULL) {
                        ent->le_value = aval->at_value;
                    } else {
                        fprintf(stderr, "ERROR: No value for \'%s\' atom!\n"
@@ -129,7 +129,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
     assert(cfun);
     ret = cfun(in, args);
     akl_free_list(in, list);
-    free((void *)args);
+//    AKL_FREE(args);
     return ret;
 }
 

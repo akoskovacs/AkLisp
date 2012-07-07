@@ -89,7 +89,6 @@ struct akl_instance {
     struct akl_list *ai_program;
 };
 
-
 static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
 {
     return strcasecmp(f->at_name, s->at_name);
