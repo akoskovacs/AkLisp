@@ -57,6 +57,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
     struct akl_atom *fatm, *aval;
     struct akl_list_entry *ent;
     struct akl_value *tmp, *ret;
+    char *fname;
     bool_t is_mutable = FALSE;
     assert(list);
 
@@ -101,12 +102,13 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
 
                    if (aval->at_value != NULL)
                        ent->le_value = aval->at_value;
-                   aval = akl_get_global_atom(in, aval->at_name);
+                   fname = aval->at_name;
+                   aval = akl_get_global_atom(in, fname);
                    if (aval != NULL && aval->at_value != NULL) {
                        ent->le_value = aval->at_value;
                    } else {
                        fprintf(stderr, "ERROR: No value for \'%s\' atom!\n"
-                            , aval->at_name);
+                            , fname);
                        exit(-1);
                    }
                 break;
@@ -128,7 +130,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
     assert(args);
     assert(cfun);
     ret = cfun(in, args);
-    akl_free_list(in, list);
+//    akl_free_list(in, list);
 //    AKL_FREE(args);
     return ret;
 }
