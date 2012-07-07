@@ -49,10 +49,12 @@ size_t copy_number(struct akl_io_device *dev)
     int ch;
     size_t i = 0;
     assert(dev);
+    if (buffer[0] == '+' || buffer[0] == '-')
+        i++;
+
     while ((ch = akl_io_getc(dev))) {
         if (akl_io_eof(dev))
             break;
-
         if (isdigit(ch)) {
             buffer[i] = ch;
             buffer[++i] = '\0';
@@ -112,16 +114,35 @@ token_t akl_lex(struct akl_io_device *dev)
 {
     int ch;
     int i;
+    int op = 0;
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
         if (ch == EOF) {
             return tEOF;
+        } else if (ch == '+' || ch == '-') {
+            op = ch;
         } else if (isdigit(ch)) {
             akl_io_ungetc(ch, dev);
+            if (op != 0) {
+                if (op == '+')
+                    strcpy(buffer, "+");
+                else
+                    strcpy(buffer, "-");
+                op = 0;
+            }
             copy_number(dev);
             return tNUMBER;
         } else if (ch == ' ' || ch == '\n') {
-            continue;
+            if (op != 0) {
+                if (op == '+')
+                    strcpy(buffer, "+");
+                else
+                    strcpy(buffer, "-");
+                op = 0;
+                return tATOM;
+            } else {
+                continue;
+            }
         } else if (ch == '"') {
             /* No akl_io_ungetc() */
             copy_string(dev); 
@@ -132,6 +153,11 @@ token_t akl_lex(struct akl_io_device *dev)
             return tRBRACE;
         } else if (ch == '\'' || ch == ':') {
             return tQUOTE;
+        } else if (ch == ';') {
+            while ((ch = akl_io_getc(dev))) {
+                if (ch != '\n' || ch != EOF)
+                    continue;
+            }
         } else if (isalpha(ch) || ispunct(ch)) {
             akl_io_ungetc(ch, dev);
             copy_atom(dev);
