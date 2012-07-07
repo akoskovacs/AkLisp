@@ -165,6 +165,10 @@ void print_value(struct akl_value *val)
         case TYPE_ATOM:
         printf("%s", akl_get_atom_name_value(val));
         break;
+
+        case TYPE_TRUE:
+        printf("T");
+        break;
     }
 }
 
@@ -202,13 +206,21 @@ struct akl_value *print_function(struct akl_instance *in, struct akl_list *args)
 struct akl_value *car_function(struct akl_instance *in __unused
                                , struct akl_list *args)
 {
-    return akl_car(args);
+    struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
+    //if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
+        return akl_car(a1->va_value.list);
+    //}
+    return &NIL_VALUE;
 }
 
 struct akl_value *cdr_function(struct akl_instance *in
                                , struct akl_list *args)
 {
-    return akl_new_list_value(in, akl_cdr(in, args));
+    struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
+    if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
+       return akl_new_list_value(in, akl_cdr(in, a1->va_value.list));
+    }
+    return &NIL_VALUE;
 }
 
 struct akl_value *len_function(struct akl_instance *in,
@@ -354,6 +366,20 @@ struct akl_value *range_function(struct akl_instance *in, struct akl_list *args)
     return akl_new_list_value(in, range);
 }
 
+struct akl_value *zerop_function(struct akl_instance *in, struct akl_list *args)
+{
+    struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
+    if (a1 == NULL || AKL_IS_NIL(a1))
+        return &NIL_VALUE;
+    else if (a1->va_type == TYPE_NUMBER) {
+        if (a1->va_value.number == 0)
+            return &TRUE_VALUE;
+    } else {
+        return &NIL_VALUE;
+    }
+    return &NIL_VALUE;
+}
+
 void init_lib(struct akl_instance *in)
 {
     akl_add_global_cfun(in, "LIST", list_function, "Create list");
@@ -367,6 +393,7 @@ void init_lib(struct akl_instance *in)
     akl_add_global_cfun(in, "ABOUT", about_function, "About the environment");
     akl_add_global_cfun(in, "VERSION", version_function, "About the version");
     akl_add_global_cfun(in, "RANGE", range_function, "Create list with elements from a1 to a2");
+    akl_add_global_cfun(in, "ZEROP", zerop_function, "Predicate which, returns with true if it\'s argument is zero");
 
     akl_add_global_cfun(in, "+", plus_function, "Arithmetic addition and string concatenation");
     akl_add_global_cfun(in, "-", minus_function, "Artihmetic minus");
