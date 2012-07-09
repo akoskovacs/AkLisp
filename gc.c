@@ -155,7 +155,7 @@ struct akl_value *akl_new_string_value(struct akl_instance *in, char *str)
     val->va_type = TYPE_STRING;
     val->va_value.string = str;
     if (in != NULL)
-        in->ai_string_count--;
+        in->ai_string_count++;
 
     return val;
 }
@@ -166,7 +166,7 @@ struct akl_value *akl_new_number_value(struct akl_instance *in, int num)
     val->va_type = TYPE_NUMBER;
     val->va_value.number = num;
     if (in != NULL)
-        in->ai_number_count--;
+        in->ai_number_count++;
 
     return val;
 }
