@@ -322,24 +322,67 @@ int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
     return -1;
 }
 
-struct akl_value *akl_list_find(struct akl_list *list, struct akl_value *val)
+struct akl_list_entry *akl_list_find(struct akl_list *list, struct akl_value *val)
 {
     struct akl_list_entry *ent;
     struct akl_value *v;
     AKL_LIST_FOREACH(ent, list) {
        v = AKL_ENTRY_VALUE(ent);
        if (akl_compare_values(v, val) == 0)
-           return v;
+           return ent;
     }
     return NULL;
+}
+
+struct akl_value *akl_list_index(struct akl_list *list, int index)
+{
+    struct akl_value *val = &NIL_VALUE;
+    struct akl_list_entry *ent;
+    if (list == NULL || list->li_head == NULL || AKL_IS_NIL(list))
+        return val;
+    if (index < 0) {
+        /* TODO: Implement reverse foreach */
+    } else {
+        ent = AKL_LIST_FIRST(list);
+        while (index--) {
+            if ((ent = AKL_LIST_NEXT(ent)) == NULL)
+                return &NIL_VALUE;
+
+        }
+        val = akl_entry_to_value(ent);
+    }
+    return val;
 }
 
 bool_t akl_list_remove(struct akl_instance *in, struct akl_list *list
                        , struct akl_value *val)
 {
-    struct akl_value *v = akl_list_find(list, val);
-    if (v != NULL)
-        return TRUE;
+    struct akl_list_entry *ent;
+    struct akl_value *v;
+    if (list == NULL || val == NULL)
+        return FALSE;
+
+    v = akl_entry_to_value(list->li_head);
+    if (v != NULL && akl_compare_values(val, v)) {
+        list->li_head = AKL_LIST_SECOND(list);
+    }
+    AKL_LIST_FOREACH(ent, list) {
+       v = akl_entry_to_value(ent->le_next);
+       if (v != NULL && akl_compare_values(val, v)) {
+           /* TODO: Free the entry */
+           ent = ent->le_next;
+           return TRUE;
+       }
+    }
+    return FALSE;
+}
+
+struct akl_value *akl_entry_to_value(struct akl_list_entry *ent)
+{
+    if (ent != NULL) {
+        return ent->le_value;
+    }
+    return NULL;
 }
 
 struct akl_value *akl_car(struct akl_list *l)

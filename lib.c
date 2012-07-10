@@ -380,6 +380,22 @@ struct akl_value *zerop_function(struct akl_instance *in, struct akl_list *args)
     return &NIL_VALUE;
 }
 
+struct akl_value *index_function(struct akl_instance *in, struct akl_list *args)
+{
+    int ind;
+    struct akl_list *list;
+    struct akl_value *a1, *a2;
+    a1 = akl_list_index(args, 0);
+    a2 = akl_list_index(args, 1);
+    if (a1->va_type == TYPE_NUMBER) {
+        ind = *akl_get_number_value(a1);
+    }
+    if (a2->va_type == TYPE_LIST) {
+        list = akl_get_list_value(a2);
+        return akl_list_index(list, ind);
+    }
+}
+
 void init_lib(struct akl_instance *in)
 {
     akl_add_global_cfun(in, "LIST", list_function, "Create list");
@@ -394,6 +410,7 @@ void init_lib(struct akl_instance *in)
     akl_add_global_cfun(in, "VERSION", version_function, "About the version");
     akl_add_global_cfun(in, "RANGE", range_function, "Create list with elements from a1 to a2");
     akl_add_global_cfun(in, "ZEROP", zerop_function, "Predicate which, returns with true if it\'s argument is zero");
+    akl_add_global_cfun(in, "INDEX", index_function, "Index of list");
 
     akl_add_global_cfun(in, "+", plus_function, "Arithmetic addition and string concatenation");
     akl_add_global_cfun(in, "-", minus_function, "Artihmetic minus");
