@@ -146,24 +146,23 @@ typedef enum {
     tQUOTE = '\''
 } token_t;
 
-
-struct akl_instance *akl_new_file_interpreter(FILE *);
-struct akl_instance *akl_new_string_interpreter(const char *);
+struct akl_instance  *akl_new_file_interpreter(FILE *);
+struct akl_instance  *akl_new_string_interpreter(const char *);
 struct akl_io_device *akl_new_file_device(FILE *);
 struct akl_io_device *akl_new_string_device(const char *);
 
 token_t akl_lex(struct akl_io_device *);
-char *akl_lex_get_string(void);
-int akl_lex_get_number(void);
-char *akl_lex_get_atom(void);
+char   *akl_lex_get_string(void);
+int     akl_lex_get_number(void);
+char   *akl_lex_get_atom(void);
 
 struct akl_list *
 akl_parse_list(struct akl_instance *, struct akl_io_device *, bool_t);
-struct akl_list *akl_parse_file(struct akl_instance *, FILE *fp);
-struct akl_list *akl_parse_string(struct akl_instance *, const char *);
-struct akl_list *akl_parse_io(struct akl_instance *);
+struct akl_list  *akl_parse_file(struct akl_instance *, FILE *fp);
+struct akl_list  *akl_parse_string(struct akl_instance *, const char *);
+struct akl_list  *akl_parse_io(struct akl_instance *);
 struct akl_value *akl_car(struct akl_list *l);
-struct akl_list *akl_cdr(struct akl_instance *, struct akl_list *l);
+struct akl_list  *akl_cdr(struct akl_instance *, struct akl_list *l);
 
 /* Creating and destroying structures */
 struct akl_instance   *akl_new_instance(void);
@@ -184,7 +183,9 @@ void akl_free_instance(struct akl_instance *in);
 
 struct akl_list_entry *
 akl_list_append(struct akl_instance *, struct akl_list *, struct akl_value *);
-
+struct akl_value *akl_list_index(struct akl_list *, int);
+struct akl_list_entry *akl_list_find(struct akl_list *, struct akl_value *);
+struct akl_value *akl_entry_to_value(struct akl_list_entry *);
 /*  Getting back values */
 struct akl_atom *akl_get_atom_value(struct akl_value *);
 struct akl_list *akl_get_list_value(struct akl_value *);
@@ -194,8 +195,8 @@ char            *akl_get_string_value(struct akl_value *);
 akl_cfun_t       akl_get_cfun_value(struct akl_value *);
 char            *akl_get_atom_name_value(struct akl_value *);
 
-int akl_io_getc(struct akl_io_device *);
-int akl_io_ungetc(int, struct akl_io_device *);
+int    akl_io_getc(struct akl_io_device *);
+int    akl_io_ungetc(int, struct akl_io_device *);
 bool_t akl_io_eof(struct akl_io_device *dev);
 
 void print_value(struct akl_value *);
