@@ -5,7 +5,7 @@
 
 #include "aklisp.h"
 
-struct akl_value *plus_function(struct akl_instance *in, struct akl_list *list)
+static struct akl_value *plus_function(struct akl_instance *in, struct akl_list *list)
 {
     struct akl_list_entry *ent;
     struct akl_value *val;
@@ -44,7 +44,7 @@ struct akl_value *plus_function(struct akl_instance *in, struct akl_list *list)
         return akl_new_string_value(in, str);
 }
 
-struct akl_value *minus_function(struct akl_instance *in, struct akl_list *list)
+static struct akl_value *minus_function(struct akl_instance *in, struct akl_list *list)
 {
     struct akl_list_entry *ent;
     struct akl_value *val;
@@ -73,7 +73,7 @@ struct akl_value *minus_function(struct akl_instance *in, struct akl_list *list)
     return akl_new_number_value(in, ret);
 }
 
-struct akl_value *mul_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *mul_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_list_entry *ent;
     struct akl_value *val, *a1, *a2;
@@ -114,26 +114,26 @@ struct akl_value *mul_function(struct akl_instance *in, struct akl_list *args)
     return akl_new_number_value(in, ret);
 }
 
-struct akl_value *div_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *div_function(struct akl_instance *in, struct akl_list *args)
 {
     /* TODO */
     return &NIL_VALUE;
 }
 
-struct akl_value *mod_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *mod_function(struct akl_instance *in, struct akl_list *args)
 {
     /* TODO */
     return &NIL_VALUE;
 }
 
 
-struct akl_value *getpid_function(struct akl_instance *in
+static struct akl_value *getpid_function(struct akl_instance *in
                                   , struct akl_list *args __unused)
 {
     return akl_new_number_value(in, (int)getpid());
 }
 
-struct akl_value *exit_function(struct akl_instance *in __unused
+static struct akl_value *exit_function(struct akl_instance *in __unused
                                            , struct akl_list *args)
 {
     printf("Bye!\n");
@@ -192,7 +192,7 @@ void print_list(struct akl_list *list)
     printf(")");
 }
 
-struct akl_value *print_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *print_function(struct akl_instance *in, struct akl_list *args)
 {
     print_list(args);
     assert(args);
@@ -204,7 +204,7 @@ struct akl_value *print_function(struct akl_instance *in, struct akl_list *args)
 }
 
 
-struct akl_value *car_function(struct akl_instance *in __unused
+static struct akl_value *car_function(struct akl_instance *in __unused
                                , struct akl_list *args)
 {
     struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
@@ -214,7 +214,7 @@ struct akl_value *car_function(struct akl_instance *in __unused
     return &NIL_VALUE;
 }
 
-struct akl_value *cdr_function(struct akl_instance *in
+static struct akl_value *cdr_function(struct akl_instance *in
                                , struct akl_list *args)
 {
     struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
@@ -224,7 +224,7 @@ struct akl_value *cdr_function(struct akl_instance *in
     return &NIL_VALUE;
 }
 
-struct akl_value *len_function(struct akl_instance *in,
+static struct akl_value *len_function(struct akl_instance *in,
                                struct akl_list *args)
 {
     struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
@@ -247,7 +247,7 @@ struct akl_value *len_function(struct akl_instance *in,
     return &NIL_VALUE;
 }
 
-struct akl_value *setq_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *setq_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_atom *atom;
     struct akl_value *value;
@@ -274,14 +274,14 @@ void print_help(struct akl_atom *a)
     }
 }
 
-struct akl_value *help_function(struct akl_instance *in
+static struct akl_value *help_function(struct akl_instance *in
                                 , struct akl_list *args __unused)
 {
    akl_do_on_all_atoms(in, print_help);
    return &NIL_VALUE;
 }
 
-struct akl_value *quote_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *quote_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
     if (a1 != NULL && a1->va_type == TYPE_LIST) {
@@ -292,10 +292,10 @@ struct akl_value *quote_function(struct akl_instance *in, struct akl_list *args)
     return a1;
 }
 
-struct akl_value *list_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *list_function(struct akl_instance *in, struct akl_list *args)
 { return quote_function(in, args); }
 
-struct akl_value *version_function(struct akl_instance *in
+static struct akl_value *version_function(struct akl_instance *in
                                    , struct akl_list *args __unused)
 {
     struct akl_list *version = akl_new_list(in);
@@ -306,7 +306,7 @@ struct akl_value *version_function(struct akl_instance *in
     return akl_new_list_value(in, version);
 }
 
-struct akl_value *about_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *about_function(struct akl_instance *in, struct akl_list *args)
 {
     printf("AkLisp version %d.%d-%s\n"
             "\tCopyleft (c) Akos Kovacs\n"
@@ -324,7 +324,7 @@ struct akl_value *about_function(struct akl_instance *in, struct akl_list *args)
     return version_function(in, args);
 }
 
-struct akl_value *range_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *range_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_list *range;
     struct akl_value *farg, *sarg, *targ;
@@ -367,7 +367,7 @@ struct akl_value *range_function(struct akl_instance *in, struct akl_list *args)
     return akl_new_list_value(in, range);
 }
 
-struct akl_value *zerop_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *zerop_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
     if (a1 == NULL || AKL_IS_NIL(a1))
@@ -381,7 +381,7 @@ struct akl_value *zerop_function(struct akl_instance *in, struct akl_list *args)
     return &NIL_VALUE;
 }
 
-struct akl_value *index_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *index_function(struct akl_instance *in, struct akl_list *args)
 {
     int ind;
     struct akl_list *list;
@@ -397,18 +397,18 @@ struct akl_value *index_function(struct akl_instance *in, struct akl_list *args)
     }
 }
 
-struct akl_value *eq_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *eq_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_value *a1, *a2;
-    a1 = akl_list_index(args, 0);
-    a2 = akl_list_index(args, 1);
+    a1 = akl_list_index(args, 1);
+    a2 = akl_list_index(args, 2);
     if (akl_compare_values(a1, a2) == 0)
         return &TRUE_VALUE;
     else
         return &NIL_VALUE;
 }
 
-struct akl_value *greater_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *greater_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_value *a1, *a2;
     a1 = akl_list_index(args, 0);
@@ -419,7 +419,7 @@ struct akl_value *greater_function(struct akl_instance *in, struct akl_list *arg
         return &NIL_VALUE;
 }
 
-struct akl_value *lesser_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *less_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_value *a1, *a2;
     a1 = akl_list_index(args, 0);
@@ -430,12 +430,12 @@ struct akl_value *lesser_function(struct akl_instance *in, struct akl_list *args
         return &NIL_VALUE;
 }
 
-struct akl_value *if_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *if_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_value *a1, *a2, *a3;
     a1 = akl_list_index(args, 0);
     a2 = akl_list_index(args, 1);
-    a3 = akl_list_index(args, 3);
+    a3 = akl_list_index(args, 2);
     if (a1 == NULL || a2 == NULL)
         return &NIL_VALUE;
 
@@ -449,7 +449,7 @@ struct akl_value *if_function(struct akl_instance *in, struct akl_list *args)
     return a2;
 }
 
-struct akl_value *nilp_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *nilp_function(struct akl_instance *in, struct akl_list *args)
 {
     struct akl_value *a1;
     a1 = akl_list_index(args, 0);
@@ -457,6 +457,41 @@ struct akl_value *nilp_function(struct akl_instance *in, struct akl_list *args)
         return &TRUE_VALUE;
     else
         return &NIL_VALUE;
+}
+
+static struct akl_value *typeof_function(struct akl_instance *in, struct akl_list *args)
+{
+    struct akl_value *a1, *ret;
+    const char *typename = "NIL";
+    a1 = akl_list_index(args, 0);
+    if (a1 == NULL)
+        return &NIL_VALUE;
+
+    switch (a1->va_type) {
+        case TYPE_NUMBER:
+        typename = "NUMBER";
+        break;
+
+        case TYPE_ATOM:
+        typename = "ATOM";
+        break;
+
+        case TYPE_LIST:
+        typename = "LIST";
+        break;
+
+        case TYPE_CFUN:
+        typename = "CFUNCTION";
+        break;
+
+        case TYPE_NIL:
+        typename = "NIL";
+        break;
+    }
+    /* Must duplicate the name for gc */
+    ret = akl_new_atom_value(in, strdup(typename));
+    ret->is_quoted = TRUE;
+    return ret;
 }
 
 void init_lib(struct akl_instance *in)
@@ -475,6 +510,7 @@ void init_lib(struct akl_instance *in)
     akl_add_global_cfun(in, "ZEROP", zerop_function, "Predicate which, returns with true if it\'s argument is zero");
     akl_add_global_cfun(in, "INDEX", index_function, "Index of list");
     akl_add_global_cfun(in, "IF", if_function, "If the first argument true, returns with the second, otherwise returns with the third");
+    akl_add_global_cfun(in, "TYPEOF", typeof_function, "Get the type of the value");
 
     akl_add_global_cfun(in, "+", plus_function, "Arithmetic addition and string concatenation");
     akl_add_global_cfun(in, "-", minus_function, "Artihmetic minus");
@@ -482,7 +518,7 @@ void init_lib(struct akl_instance *in)
     akl_add_global_cfun(in, "/", div_function, "Arithmetic devide");
     akl_add_global_cfun(in, "%", mod_function, "Arithmetic modulus");
     akl_add_global_cfun(in, "=", eq_function, "Tests it\'s argument for equality");
-    akl_add_global_cfun(in, "<", lesser_function, "If it\'s first argument is lesser than the second returns with T");
+    akl_add_global_cfun(in, "<", less_function, "If it\'s first argument is less than the second returns with T");
     akl_add_global_cfun(in, ">", greater_function, "If it\'s first argument is greater than the second returns with T");
 
     /* Ok. Again... */
@@ -492,13 +528,14 @@ void init_lib(struct akl_instance *in)
     akl_add_global_cfun(in, "DIV", div_function, "Arithmetic devide");
     akl_add_global_cfun(in, "MOD", mod_function, "Arithmetic modulus");
     akl_add_global_cfun(in, "EQ", eq_function, "Tests it\'s argument for equality");
-    akl_add_global_cfun(in, "LT", lesser_function, "If it\'s first argument is lesser than the second returns with T");
+    akl_add_global_cfun(in, "LT", less_function, "If it\'s first argument is less than the second returns with T");
     akl_add_global_cfun(in, "GT", greater_function, "If it\'s first argument is greater than the second returns with T");
-    akl_add_global_cfun(in, "LESSERP", lesser_function, "If it\'s first argument is lesser than the second returns with T");
-    akl_add_global_cfun(in, "GREATERP", lesser_function, "If it\'s first argument is lesser than the second returns with T");
+    akl_add_global_cfun(in, "LESSP", less_function, "If it\'s first argument is less than the second returns with T");
+    akl_add_global_cfun(in, "GREATERP", less_function, "If it\'s first argument is less than the second returns with T");
 
     akl_add_global_cfun(in, "QUIT", exit_function, "Exit from the program");
     akl_add_global_cfun(in, "EXIT", exit_function, "Exit from the program");
     akl_add_global_cfun(in, "GETPID", getpid_function, "Get the process id");
+
 }
 
