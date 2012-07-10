@@ -199,6 +199,9 @@ int    akl_io_getc(struct akl_io_device *);
 int    akl_io_ungetc(int, struct akl_io_device *);
 bool_t akl_io_eof(struct akl_io_device *dev);
 
+struct akl_value *akl_eval_value(struct akl_instance *, struct akl_value *);
+struct akl_value *akl_eval_list(struct akl_instance *, struct akl_list *);
+
 void print_value(struct akl_value *);
 void print_list(struct akl_list *);
 
