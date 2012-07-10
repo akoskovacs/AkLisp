@@ -11,7 +11,11 @@ set(SOURCES
 set(HEADERS tree.h aklisp.h)
 set(TARGET aklisp)
 
-add_executable(${TARGET} ${SOURCES})
+add_library(${TARGET}_static STATIC ${SOURCES})
+add_library(${TARGET}_shared SHARED ${SOURCES})
+
+add_executable(${TARGET} main.c)
+target_link_libraries(${TARGET} ${TARGET}_static)
 set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME aklisp)
 INSTALL(TARGETS ${TARGET}
         RUNTIME

@@ -39,10 +39,10 @@ RM = /usr/bin/cmake -E remove -f
 CMAKE_EDIT_COMMAND = /usr/bin/ccmake
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/akos/devel/AkLisp
+CMAKE_SOURCE_DIR = /home/akos/Dropbox/AkLisp
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/akos/devel/AkLisp
+CMAKE_BINARY_DIR = /home/akos/Dropbox/AkLisp
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -110,9 +110,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/akos/devel/AkLisp/CMakeFiles /home/akos/devel/AkLisp/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/akos/Dropbox/AkLisp/CMakeFiles /home/akos/Dropbox/AkLisp/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/akos/devel/AkLisp/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/akos/Dropbox/AkLisp/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -152,12 +152,39 @@ aklisp/fast:
 	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/build
 .PHONY : aklisp/fast
 
+#=============================================================================
+# Target rules for targets named aklisp_shared
+
+# Build rule for target.
+aklisp_shared: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 aklisp_shared
+.PHONY : aklisp_shared
+
+# fast build rule for target.
+aklisp_shared/fast:
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/build
+.PHONY : aklisp_shared/fast
+
+#=============================================================================
+# Target rules for targets named aklisp_static
+
+# Build rule for target.
+aklisp_static: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 aklisp_static
+.PHONY : aklisp_static
+
+# fast build rule for target.
+aklisp_static/fast:
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/build
+.PHONY : aklisp_static/fast
+
 aklisp.o: aklisp.c.o
 .PHONY : aklisp.o
 
 # target to build an object file
 aklisp.c.o:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/aklisp.c.o
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/aklisp.c.o
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/aklisp.c.o
 .PHONY : aklisp.c.o
 
 aklisp.i: aklisp.c.i
@@ -165,7 +192,8 @@ aklisp.i: aklisp.c.i
 
 # target to preprocess a source file
 aklisp.c.i:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/aklisp.c.i
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/aklisp.c.i
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/aklisp.c.i
 .PHONY : aklisp.c.i
 
 aklisp.s: aklisp.c.s
@@ -173,7 +201,8 @@ aklisp.s: aklisp.c.s
 
 # target to generate assembly for a file
 aklisp.c.s:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/aklisp.c.s
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/aklisp.c.s
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/aklisp.c.s
 .PHONY : aklisp.c.s
 
 gc.o: gc.c.o
@@ -181,7 +210,8 @@ gc.o: gc.c.o
 
 # target to build an object file
 gc.c.o:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/gc.c.o
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/gc.c.o
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/gc.c.o
 .PHONY : gc.c.o
 
 gc.i: gc.c.i
@@ -189,7 +219,8 @@ gc.i: gc.c.i
 
 # target to preprocess a source file
 gc.c.i:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/gc.c.i
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/gc.c.i
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/gc.c.i
 .PHONY : gc.c.i
 
 gc.s: gc.c.s
@@ -197,7 +228,8 @@ gc.s: gc.c.s
 
 # target to generate assembly for a file
 gc.c.s:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/gc.c.s
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/gc.c.s
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/gc.c.s
 .PHONY : gc.c.s
 
 lexer.o: lexer.c.o
@@ -205,7 +237,8 @@ lexer.o: lexer.c.o
 
 # target to build an object file
 lexer.c.o:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/lexer.c.o
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/lexer.c.o
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/lexer.c.o
 .PHONY : lexer.c.o
 
 lexer.i: lexer.c.i
@@ -213,7 +246,8 @@ lexer.i: lexer.c.i
 
 # target to preprocess a source file
 lexer.c.i:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/lexer.c.i
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/lexer.c.i
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/lexer.c.i
 .PHONY : lexer.c.i
 
 lexer.s: lexer.c.s
@@ -221,7 +255,8 @@ lexer.s: lexer.c.s
 
 # target to generate assembly for a file
 lexer.c.s:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/lexer.c.s
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/lexer.c.s
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/lexer.c.s
 .PHONY : lexer.c.s
 
 lib.o: lib.c.o
@@ -229,7 +264,8 @@ lib.o: lib.c.o
 
 # target to build an object file
 lib.c.o:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/lib.c.o
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/lib.c.o
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/lib.c.o
 .PHONY : lib.c.o
 
 lib.i: lib.c.i
@@ -237,7 +273,8 @@ lib.i: lib.c.i
 
 # target to preprocess a source file
 lib.c.i:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/lib.c.i
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/lib.c.i
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/lib.c.i
 .PHONY : lib.c.i
 
 lib.s: lib.c.s
@@ -245,15 +282,41 @@ lib.s: lib.c.s
 
 # target to generate assembly for a file
 lib.c.s:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/lib.c.s
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/lib.c.s
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/lib.c.s
 .PHONY : lib.c.s
+
+main.o: main.c.o
+.PHONY : main.o
+
+# target to build an object file
+main.c.o:
+	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/main.c.o
+.PHONY : main.c.o
+
+main.i: main.c.i
+.PHONY : main.i
+
+# target to preprocess a source file
+main.c.i:
+	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/main.c.i
+.PHONY : main.c.i
+
+main.s: main.c.s
+.PHONY : main.s
+
+# target to generate assembly for a file
+main.c.s:
+	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/main.c.s
+.PHONY : main.c.s
 
 parser.o: parser.c.o
 .PHONY : parser.o
 
 # target to build an object file
 parser.c.o:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/parser.c.o
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/parser.c.o
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/parser.c.o
 .PHONY : parser.c.o
 
 parser.i: parser.c.i
@@ -261,7 +324,8 @@ parser.i: parser.c.i
 
 # target to preprocess a source file
 parser.c.i:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/parser.c.i
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/parser.c.i
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/parser.c.i
 .PHONY : parser.c.i
 
 parser.s: parser.c.s
@@ -269,7 +333,8 @@ parser.s: parser.c.s
 
 # target to generate assembly for a file
 parser.c.s:
-	$(MAKE) -f CMakeFiles/aklisp.dir/build.make CMakeFiles/aklisp.dir/parser.c.s
+	$(MAKE) -f CMakeFiles/aklisp_shared.dir/build.make CMakeFiles/aklisp_shared.dir/parser.c.s
+	$(MAKE) -f CMakeFiles/aklisp_static.dir/build.make CMakeFiles/aklisp_static.dir/parser.c.s
 .PHONY : parser.c.s
 
 # Help Target
@@ -279,6 +344,8 @@ help:
 	@echo "... clean"
 	@echo "... depend"
 	@echo "... aklisp"
+	@echo "... aklisp_shared"
+	@echo "... aklisp_static"
 	@echo "... edit_cache"
 	@echo "... install"
 	@echo "... install/local"
@@ -297,6 +364,9 @@ help:
 	@echo "... lib.o"
 	@echo "... lib.i"
 	@echo "... lib.s"
+	@echo "... main.o"
+	@echo "... main.i"
+	@echo "... main.s"
 	@echo "... parser.o"
 	@echo "... parser.i"
 	@echo "... parser.s"
