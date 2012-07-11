@@ -183,6 +183,8 @@ void akl_free_instance(struct akl_instance *in);
 
 struct akl_list_entry *
 akl_list_append(struct akl_instance *, struct akl_list *, struct akl_value *);
+struct akl_list_entry *
+akl_list_insert_head(struct akl_instance *, struct akl_list *, struct akl_value *);
 struct akl_value *akl_list_index(struct akl_list *, int);
 struct akl_list_entry *akl_list_find(struct akl_list *, struct akl_value *);
 struct akl_value *akl_entry_to_value(struct akl_list_entry *);
@@ -205,5 +207,17 @@ struct akl_value *akl_eval_list(struct akl_instance *, struct akl_list *);
 void print_value(struct akl_value *);
 void print_list(struct akl_list *);
 
-void init_lib(struct akl_instance *in);
+enum AKL_INIT_FLAGS { 
+    AKL_LIB_BASIC = 0x001,
+    AKL_LIB_NUMBERIC = 0x002,
+    AKL_LIB_CONDITIONAL = 0x004,
+    AKL_LIB_PREDICATE = 0x008,
+    AKL_LIB_DATA = 0x010,
+    AKL_LIB_SYSTEM = 0x020,
+    AKL_LIB_ALL = AKL_LIB_BASIC|AKL_LIB_NUMBERIC
+        |AKL_LIB_CONDITIONAL|AKL_LIB_PREDICATE|AKL_LIB_DATA
+        |AKL_LIB_SYSTEM
+};
+
+void akl_init_lib(struct akl_instance *, enum AKL_INIT_FLAGS);
 #endif // AKLISP_H

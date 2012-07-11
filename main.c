@@ -15,9 +15,7 @@ int main(int argc, const char *argv[])
         fp = stdin;
     }
     inst = akl_new_file_interpreter(fp);
-
-    init_lib(inst);
-    list = akl_parse_io(inst);
+    akl_init_lib(inst, AKL_LIB_ALL);
     akl_eval_program(inst);
     akl_free_instance(inst);
     return 0;

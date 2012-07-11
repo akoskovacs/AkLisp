@@ -161,6 +161,24 @@ akl_list_append(struct akl_instance *in, struct akl_list *list, struct akl_value
     return le; 
 }
 
+struct akl_list_entry *
+akl_list_insert_head(struct akl_instance *in, struct akl_list *list, struct akl_value *val)
+{
+    struct akl_list_entry *le;
+    struct akl_list_entry *head;
+    le = akl_new_list_entry(in);
+    le->le_value = val;
+    if (list->li_head == NULL) {
+        list->li_last = le;
+    } else {
+        head = list->li_head;
+        le->le_next = head;
+    }
+    list->li_head = le;
+    list->li_elem_count++;
+    return le;
+}
+
 int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
 {
     int n1, n2;

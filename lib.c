@@ -494,48 +494,85 @@ static struct akl_value *typeof_function(struct akl_instance *in, struct akl_lis
     return ret;
 }
 
-void init_lib(struct akl_instance *in)
+struct akl_value *cons_function(struct akl_instance *in, struct akl_list *args)
 {
-    akl_add_global_cfun(in, "LIST", list_function, "Create list");
-    akl_add_global_cfun(in, "QUOTE", quote_function, "Quote list, same as \'");
-    akl_add_global_cfun(in, "CAR", car_function, "Get the head of a list");
-    akl_add_global_cfun(in, "CDR", cdr_function, "Get the tail of a list");
-    akl_add_global_cfun(in, "PRINT", print_function, "Print different values to the screen");
-    akl_add_global_cfun(in, "LENGTH", len_function, "The length of a given value");
-    akl_add_global_cfun(in, "SETQ", setq_function, "Bound (set) a variable to a value");
-    akl_add_global_cfun(in, "HELP", help_function, "Print the builtin functions");
-    akl_add_global_cfun(in, "ABOUT", about_function, "About the environment");
-    akl_add_global_cfun(in, "VERSION", version_function, "About the version");
-    akl_add_global_cfun(in, "RANGE", range_function, "Create list with elements from arg 1 to arg 2");
-    akl_add_global_cfun(in, "ZEROP", zerop_function, "Predicate which, returns with true if it\'s argument is zero");
-    akl_add_global_cfun(in, "INDEX", index_function, "Index of list");
-    akl_add_global_cfun(in, "IF", if_function, "If the first argument true, returns with the second, otherwise returns with the third");
-    akl_add_global_cfun(in, "TYPEOF", typeof_function, "Get the type of the value");
+    struct akl_value *a1, *a2;
+    a1 = akl_list_index(args, 1);
+    a2 = akl_list_index(args, 2);
 
-    akl_add_global_cfun(in, "+", plus_function, "Arithmetic addition and string concatenation");
-    akl_add_global_cfun(in, "-", minus_function, "Artihmetic minus");
-    akl_add_global_cfun(in, "*", mul_function, "Arithmetic multiplication and string \'multiplication\'");
-    akl_add_global_cfun(in, "/", div_function, "Arithmetic devide");
-    akl_add_global_cfun(in, "%", mod_function, "Arithmetic modulus");
-    akl_add_global_cfun(in, "=", eq_function, "Tests it\'s argument for equality");
-    akl_add_global_cfun(in, "<", less_function, "If it\'s first argument is less than the second returns with T");
-    akl_add_global_cfun(in, ">", greater_function, "If it\'s first argument is greater than the second returns with T");
-
-    /* Ok. Again... */
-    akl_add_global_cfun(in, "ADD", plus_function, "Arithmetic addition and string concatenation");
-    akl_add_global_cfun(in, "MINUS", minus_function, "Artihmetic minus");
-    akl_add_global_cfun(in, "MUL", mul_function, "Arithmetic multiplication and string \'multiplication\'");
-    akl_add_global_cfun(in, "DIV", div_function, "Arithmetic devide");
-    akl_add_global_cfun(in, "MOD", mod_function, "Arithmetic modulus");
-    akl_add_global_cfun(in, "EQ", eq_function, "Tests it\'s argument for equality");
-    akl_add_global_cfun(in, "LT", less_function, "If it\'s first argument is less than the second returns with T");
-    akl_add_global_cfun(in, "GT", greater_function, "If it\'s first argument is greater than the second returns with T");
-    akl_add_global_cfun(in, "LESSP", less_function, "If it\'s first argument is less than the second returns with T");
-    akl_add_global_cfun(in, "GREATERP", less_function, "If it\'s first argument is less than the second returns with T");
-
-    akl_add_global_cfun(in, "QUIT", exit_function, "Exit from the program");
-    akl_add_global_cfun(in, "EXIT", exit_function, "Exit from the program");
-    akl_add_global_cfun(in, "GETPID", getpid_function, "Get the process id");
-
+    if (a1 == NULL || a2 == NULL || a2->va_type != TYPE_LIST)
+        return &NIL_VALUE;
+   
+    akl_list_insert_head(in, akl_get_list_value(a2), a1);
+    return a2;
 }
 
+void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
+{
+    if (flags & AKL_LIB_BASIC) {
+        akl_add_global_cfun(in, "LIST", list_function, "Create list");
+        akl_add_global_cfun(in, "QUOTE", quote_function, "Quote list, same as \'");
+        akl_add_global_cfun(in, "CAR", car_function, "Get the head of a list");
+        akl_add_global_cfun(in, "CDR", cdr_function, "Get the tail of a list");
+    }
+    if (flags & AKL_LIB_DATA) {
+        akl_add_global_cfun(in, "RANGE", range_function
+            , "Create list with elements from arg 1 to arg 2");
+        akl_add_global_cfun(in, "CONS", cons_function
+            , "Insert the first argument to the second list argument");
+        akl_add_global_cfun(in, "LENGTH", len_function, "The length of a given value");
+        akl_add_global_cfun(in, "INDEX", index_function, "Index of list");
+        akl_add_global_cfun(in, "TYPEOF", typeof_function, "Get the type of the value");
+        akl_add_global_cfun(in, "SETQ", setq_function, "Bound (set) a variable to a value");
+    }
+    if (flags & AKL_LIB_CONDITIONAL) {
+        akl_add_global_cfun(in, "IF", if_function
+            , "If the first argument true, returns with the second, otherwise returns with the third");
+    }
+    if (flags & AKL_LIB_PREDICATE) {
+        akl_add_global_cfun(in, "=", eq_function
+            , "Tests it\'s argument for equality");
+        akl_add_global_cfun(in, "<", less_function
+            , "If it\'s first argument is less than the second returns with T");
+        akl_add_global_cfun(in, ">", greater_function
+            , "If it\'s first argument is greater than the second returns with T");
+        akl_add_global_cfun(in, "EQ", eq_function
+            , "Tests it\'s argument for equality");
+        akl_add_global_cfun(in, "LT", less_function
+            , "If it\'s first argument is less than the second returns with T");
+        akl_add_global_cfun(in, "GT", greater_function
+            , "If it\'s first argument is greater than the second returns with T");
+        akl_add_global_cfun(in, "LESSP", less_function
+            , "If it\'s first argument is less than the second returns with T");
+        akl_add_global_cfun(in, "GREATERP", less_function
+            , "If it\'s first argument is less than the second returns with T");
+        akl_add_global_cfun(in, "ZEROP", zerop_function
+            , "Predicate which, returns with true if it\'s argument is zero");
+    }
+
+    if (flags & AKL_LIB_NUMBERIC) {
+        akl_add_global_cfun(in, "+", plus_function, "Arithmetic addition and string concatenation");
+        akl_add_global_cfun(in, "-", minus_function, "Artihmetic minus");
+        akl_add_global_cfun(in, "*", mul_function
+            , "Arithmetic multiplication and string \'multiplication\'");
+        akl_add_global_cfun(in, "/", div_function, "Arithmetic devide");
+        akl_add_global_cfun(in, "%", mod_function, "Arithmetic modulus");
+        /* Ok. Again... */
+        akl_add_global_cfun(in, "ADD", plus_function, "Arithmetic addition and string concatenation");
+        akl_add_global_cfun(in, "MINUS", minus_function, "Artihmetic minus");
+        akl_add_global_cfun(in, "MUL", mul_function
+            , "Arithmetic multiplication and string \'multiplication\'");
+        akl_add_global_cfun(in, "DIV", div_function, "Arithmetic devide");
+        akl_add_global_cfun(in, "MOD", mod_function, "Arithmetic modulus");
+    }
+    
+    if (flags & AKL_LIB_SYSTEM) {
+        akl_add_global_cfun(in, "PRINT", print_function, "Print different values to the screen");
+        akl_add_global_cfun(in, "HELP", help_function, "Print the builtin functions");
+        akl_add_global_cfun(in, "ABOUT", about_function, "About the environment");
+        akl_add_global_cfun(in, "VERSION", version_function, "About the version");
+        akl_add_global_cfun(in, "GETPID", getpid_function, "Get the process id");
+        akl_add_global_cfun(in, "QUIT", exit_function, "Exit from the program");
+        akl_add_global_cfun(in, "EXIT", exit_function, "Exit from the program");
+    }
+}
