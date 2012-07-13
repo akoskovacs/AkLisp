@@ -21,7 +21,7 @@ struct akl_atom;
 struct akl_value;
 struct akl_io_device;
 struct akl_instance;
-enum type { TYPE_NIL, TYPE_ATOM, TYPE_NUMBER, TYPE_STRING, TYPE_LIST, TYPE_TRUE, TYPE_CFUN };
+enum type { TYPE_NIL, TYPE_ATOM, TYPE_NUMBER, TYPE_STRING, TYPE_LIST, TYPE_TRUE, TYPE_CFUN, TYPE_BUILTIN };
 typedef enum { FALSE, TRUE } bool_t;
 typedef enum { DEVICE_FILE, DEVICE_STRING } device_type_t;
 typedef struct akl_value*(*akl_cfun_t)(struct akl_instance *, struct akl_list *);
@@ -89,6 +89,7 @@ struct akl_instance {
     unsigned int ai_number_count;
     unsigned int ai_bool_count;
     struct akl_list *ai_program;
+    bool_t ai_is_stdin;
 };
 
 static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
@@ -99,6 +100,7 @@ static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
 RB_PROTOTYPE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
 void akl_add_global_atom(struct akl_instance *, struct akl_atom *);
+struct akl_atom * akl_add_builtin(struct akl_instance *, const char *, akl_cfun_t, const char *);
 struct akl_atom *akl_add_global_cfun(struct akl_instance *, const char *, akl_cfun_t, const char *);
 struct akl_atom *akl_get_global_atom(struct akl_instance *in, const char *);
 void akl_do_on_all_atoms(struct akl_instance *, void (*fn)(struct akl_atom *));
@@ -122,6 +124,9 @@ struct akl_list {
 #define AKL_LIST_LAST(list) ((list)->li_last)
 #define AKL_LIST_NEXT(ent) ((ent)->le_next)
 #define AKL_LIST_SECOND(list) (AKL_LIST_NEXT(AKL_LIST_FIRST(list)))
+#define AKL_FIRST_VALUE(list) akl_list_index(list, 0)
+#define AKL_SECOND_VALUE(list) akl_list_index(list, 1)
+#define AKL_THIRD_VALUE(list) akl_list_index(list, 2)
 #define AKL_LIST_FOREACH(elem, list)  \
     for ((elem) = AKL_LIST_FIRST(list)\
        ; (elem)                        \
@@ -220,4 +225,5 @@ enum AKL_INIT_FLAGS {
 };
 
 void akl_init_lib(struct akl_instance *, enum AKL_INIT_FLAGS);
+void akl_init_os(struct akl_instance *);
 #endif // AKLISP_H
