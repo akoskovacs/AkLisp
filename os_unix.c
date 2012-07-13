@@ -1,7 +1,7 @@
 #include "aklisp.h"
 #include <sys/types.h>
 #include <unistd.h>
-#ifdef HAVE_EXECINFO_H && HAVE_UCONTEXT_H
+#if HAVE_EXECINFO_H && HAVE_UCONTEXT_H
 char* exe = 0;
 /* get REG_EIP from ucontext.h */
 #define __USE_GNU
@@ -70,7 +70,7 @@ static struct akl_value *getpid_function(struct akl_instance *in
 
 void akl_init_os(struct akl_instance *in)
 {
-#ifdef HAVE_UCONTEXT_H && HAVE_EXECINFO_H
+#if HAVE_UCONTEXT_H && HAVE_EXECINFO_H
  /* Install our signal handler */
   struct sigaction sa;
 

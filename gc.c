@@ -25,6 +25,8 @@ akl_new_file_interpreter(FILE *fp)
 {
     struct akl_instance *in = akl_new_instance();
     in->ai_device = akl_new_file_device(fp);
+    if (fp == stdin)
+        in->ai_is_stdin = TRUE;
     return in;
 }
 
@@ -60,6 +62,7 @@ struct akl_instance *akl_new_instance(void)
     in->ai_bool_count = 0;
     in->ai_list_entry_count = 0;
     in->ai_program = NULL;
+    in->ai_is_stdin = FALSE;
     return in;
 }
 
