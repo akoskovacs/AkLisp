@@ -1,11 +1,13 @@
 project(AkLisp)
 cmake_minimum_required(VERSION 2.8)
 
-if (unix)
+if (UNIX)
     set(PLATSRC os_unix.c)
-else (unix)
+endif()
+
+if (!UNIX)
     set(PLATSRC os_other.c)
-endif (unix)
+endif ()
 
 set(SOURCES 
     ${PLATSRC}
