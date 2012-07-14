@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "aklisp.h"
 
@@ -47,6 +48,7 @@ static struct akl_value *minus_function(struct akl_instance *in, struct akl_list
     struct akl_list_entry *ent;
     struct akl_value *val;
     int ret = 0;
+    bool_t is_first = TRUE;
     if (AKL_IS_NIL(list))
         return &NIL_VALUE;
 
@@ -54,9 +56,14 @@ static struct akl_value *minus_function(struct akl_instance *in, struct akl_list
        val = AKL_ENTRY_VALUE(ent);
        switch (val->va_type) {
             case TYPE_NUMBER:
-            ret -= *akl_get_number_value(val);
+            if (is_first) {
+                ret = *akl_get_number_value(val);
+                is_first = FALSE;
+            } else {
+                ret -= *akl_get_number_value(val);
+            }
             break;
-
+#if 0
             case TYPE_STRING:
             /* TODO */
             break;
@@ -66,6 +73,7 @@ static struct akl_value *minus_function(struct akl_instance *in, struct akl_list
             ret += *akl_get_number_value(minus_function(in
                  , akl_get_list_value(val)));
             break;
+#endif
        }
     }
     return akl_new_number_value(in, ret);
@@ -532,6 +540,43 @@ struct akl_value *newline_function(struct akl_instance *i __unused, struct akl_l
     return &NIL_VALUE;
 }
 
+static struct tm *akl_time(void)
+{
+    time_t curr;
+    time(&curr);
+    return localtime(&curr);
+}
+
+struct akl_value *date_year_function(struct akl_instance *in, struct akl_list *args __unused)
+{
+    return akl_new_number_value(in, akl_time()->tm_year + 1900);
+}
+
+struct akl_value *time_hour_function(struct akl_instance *in, struct akl_list *args __unused)
+{
+    return akl_new_number_value(in, akl_time()->tm_hour);
+}
+
+struct akl_value *time_min_function(struct akl_instance *in, struct akl_list *args __unused)
+{
+    return akl_new_number_value(in, akl_time()->tm_min);
+}
+
+struct akl_value *time_sec_function(struct akl_instance *in, struct akl_list *args __unused)
+{
+    return akl_new_number_value(in, akl_time()->tm_sec);
+}
+
+struct akl_value *time_function(struct akl_instance *in, struct akl_list *args)
+{
+    struct akl_list *tlist;
+    tlist = akl_new_list(in);
+    akl_list_append(in, tlist, time_hour_function(in, args));
+    akl_list_append(in, tlist, time_min_function(in, args));
+    akl_list_append(in, tlist, time_sec_function(in, args));
+    return akl_new_list_value(in, tlist);
+}
+
 void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
 {
     if (flags & AKL_LIB_BASIC) {
@@ -602,5 +647,13 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         akl_add_global_cfun(in, "VERSION", version_function, "About the version");
         akl_add_global_cfun(in, "QUIT", exit_function, "Exit from the program");
         akl_add_global_cfun(in, "EXIT", exit_function, "Exit from the program");
+    }
+
+    if (flags & AKL_LIB_TIME) {
+        akl_add_global_cfun(in, "DATE-YEAR", date_year_function, "Get the current year");
+        akl_add_global_cfun(in, "TIME", time_function, "Get the current time as a list of (hour minute secundum)");
+        akl_add_global_cfun(in, "TIME-HOUR", time_hour_function, "Get the current hour");
+        akl_add_global_cfun(in, "TIME-MIN", time_min_function, "Get the current minute");
+        akl_add_global_cfun(in, "TIME-SEC", time_sec_function, "Get the current secundum");
     }
 }
