@@ -161,7 +161,7 @@ struct akl_value *akl_list_index(struct akl_list *list, int index)
         return val;
     if (index < 0) {
         /* Yeah! Extremely inefficient! */
-        return akl_list_index(list, list->li_elem_count - index);
+        return akl_list_index(list, list->li_elem_count + index);
     } else {
         ent = list->li_head;
         while (index--) {

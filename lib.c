@@ -440,6 +440,7 @@ static struct akl_value *index_function(struct akl_instance *in, struct akl_list
         list = akl_get_list_value(a2);
         return akl_list_index(list, ind);
     }
+    return &NIL_VALUE;
 }
 
 static struct akl_value *eq_function(struct akl_instance *in, struct akl_list *args)

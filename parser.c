@@ -33,7 +33,7 @@ struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *d
 
             case tQUOTE:
             is_quoted = 1;
-            break;
+            continue;
 
             case tNIL:
             val = &NIL_VALUE;
@@ -46,7 +46,10 @@ struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *d
             default:
             break;
         }
-        val->is_quoted = is_quoted;
+        if (is_quoted) {
+            val->is_quoted = TRUE;
+            is_quoted = FALSE;
+        }
         akl_list_append(in, list, val);
     }
 
