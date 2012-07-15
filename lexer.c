@@ -154,9 +154,9 @@ token_t akl_lex(struct akl_io_device *dev)
         } else if (ch == '\'' || ch == ':') {
             return tQUOTE;
         } else if (ch == ';') {
-            while ((ch = akl_io_getc(dev))) {
-                if (ch != '\n' || ch != EOF)
-                    continue;
+            while ((ch = akl_io_getc(dev)) != '\n') {
+                if (akl_io_eof(dev))
+                    return tEOF;
             }
         } else if (isalpha(ch) || ispunct(ch)) {
             akl_io_ungetc(ch, dev);
