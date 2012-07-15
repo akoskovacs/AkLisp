@@ -220,11 +220,25 @@ enum AKL_INIT_FLAGS {
     AKL_LIB_DATA = 0x010,
     AKL_LIB_SYSTEM = 0x020,
     AKL_LIB_TIME = 0x040,
+    AKL_LIB_OS = 0x080,
     AKL_LIB_ALL = AKL_LIB_BASIC|AKL_LIB_NUMBERIC
         |AKL_LIB_CONDITIONAL|AKL_LIB_PREDICATE|AKL_LIB_DATA
-        |AKL_LIB_SYSTEM|AKL_LIB_TIME
+        |AKL_LIB_SYSTEM|AKL_LIB_TIME|AKL_LIB_OS
 };
 
 void akl_init_lib(struct akl_instance *, enum AKL_INIT_FLAGS);
 void akl_init_os(struct akl_instance *);
+
+#define AKL_CFUN_DEFINE(fname, iname, aname) \
+    static struct akl_value * fname##_function(struct akl_instance * iname, struct akl_list * aname)
+
+#define AKL_BUILTIN_DEFINE(bname, iname, aname) \
+    static struct akl_value * bname##_builtin(struct akl_instance * iname, struct akl_list  * aname)
+
+#define AKL_ADD_CFUN(in, fname, name, desc) \
+    akl_add_global_cfun((in), (name), fname##_function, (desc))
+
+#define AKL_ADD_BUILTIN(in, bname, name, desc) \
+    akl_add_builtin((in), (name), bname##_builtin, (desc))
+
 #endif // AKLISP_H

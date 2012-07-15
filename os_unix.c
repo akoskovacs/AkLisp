@@ -62,8 +62,7 @@ void bt_sighandler(int sig, siginfo_t *info,
 }
 #endif 
 
-static struct akl_value *getpid_function(struct akl_instance *in
-                                  , struct akl_list *args __unused)
+AKL_CFUN_DEFINE(getpid, in, args __unused)
 {
     return akl_new_number_value(in, (int)getpid());
 }
@@ -83,5 +82,5 @@ void akl_init_os(struct akl_instance *in)
   /* ... add any other signal here */
 #endif
 
-  akl_add_global_cfun(in, "GETPID", getpid_function, "Get the process id");
+  AKL_ADD_CFUN(in, getpid, "GETPID", "Get the process id");
 }

@@ -4,16 +4,16 @@
 
 #include "aklisp.h"
 
-static struct akl_value *plus_function(struct akl_instance *in, struct akl_list *list)
+AKL_CFUN_DEFINE(plus, in, args)
 {
     struct akl_list_entry *ent;
     struct akl_value *val;
     int sum = 0;
     char *str = NULL;
-    if (AKL_IS_NIL(list))
+    if (AKL_IS_NIL(args))
         return &NIL_VALUE;
 
-    AKL_LIST_FOREACH(ent, list) {
+    AKL_LIST_FOREACH(ent, args) {
        val = AKL_ENTRY_VALUE(ent);
        switch (val->va_type) {
             case TYPE_NUMBER:
@@ -43,16 +43,16 @@ static struct akl_value *plus_function(struct akl_instance *in, struct akl_list 
         return akl_new_string_value(in, str);
 }
 
-static struct akl_value *minus_function(struct akl_instance *in, struct akl_list *list)
+AKL_CFUN_DEFINE(minus, in, args)
 {
     struct akl_list_entry *ent;
     struct akl_value *val;
     int ret = 0;
     bool_t is_first = TRUE;
-    if (AKL_IS_NIL(list))
+    if (AKL_IS_NIL(args))
         return &NIL_VALUE;
 
-    AKL_LIST_FOREACH(ent, list) {
+    AKL_LIST_FOREACH(ent, args) {
        val = AKL_ENTRY_VALUE(ent);
        switch (val->va_type) {
             case TYPE_NUMBER:
@@ -79,7 +79,7 @@ static struct akl_value *minus_function(struct akl_instance *in, struct akl_list
     return akl_new_number_value(in, ret);
 }
 
-static struct akl_value *mul_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(times, in, args)
 {
     struct akl_list_entry *ent;
     struct akl_value *val, *a1, *a2;
@@ -112,7 +112,7 @@ static struct akl_value *mul_function(struct akl_instance *in, struct akl_list *
             break;
 
             case TYPE_LIST:
-            ret *= *akl_get_number_value(mul_function(in
+            ret *= *akl_get_number_value(times_function(in
                                 , akl_get_list_value(val)));
             break;
         }
@@ -120,7 +120,7 @@ static struct akl_value *mul_function(struct akl_instance *in, struct akl_list *
     return akl_new_number_value(in, ret);
 }
 
-static struct akl_value *div_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(div, in, args)
 {
     struct akl_list_entry *ent;
     struct akl_value *val;
@@ -143,7 +143,7 @@ static struct akl_value *div_function(struct akl_instance *in, struct akl_list *
     return akl_new_number_value(in, ret);
 }
 
-static struct akl_value *mod_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(mod, in, args)
 {
     struct akl_list_entry *ent;
     struct akl_value *val;
@@ -166,8 +166,7 @@ static struct akl_value *mod_function(struct akl_instance *in, struct akl_list *
     return akl_new_number_value(in, ret);
 }
 
-static struct akl_value *exit_function(struct akl_instance *in __unused
-                                           , struct akl_list *args)
+AKL_CFUN_DEFINE(exit, in __unused, args)
 {
     printf("Bye!\n");
     if (AKL_IS_NIL(args)) {
@@ -228,13 +227,13 @@ void print_list(struct akl_list *list)
     printf(")");
 }
 
-static struct akl_value *print_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(print, in, args)
 {
     print_list(args);
     return akl_new_list_value(in, args);
 }
 
-static struct akl_value *display_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(display, in, args)
 {
     struct akl_list_entry *ent;
     struct akl_value *tmp;
@@ -253,8 +252,8 @@ static struct akl_value *display_function(struct akl_instance *in, struct akl_li
     return &NIL_VALUE;
 }
 
-static struct akl_value *car_function(struct akl_instance *in __unused
-                               , struct akl_list *args)
+
+AKL_CFUN_DEFINE(car, in __unused, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
     if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
@@ -263,8 +262,7 @@ static struct akl_value *car_function(struct akl_instance *in __unused
     return &NIL_VALUE;
 }
 
-static struct akl_value *cdr_function(struct akl_instance *in
-                               , struct akl_list *args)
+AKL_CFUN_DEFINE(cdr, in, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
     if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
@@ -273,8 +271,7 @@ static struct akl_value *cdr_function(struct akl_instance *in
     return &NIL_VALUE;
 }
 
-static struct akl_value *len_function(struct akl_instance *in,
-                               struct akl_list *args)
+AKL_CFUN_DEFINE(len, in, args)
 {
     struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
     switch (a1->va_type) {
@@ -292,7 +289,7 @@ static struct akl_value *len_function(struct akl_instance *in,
     return &NIL_VALUE;
 }
 
-static struct akl_value *setq_builtin(struct akl_instance *in, struct akl_list *args)
+AKL_BUILTIN_DEFINE(setq, in, args)
 {
     struct akl_atom *atom;
     struct akl_value *value;
@@ -319,14 +316,13 @@ void print_help(struct akl_atom *a)
     }
 }
 
-static struct akl_value *help_function(struct akl_instance *in
-                                , struct akl_list *args __unused)
+AKL_CFUN_DEFINE(help, in, args __unused)
 {
    akl_do_on_all_atoms(in, print_help);
    return &NIL_VALUE;
 }
 
-static struct akl_value *quote_builtin(struct akl_instance *in, struct akl_list *args)
+AKL_BUILTIN_DEFINE(quote, in, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
     if (a1 != NULL && a1->va_type == TYPE_LIST) {
@@ -337,11 +333,10 @@ static struct akl_value *quote_builtin(struct akl_instance *in, struct akl_list 
     return a1;
 }
 
-static struct akl_value *list_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(list, in, args)
 { return quote_builtin(in, args); }
 
-static struct akl_value *version_function(struct akl_instance *in
-                                   , struct akl_list *args __unused)
+AKL_CFUN_DEFINE(version, in, args __unused)
 {
     struct akl_list *version = akl_new_list(in);
     akl_list_append(in, version, akl_new_atom_value(in, "VERSION"));
@@ -351,7 +346,7 @@ static struct akl_value *version_function(struct akl_instance *in
     return akl_new_list_value(in, version);
 }
 
-static struct akl_value *about_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(about, in, args)
 {
     printf("AkLisp version %d.%d-%s\n"
             "\tCopyleft (c) Akos Kovacs\n"
@@ -369,7 +364,7 @@ static struct akl_value *about_function(struct akl_instance *in, struct akl_list
     return version_function(in, args);
 }
 
-static struct akl_value *range_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(range, in, args)
 {
     struct akl_list *range;
     struct akl_value *farg, *sarg, *targ;
@@ -412,7 +407,7 @@ static struct akl_value *range_function(struct akl_instance *in, struct akl_list
     return akl_new_list_value(in, range);
 }
 
-static struct akl_value *zerop_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(zerop, in, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
     if (a1 == NULL || AKL_IS_NIL(a1))
@@ -426,7 +421,7 @@ static struct akl_value *zerop_function(struct akl_instance *in, struct akl_list
     return &NIL_VALUE;
 }
 
-static struct akl_value *index_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(index, in, args)
 {
     int ind;
     struct akl_list *list;
@@ -443,40 +438,34 @@ static struct akl_value *index_function(struct akl_instance *in, struct akl_list
     return &NIL_VALUE;
 }
 
-static struct akl_value *eq_function(struct akl_instance *in, struct akl_list *args)
+static struct akl_value *cmp_two_args(struct akl_instance *in __unused,
+                                struct akl_list *args, int cmp_op)
 {
     struct akl_value *a1, *a2;
     a1 = AKL_FIRST_VALUE(args);
     a2 = AKL_SECOND_VALUE(args);
-    if (akl_compare_values(a1, a2) == 0)
+    if (akl_compare_values(a1, a2) == cmp_op)
         return &TRUE_VALUE;
     else
         return &NIL_VALUE;
 }
 
-static struct akl_value *greater_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(greaterp, in, args)
 {
-    struct akl_value *a1, *a2;
-    a1 = AKL_FIRST_VALUE(args);
-    a2 = AKL_SECOND_VALUE(args);
-    if (akl_compare_values(a1, a2) > 0)
-        return &TRUE_VALUE;
-    else
-        return &NIL_VALUE;
+    return cmp_two_args(in, args, 1);
 }
 
-static struct akl_value *less_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(equal, in, args)
 {
-    struct akl_value *a1, *a2;
-    a1 = AKL_FIRST_VALUE(args);
-    a2 = AKL_SECOND_VALUE(args);
-    if (akl_compare_values(a1, a2) < 0)
-        return &TRUE_VALUE;
-    else
-        return &NIL_VALUE;
+    return cmp_two_args(in, args, 0);
 }
 
-static struct akl_value *if_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(lessp, in, args)
+{
+    return cmp_two_args(in, args, -1);
+}
+
+AKL_BUILTIN_DEFINE(if, in, args)
 {
     struct akl_value *a1;
     a1 = akl_eval_value(in, AKL_FIRST_VALUE(args));
@@ -486,7 +475,7 @@ static struct akl_value *if_function(struct akl_instance *in, struct akl_list *a
     return akl_eval_value(in, AKL_SECOND_VALUE(args));
 }
 
-static struct akl_value *nilp_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(nilp, in, args)
 {
     struct akl_value *a1;
     a1 = AKL_FIRST_VALUE(args);
@@ -496,7 +485,7 @@ static struct akl_value *nilp_function(struct akl_instance *in, struct akl_list 
         return &NIL_VALUE;
 }
 
-static struct akl_value *typeof_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(typeof, in, args)
 {
     struct akl_value *a1, *ret;
     const char *tname = "NIL";
@@ -543,7 +532,7 @@ static struct akl_value *typeof_function(struct akl_instance *in, struct akl_lis
     return ret;
 }
 
-struct akl_value *cons_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(cons, in, args)
 {
     struct akl_value *a1, *a2;
     a1 = AKL_FIRST_VALUE(args);
@@ -556,14 +545,14 @@ struct akl_value *cons_function(struct akl_instance *in, struct akl_list *args)
     return a2;
 }
 
-struct akl_value *read_number_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(read_number, in, args)
 {
     int num = 0;
     scanf("%d", &num);
     return akl_new_number_value(in, num);
 }
 #ifdef _GNUC_
-struct akl_value *read_string_function(struct akl_instance *in, struct akl_list *args __unused)
+AKL_CFUN_DEFINE(read_string, in, args __unused)
 {
 #define _GNU_SOURCE
     char *str = NULL;
@@ -571,17 +560,17 @@ struct akl_value *read_string_function(struct akl_instance *in, struct akl_list 
     if (str != NULL)
         return akl_new_string_value(in, str);
 }
-#else
-struct akl_value *read_string_function(struct akl_instance *in, struct akl_list *args __unused)
+#else // _GNUC_
+AKL_CFUN_DEFINE(read_string, in, args __unused)
 {
     char *str = (char *)malloc(256);
     scanf("%s", str);
     if (str != NULL)
         return akl_new_string_value(in, str);
 }
-#endif
+#endif // _GNUC_
 
-struct akl_value *newline_function(struct akl_instance *i __unused, struct akl_list *a __unused)
+AKL_CFUN_DEFINE(newline, in __unused, args __unused)
 {
     printf("\n");
     return &NIL_VALUE;
@@ -594,27 +583,27 @@ static struct tm *akl_time(void)
     return localtime(&curr);
 }
 
-struct akl_value *date_year_function(struct akl_instance *in, struct akl_list *args __unused)
+AKL_CFUN_DEFINE(date_year, in, args __unused)
 {
     return akl_new_number_value(in, akl_time()->tm_year + 1900);
 }
 
-struct akl_value *time_hour_function(struct akl_instance *in, struct akl_list *args __unused)
+AKL_CFUN_DEFINE(time_hour, in, args __unused)
 {
     return akl_new_number_value(in, akl_time()->tm_hour);
 }
 
-struct akl_value *time_min_function(struct akl_instance *in, struct akl_list *args __unused)
+AKL_CFUN_DEFINE(time_min, in, args __unused)
 {
     return akl_new_number_value(in, akl_time()->tm_min);
 }
 
-struct akl_value *time_sec_function(struct akl_instance *in, struct akl_list *args __unused)
+AKL_CFUN_DEFINE(time_sec, in, args __unused)
 {
     return akl_new_number_value(in, akl_time()->tm_sec);
 }
 
-struct akl_value *time_function(struct akl_instance *in, struct akl_list *args)
+AKL_CFUN_DEFINE(time, in, args)
 {
     struct akl_list *tlist;
     tlist = akl_new_list(in);
@@ -627,80 +616,67 @@ struct akl_value *time_function(struct akl_instance *in, struct akl_list *args)
 void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
 {
     if (flags & AKL_LIB_BASIC) {
-        akl_add_global_cfun(in, "LIST", list_function, "Create list");
-        akl_add_builtin(in, "QUOTE", quote_builtin, "Quote list, same as \'");
-        akl_add_builtin(in, "SETQ", setq_builtin, "Bound (set) a variable to a value");
-        akl_add_global_cfun(in, "CAR", car_function, "Get the head of a list");
-        akl_add_global_cfun(in, "CDR", cdr_function, "Get the tail of a list");
+        AKL_ADD_BUILTIN(in, quote, "QUOTE", "Quote listame a  s \'");
+        AKL_ADD_BUILTIN(in, setq,  "SETQ", "Bound (set) a variable to a value");
+        AKL_ADD_CFUN(in, list, "LIST", "Create list");
+        AKL_ADD_CFUN(in, car,  "CAR", "Get the head of a list");
+        AKL_ADD_CFUN(in, cdr,  "CDR", "Get the tail of a list");
     }
     if (flags & AKL_LIB_DATA) {
-        akl_add_global_cfun(in, "RANGE", range_function
-            , "Create list with elements from arg 1 to arg 2");
-        akl_add_global_cfun(in, "CONS", cons_function
-            , "Insert the first argument to the second list argument");
-        akl_add_global_cfun(in, "LENGTH", len_function, "The length of a given value");
-        akl_add_global_cfun(in, "INDEX", index_function, "Index of list");
-        akl_add_global_cfun(in, "TYPEOF", typeof_function, "Get the type of the value");
+        AKL_ADD_CFUN(in, range, "RANGE", "Create list with elements from arg 1 to arg 2");
+        AKL_ADD_CFUN(in, cons,  "CONS", "Insert the first argument to the second list argument");
+        AKL_ADD_CFUN(in, len,   "LENGTH", "The length of a given value");
+        AKL_ADD_CFUN(in, index, "INDEX", "Index of list");
+        AKL_ADD_CFUN(in, typeof,"TYPEOF", "Get the type of the value");
     }
     if (flags & AKL_LIB_CONDITIONAL) {
-        akl_add_builtin(in, "IF", if_function
-            , "If the first argument true, returns with the second, otherwise returns with the third");
+        AKL_ADD_BUILTIN(in, if, "IF"
+        , "If the first argument true, returns with the second, otherwise returns with the third");
     }
     if (flags & AKL_LIB_PREDICATE) {
-        akl_add_global_cfun(in, "=", eq_function
-            , "Tests it\'s argument for equality");
-        akl_add_global_cfun(in, "<", less_function
-            , "If it\'s first argument is less than the second returns with T");
-        akl_add_global_cfun(in, ">", greater_function
-            , "If it\'s first argument is greater than the second returns with T");
-        akl_add_global_cfun(in, "EQ", eq_function
-            , "Tests it\'s argument for equality");
-        akl_add_global_cfun(in, "LT", less_function
-            , "If it\'s first argument is less than the second returns with T");
-        akl_add_global_cfun(in, "GT", greater_function
-            , "If it\'s first argument is greater than the second returns with T");
-        akl_add_global_cfun(in, "LESSP", less_function
-            , "If it\'s first argument is less than the second returns with T");
-        akl_add_global_cfun(in, "GREATERP", less_function
-            , "If it\'s first argument is less than the second returns with T");
-        akl_add_global_cfun(in, "ZEROP", zerop_function
-            , "Predicate which, returns with true if it\'s argument is zero");
+        AKL_ADD_CFUN(in, equal, "=", "Tests it\'s argument for equality");
+        AKL_ADD_CFUN(in, lessp, "<",  "If it\'s first argument is less than the second returns with T");
+        AKL_ADD_CFUN(in, greaterp, ">", "If it\'s first argument is greater than the second returns with T");
+        AKL_ADD_CFUN(in, zerop, "ZEROP", "Predicate which, returns with true if it\'s argument is zero");
+        AKL_ADD_CFUN(in, nilp, "NILP", "Predicate which, returns with true when it\'s argument is NIL");
     }
 
     if (flags & AKL_LIB_NUMBERIC) {
-        akl_add_global_cfun(in, "+", plus_function, "Arithmetic addition and string concatenation");
-        akl_add_global_cfun(in, "-", minus_function, "Artihmetic minus");
-        akl_add_global_cfun(in, "*", mul_function
-            , "Arithmetic multiplication and string \'multiplication\'");
-        akl_add_global_cfun(in, "/", div_function, "Arithmetic devide");
-        akl_add_global_cfun(in, "%", mod_function, "Arithmetic modulus");
+        AKL_ADD_CFUN(in, plus,  "+", "Arithmetic addition and string concatenation");
+        AKL_ADD_CFUN(in, minus, "-", "Artihmetic substraction");
+        AKL_ADD_CFUN(in, times, "*", "Arithmetic multiplication");
+        AKL_ADD_CFUN(in, div,   "/",  "Arithmetic devision");
+        AKL_ADD_CFUN(in, mod,   "%", "Arithmetic modulus");
         /* Ok. Again... */
-        akl_add_global_cfun(in, "ADD", plus_function, "Arithmetic addition and string concatenation");
-        akl_add_global_cfun(in, "MINUS", minus_function, "Artihmetic minus");
-        akl_add_global_cfun(in, "MUL", mul_function
-            , "Arithmetic multiplication and string \'multiplication\'");
-        akl_add_global_cfun(in, "DIV", div_function, "Arithmetic devide");
-        akl_add_global_cfun(in, "MOD", mod_function, "Arithmetic modulus");
+        AKL_ADD_CFUN(in, plus,  "PLUS", "Arithmetic addition and string concatenation");
+        AKL_ADD_CFUN(in, minus, "MINUS", "Artihmetic substraction");
+        AKL_ADD_CFUN(in, times, "TIMES", "Arithmetic multiplication");
+        AKL_ADD_CFUN(in, div,   "DIV",  "Arithmetic devision");
+        AKL_ADD_CFUN(in, mod,   "MOD", "Arithmetic modulus");
     }
     
     if (flags & AKL_LIB_SYSTEM) {
-        akl_add_global_cfun(in, "READ-NUMBER", read_number_function, "Read a number from the standard input");
-        akl_add_global_cfun(in, "READ-STRING", read_string_function, "Read a string from the standard input");
-        akl_add_global_cfun(in, "NEWLINE", newline_function, "Just put out a newline character to the standard output");
-        akl_add_global_cfun(in, "PRINT", print_function, "Print different values to the screen in Lisp-style");
-        akl_add_global_cfun(in, "DISPLAY", display_function, "Print numbers or strings to the screen");
-        akl_add_global_cfun(in, "HELP", help_function, "Print the builtin functions");
-        akl_add_global_cfun(in, "ABOUT", about_function, "About the environment");
-        akl_add_global_cfun(in, "VERSION", version_function, "About the version");
-        akl_add_global_cfun(in, "QUIT", exit_function, "Exit from the program");
-        akl_add_global_cfun(in, "EXIT", exit_function, "Exit from the program");
+        AKL_ADD_CFUN(in, read_number, "READ-NUMBER", "Read a number from the standard input");
+        AKL_ADD_CFUN(in, read_string, "READ-STRING", "Read a string from the standard input");
+        AKL_ADD_CFUN(in, newline, "NEWLINE", "Just put out a newline character to the standard output");
+        AKL_ADD_CFUN(in, print,   "PRINT", "Print different values to the screen in Lisp-style");
+        AKL_ADD_CFUN(in, display, "DISPLAY", "Print numbers or strings to the screen");
+        AKL_ADD_CFUN(in, help,    "HELP", "Print the builtin functions");
+        AKL_ADD_CFUN(in, about,   "ABOUT", "About the environment");
+        AKL_ADD_CFUN(in, version, "VERSION", "About the version");
+        AKL_ADD_CFUN(in, exit, "QUIT", "Exit from the program");
+        AKL_ADD_CFUN(in, exit, "EXIT", "Exit from the program");
     }
 
     if (flags & AKL_LIB_TIME) {
-        akl_add_global_cfun(in, "DATE-YEAR", date_year_function, "Get the current year");
-        akl_add_global_cfun(in, "TIME", time_function, "Get the current time as a list of (hour minute secundum)");
-        akl_add_global_cfun(in, "TIME-HOUR", time_hour_function, "Get the current hour");
-        akl_add_global_cfun(in, "TIME-MIN", time_min_function, "Get the current minute");
-        akl_add_global_cfun(in, "TIME-SEC", time_sec_function, "Get the current secundum");
+        AKL_ADD_CFUN(in, date_year, "DATE-YEAR", "Get the current year");
+        AKL_ADD_CFUN(in, time_hour, "TIME-HOUR", "Get the current hour");
+        AKL_ADD_CFUN(in, time_min,  "TIME-MIN", "Get the current minute");
+        AKL_ADD_CFUN(in, time_sec,  "TIME-SEC", "Get the current secundum");
+        AKL_ADD_CFUN(in, time, "TIME", "Get the current time as a list of (hour minute secundum)");
+    }
+
+    if (flags & AKL_LIB_OS) {
+        akl_init_os(in);
     }
 }
