@@ -613,11 +613,21 @@ AKL_CFUN_DEFINE(time, in, args)
     return akl_new_list_value(in, tlist);
 }
 
+AKL_CFUN_DEFINE(progn, in, args)
+{
+    struct akl_list_entry *lent = args->li_last;
+    if (lent != NULL && lent->le_value != NULL)
+        return akl_entry_to_value(lent);
+    else
+        return &NIL_VALUE;
+}
+
 void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
 {
     if (flags & AKL_LIB_BASIC) {
         AKL_ADD_BUILTIN(in, quote, "QUOTE", "Quote listame a  s \'");
         AKL_ADD_BUILTIN(in, setq,  "SETQ", "Bound (set) a variable to a value");
+        AKL_ADD_CFUN(in, progn,"PROGN", "Return with the last value");
         AKL_ADD_CFUN(in, list, "LIST", "Create list");
         AKL_ADD_CFUN(in, car,  "CAR", "Get the head of a list");
         AKL_ADD_CFUN(in, cdr,  "CDR", "Get the tail of a list");
@@ -637,6 +647,11 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, equal, "=", "Tests it\'s argument for equality");
         AKL_ADD_CFUN(in, lessp, "<",  "If it\'s first argument is less than the second returns with T");
         AKL_ADD_CFUN(in, greaterp, ">", "If it\'s first argument is greater than the second returns with T");
+        AKL_ADD_CFUN(in, equal, "EQ", "Tests it\'s argument for equality");
+        AKL_ADD_CFUN(in, equal, "EQUAL", "Tests it\'s argument for equality");
+        AKL_ADD_CFUN(in, equal, "EQUALP", "Tests it\'s argument for equality");
+        AKL_ADD_CFUN(in, lessp, "LESSP",  "If it\'s first argument is less than the second returns with T");
+        AKL_ADD_CFUN(in, greaterp, "GREATERP", "If it\'s first argument is greater than the second returns with T");
         AKL_ADD_CFUN(in, zerop, "ZEROP", "Predicate which, returns with true if it\'s argument is zero");
         AKL_ADD_CFUN(in, nilp, "NILP", "Predicate which, returns with true when it\'s argument is NIL");
     }
