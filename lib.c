@@ -122,14 +122,48 @@ static struct akl_value *mul_function(struct akl_instance *in, struct akl_list *
 
 static struct akl_value *div_function(struct akl_instance *in, struct akl_list *args)
 {
-    /* TODO */
-    return &NIL_VALUE;
+    struct akl_list_entry *ent;
+    struct akl_value *val;
+    int ret = 0;
+    bool_t is_first = TRUE;
+    if (AKL_IS_NIL(args))
+        return &NIL_VALUE;
+
+    AKL_LIST_FOREACH(ent, args) {
+       val = AKL_ENTRY_VALUE(ent);
+        if (val->va_type == TYPE_NUMBER) {
+            if (is_first) {
+                ret = *akl_get_number_value(val);
+                is_first = FALSE;
+            } else {
+                ret /= *akl_get_number_value(val);
+            }
+       }
+    }
+    return akl_new_number_value(in, ret);
 }
 
 static struct akl_value *mod_function(struct akl_instance *in, struct akl_list *args)
 {
-    /* TODO */
-    return &NIL_VALUE;
+    struct akl_list_entry *ent;
+    struct akl_value *val;
+    int ret = 0;
+    bool_t is_first = TRUE;
+    if (AKL_IS_NIL(args))
+        return &NIL_VALUE;
+
+    AKL_LIST_FOREACH(ent, args) {
+       val = AKL_ENTRY_VALUE(ent);
+        if (val->va_type == TYPE_NUMBER) {
+            if (is_first) {
+                ret = *akl_get_number_value(val);
+                is_first = FALSE;
+            } else {
+                ret %= *akl_get_number_value(val);
+            }
+        }
+    }
+    return akl_new_number_value(in, ret);
 }
 
 static struct akl_value *exit_function(struct akl_instance *in __unused
@@ -484,6 +518,18 @@ static struct akl_value *typeof_function(struct akl_instance *in, struct akl_lis
 
         case TYPE_CFUN:
         tname = "CFUNCTION";
+        break;
+
+        case TYPE_STRING:
+        tname = "STRING";
+        break;
+
+        case TYPE_BUILTIN:
+        tname = "BUILTIN";
+        break;
+
+        case TYPE_TRUE:
+        tname = "T";
         break;
 
         case TYPE_NIL:
