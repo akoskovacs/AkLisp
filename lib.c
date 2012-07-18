@@ -166,6 +166,48 @@ AKL_CFUN_DEFINE(mod, in, args)
     return akl_new_number_value(in, ret);
 }
 
+AKL_CFUN_DEFINE(not, in __unused, args)
+{
+    struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    if (a1 == NULL || AKL_IS_NIL(a1))
+        return &TRUE_VALUE;
+    else
+        return &NIL_VALUE;
+}
+
+AKL_BUILTIN_DEFINE(and, in, args)
+{
+    struct akl_value *arg;
+    struct akl_list_entry *ent;
+    if (args->li_elem_count <= 0)
+        return &TRUE_VALUE;
+
+    AKL_LIST_FOREACH(ent, args) {
+        arg = akl_entry_to_value(ent);
+        ent->le_value = akl_eval_value(in, arg);
+        if (AKL_IS_NIL(ent->le_value)) 
+            return &NIL_VALUE;
+    }
+    return akl_entry_to_value(args->li_last);
+}
+
+AKL_BUILTIN_DEFINE(or, in, args)
+{
+    struct akl_value *arg;
+    struct akl_list_entry *ent;
+    if (args->li_elem_count <= 0)
+        return &NIL_VALUE;
+
+    AKL_LIST_FOREACH(ent, args) {
+        arg = akl_entry_to_value(ent);
+        ent->le_value = akl_eval_value(in, arg);
+        if (!AKL_IS_NIL(ent->le_value)) 
+            return ent->le_value;
+    }
+    return &NIL_VALUE;
+}
+
+
 AKL_CFUN_DEFINE(exit, in __unused, args)
 {
     printf("Bye!\n");
@@ -307,7 +349,8 @@ AKL_BUILTIN_DEFINE(setq, in, args)
 void print_help(struct akl_atom *a)
 {
     if (a != NULL && a->at_value != NULL) {
-        if (a->at_value->va_type == TYPE_CFUN) {
+        if (a->at_value->va_type == TYPE_CFUN 
+                || a->at_value->va_type == TYPE_BUILTIN) {
             if (a->at_desc != NULL)
                 printf("%s - %s\n", a->at_name, a->at_desc);
             else
@@ -653,13 +696,14 @@ AKL_CFUN_DEFINE(progn, in, args)
 void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
 {
     if (flags & AKL_LIB_BASIC) {
-        AKL_ADD_BUILTIN(in, quote, "QUOTE", "Quote listame a  s \'");
+        AKL_ADD_BUILTIN(in, quote, "QUOTE", "Quote listame like as \'");
         AKL_ADD_BUILTIN(in, setq,  "SETQ", "Bound (set) a variable to a value");
         AKL_ADD_CFUN(in, progn,"PROGN", "Return with the last value");
         AKL_ADD_CFUN(in, list, "LIST", "Create list");
         AKL_ADD_CFUN(in, car,  "CAR", "Get the head of a list");
         AKL_ADD_CFUN(in, cdr,  "CDR", "Get the tail of a list");
     }
+
     if (flags & AKL_LIB_DATA) {
         AKL_ADD_CFUN(in, range, "RANGE", "Create list with elements from arg 1 to arg 2");
         AKL_ADD_CFUN(in, cons,  "CONS", "Insert the first argument to the second list argument");
@@ -667,12 +711,14 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, index, "INDEX", "Index of list");
         AKL_ADD_CFUN(in, typeof,"TYPEOF", "Get the type of the value");
     }
+
     if (flags & AKL_LIB_CONDITIONAL) {
         AKL_ADD_BUILTIN(in, if, "IF"
         , "If the first argument true, returns with the second, otherwise returns with the third");
         AKL_ADD_BUILTIN(in, cond, "COND"
         , "Similiar to if, but works with arbitrary number of conditions (called clauses)");
     }
+
     if (flags & AKL_LIB_PREDICATE) {
         AKL_ADD_CFUN(in, equal, "=", "Tests it\'s argument for equality");
         AKL_ADD_CFUN(in, lessp, "<",  "If it\'s first argument is less than the second returns with T");
@@ -690,16 +736,24 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, plus,  "+", "Arithmetic addition and string concatenation");
         AKL_ADD_CFUN(in, minus, "-", "Artihmetic subtraction");
         AKL_ADD_CFUN(in, times, "*", "Arithmetic multiplication");
-        AKL_ADD_CFUN(in, div,   "/",  "Arithmetic devision");
+        AKL_ADD_CFUN(in, div,   "/",  "Arithmetic division");
         AKL_ADD_CFUN(in, mod,   "%", "Arithmetic modulus");
         /* Ok. Again... */
         AKL_ADD_CFUN(in, plus,  "PLUS", "Arithmetic addition and string concatenation");
         AKL_ADD_CFUN(in, minus, "MINUS", "Artihmetic substraction");
         AKL_ADD_CFUN(in, times, "TIMES", "Arithmetic multiplication");
-        AKL_ADD_CFUN(in, div,   "DIV",  "Arithmetic devision");
+        AKL_ADD_CFUN(in, div,   "DIV",  "Arithmetic division");
         AKL_ADD_CFUN(in, mod,   "MOD", "Arithmetic modulus");
     }
-    
+
+    if (flags & AKL_LIB_LOGICAL) {
+        AKL_ADD_CFUN(in, not, "NOT", "Reverse the argument\'s value");
+        AKL_ADD_BUILTIN(in, and, "AND", "Evaluate arguments from right to left, returning NIL if"
+            " any of them is NIL, otherwise returning with the last value");
+        AKL_ADD_BUILTIN(in, or, "OR", "Evaluate arguments from right to left, returning the first"
+            " non-NIL value, otherwise just NIL");
+    }
+        
     if (flags & AKL_LIB_SYSTEM) {
         AKL_ADD_CFUN(in, read_number, "READ-NUMBER", "Read a number from the standard input");
         AKL_ADD_CFUN(in, read_string, "READ-STRING", "Read a string from the standard input");
