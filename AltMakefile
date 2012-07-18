@@ -6,12 +6,15 @@ CP = cp
 ALTCONF = config.h.alt
 CONF = conf.h
 CFLAGS = -ggdb # Default is debug build
-SOURCES := main.c aklisp.c lexer.c parser.c lib.c os_unix.c gc.c
+SOURCES := ./src/main.c ./src/aklisp.c ./src/lexer.c ./src/parser.c ./src/lib.c ./src/os_unix.c ./src/gc.c
 TARGET := aklisp
-
 all:
 	$(CP) $(ALTCONF) $(CONF)	
 	$(CC) $(CFLAGS) $(SOURCES) -o $(TARGET)
 
+.PHONY: clean clean-cmake
 clean:
 	$(RM) $(TARGET)
+
+clean-cmake:
+	$(RM) CMakeFiles/ CMakeCache.txt cmake_install.txt
