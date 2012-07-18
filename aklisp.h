@@ -1,5 +1,6 @@
 #ifndef AKLISP_H
 #define AKLISP_H
+#define _GNU_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>

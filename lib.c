@@ -625,7 +625,6 @@ AKL_CFUN_DEFINE(read_number, in, args)
 #ifdef _GNUC_
 AKL_CFUN_DEFINE(read_string, in, args __unused)
 {
-#define _GNU_SOURCE
     char *str = NULL;
     scanf("%a%s", &str);
     if (str != NULL)
