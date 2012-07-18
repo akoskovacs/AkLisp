@@ -232,7 +232,7 @@ struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
 {
     struct akl_atom *aval;
     char *fname;
-    if (AKL_IS_QUOTED(val) || val == NULL) {
+    if (val == NULL || AKL_IS_QUOTED(val)) {
         return val;
     }
 

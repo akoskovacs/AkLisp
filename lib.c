@@ -465,14 +465,42 @@ AKL_CFUN_DEFINE(lessp, in, args)
     return cmp_two_args(in, args, -1);
 }
 
-AKL_BUILTIN_DEFINE(if, in, args)
+
+/* Evaulate the first expression (mostly a list with a logical function),
+    if that is not NIL, return with the evaulated second argument. */
+static struct akl_value *eval_if_true(struct akl_instance *in
+                                            , struct akl_list *l)
 {
     struct akl_value *a1;
-    a1 = akl_eval_value(in, AKL_FIRST_VALUE(args));
-    if (AKL_IS_NIL(a1)) 
+    a1 = akl_eval_value(in, AKL_FIRST_VALUE(l));
+    if (a1 != NULL && !AKL_IS_NIL(a1))
+        return akl_eval_value(in, AKL_SECOND_VALUE(l));
+
+    return NULL;
+}
+
+AKL_BUILTIN_DEFINE(if, in, args)
+{
+    struct akl_value *ret;
+    if ((ret = eval_if_true(in, args)) == NULL)
         return akl_eval_value(in, AKL_THIRD_VALUE(args));
 
-    return akl_eval_value(in, AKL_SECOND_VALUE(args));
+    return ret;
+}
+
+AKL_BUILTIN_DEFINE(cond, in, args)
+{
+    struct akl_value *arg, *ret;
+    struct akl_list_entry *ent;
+    AKL_LIST_FOREACH(ent, args) {
+        arg = akl_entry_to_value(ent);
+        if (arg != NULL && arg->va_type == TYPE_LIST) {
+            ret = eval_if_true(in, akl_get_list_value(arg));
+            if (ret != NULL)
+                return ret;
+        }
+    }
+    return &NIL_VALUE;
 }
 
 AKL_CFUN_DEFINE(nilp, in, args)
@@ -642,6 +670,8 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
     if (flags & AKL_LIB_CONDITIONAL) {
         AKL_ADD_BUILTIN(in, if, "IF"
         , "If the first argument true, returns with the second, otherwise returns with the third");
+        AKL_ADD_BUILTIN(in, cond, "COND"
+        , "Similiar to if, but works with arbitrary number of conditions (called clauses)");
     }
     if (flags & AKL_LIB_PREDICATE) {
         AKL_ADD_CFUN(in, equal, "=", "Tests it\'s argument for equality");
@@ -658,7 +688,7 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
 
     if (flags & AKL_LIB_NUMBERIC) {
         AKL_ADD_CFUN(in, plus,  "+", "Arithmetic addition and string concatenation");
-        AKL_ADD_CFUN(in, minus, "-", "Artihmetic substraction");
+        AKL_ADD_CFUN(in, minus, "-", "Artihmetic subtraction");
         AKL_ADD_CFUN(in, times, "*", "Arithmetic multiplication");
         AKL_ADD_CFUN(in, div,   "/",  "Arithmetic devision");
         AKL_ADD_CFUN(in, mod,   "%", "Arithmetic modulus");
