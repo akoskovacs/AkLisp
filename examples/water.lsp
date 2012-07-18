@@ -1,10 +1,10 @@
 (display "Water tempature (in C): ")
 (setq TEMP (read-number))
-;; Unfourtunatly there is no cond at the time
 (display "The water is " 
-    (if (> TEMP 100)
-        "steam." 
-       (if (< TEMP 0) "ice." "just water.")
+    (cond 
+        ((> TEMP 100) "steam.")
+        ((< TEMP 0) "ice.")
+        (T "just water.")
    )
 )
 (newline)
