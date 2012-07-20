@@ -23,10 +23,24 @@
 #include <stdlib.h>
 #include "aklisp.h"
 
-struct akl_list NIL_LIST = {
+static struct akl_list NIL_LIST = {
     .li_head = NULL,
     .li_last = NULL,
     .li_elem_count = 0,
+    .is_nil = TRUE,
+};
+
+static struct akl_value TRUE_VALUE = {
+    .va_type = TYPE_TRUE,
+    .va_value.number = 1,
+    .is_quoted = TRUE,
+    .is_nil = FALSE,
+};
+
+static struct akl_value NIL_VALUE = {
+    .va_type = TYPE_NIL,
+    .va_value.number = 0,
+    .is_quoted = TRUE, 
     .is_nil = TRUE,
 };
 

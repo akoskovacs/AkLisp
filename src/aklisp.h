@@ -69,19 +69,7 @@ static struct akl_value {
 
     bool_t is_quoted : 1;
     bool_t is_nil : 1;
-} NIL_VALUE = {
-    .va_type = TYPE_NIL,
-    .va_value.number = 0,
-    .is_quoted = TRUE, 
-    .is_nil = TRUE,
-};
-
-static struct akl_value TRUE_VALUE = {
-    .va_type = TYPE_TRUE,
-    .va_value.number = 1,
-    .is_quoted = TRUE,
-    .is_nil = FALSE,
-};
+} NIL_VALUE, TRUE_VALUE;
 
 struct akl_atom {
     RB_ENTRY(akl_atom) at_entry;
@@ -133,10 +121,10 @@ struct akl_list_entry {
     struct akl_list_entry *le_next;
 };
 
-struct akl_list {
+static struct akl_list {
     struct akl_list_entry *li_head;
     struct akl_list_entry *li_last;
-    int li_elem_count;
+    unsigned int li_elem_count;
     bool_t is_quoted : 1;
 /* Yep element count == 0 can simply mean NIL, but
   then we cannot use the AKL_IS_NIL() macro :-( */
