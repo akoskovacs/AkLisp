@@ -210,7 +210,7 @@ AKL_BUILTIN_DEFINE(and, in, args)
         if (AKL_IS_NIL(ent->le_value)) 
             return &NIL_VALUE;
     }
-    return akl_entry_to_value(args->li_last);
+    return akl_entry_to_value(AKL_LIST_LAST(args));
 }
 
 AKL_BUILTIN_DEFINE(or, in, args)
@@ -229,6 +229,25 @@ AKL_BUILTIN_DEFINE(or, in, args)
     return &NIL_VALUE;
 }
 
+AKL_BUILTIN_DEFINE(while, in, args)
+{
+    struct akl_value *a1, *a2, *a3, *ret;
+    struct akl_list_entry *ent;
+    if (args && args->li_elem_count < 2)
+        return &NIL_VALUE;
+
+    a1 = AKL_FIRST_VALUE(args);
+    a2 = AKL_SECOND_VALUE(args);
+    a3 = AKL_THIRD_VALUE(args);
+    ret = &NIL_VALUE;
+    while (1) {
+        if (AKL_IS_NIL(akl_eval_value(in, a1)))
+            break;
+        ret = akl_eval_value(in, a2);
+        akl_eval_value(in, a3);
+    }
+    return ret;
+}
 
 AKL_CFUN_DEFINE(exit, in __unused, args)
 {
@@ -366,6 +385,38 @@ AKL_BUILTIN_DEFINE(setq, in, args)
     atom->at_value = value;
     akl_add_global_atom(in, atom);
     return value;
+}
+
+AKL_BUILTIN_DEFINE(incf, in, args)
+{
+    struct akl_value *a1, *v;
+    struct akl_atom *at;
+    a1 = AKL_FIRST_VALUE(args);
+    if (akl_check_type(a1, TYPE_ATOM)) {
+        at = akl_get_global_atom(in, akl_get_atom_name_value(a1));
+        v = at->at_value;
+        if (akl_check_type(v, TYPE_NUMBER)) {
+            v->va_value.number += 1;
+            return at->at_value;
+        }
+    }
+    return &NIL_VALUE;
+}
+
+AKL_BUILTIN_DEFINE(decf, in, args)
+{
+    struct akl_value *a1, *v;
+    struct akl_atom *at;
+    a1 = AKL_FIRST_VALUE(args);
+    if (akl_check_type(a1, TYPE_ATOM)) {
+        at = akl_get_global_atom(in, akl_get_atom_name_value(a1));
+        v = at->at_value;
+        if (akl_check_type(v, TYPE_NUMBER)) {
+            v->va_value.number -= 1;
+            return at->at_value;
+        }
+    }
+    return &NIL_VALUE;
 }
 
 void print_help(struct akl_atom *a)
@@ -568,6 +619,28 @@ AKL_BUILTIN_DEFINE(cond, in, args)
     return &NIL_VALUE;
 }
 
+AKL_BUILTIN_DEFINE(case, in, args)
+{
+    struct akl_value *a1, *arg, *cv;
+    struct akl_list_entry *ent;
+    struct akl_list *cl;
+    if (args->li_elem_count < 2)
+        return &NIL_VALUE;
+
+    /* Evaulate the first argument (the base of the comparision) */
+    a1 = akl_eval_value(in, AKL_FIRST_VALUE(args));
+    AKL_LIST_FOREACH_SECOND(ent, args) {
+        arg = akl_entry_to_value(ent);
+        if (arg != NULL && arg->va_type == TYPE_LIST) {
+            cl = akl_get_list_value(arg);
+            cv = akl_eval_value(in, AKL_FIRST_VALUE(cl));
+            if (akl_check_type(cv, TYPE_TRUE) || (akl_compare_values(a1, cv) == 0))
+                return akl_eval_value(in, AKL_SECOND_VALUE(cl));
+        }
+    }
+    return &NIL_VALUE;
+}
+
 AKL_CFUN_DEFINE(nilp, in, args)
 {
     struct akl_value *a1;
@@ -707,7 +780,7 @@ AKL_CFUN_DEFINE(time, in, args)
 
 AKL_CFUN_DEFINE(progn, in, args)
 {
-    struct akl_list_entry *lent = args->li_last;
+    struct akl_list_entry *lent = AKL_LIST_LAST(args);
     if (lent != NULL && lent->le_value != NULL)
         return akl_entry_to_value(lent);
     else
@@ -738,6 +811,8 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         , "If the first argument true, returns with the second, otherwise returns with the third");
         AKL_ADD_BUILTIN(in, cond, "COND"
         , "Similiar to if, but works with arbitrary number of conditions (called clauses)");
+        AKL_ADD_BUILTIN(in, while, "WHILE", "Conditionally repeat an S-expression");
+        AKL_ADD_BUILTIN(in, case, "CASE", "Conditional select");
     }
 
     if (flags & AKL_LIB_PREDICATE) {
@@ -754,6 +829,8 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
     }
 
     if (flags & AKL_LIB_NUMBERIC) {
+        AKL_ADD_BUILTIN(in, incf, "++", "Increase a number value by 1");
+        AKL_ADD_BUILTIN(in, decf, "--", "Decrease a number value by 1");
         AKL_ADD_CFUN(in, plus,  "+", "Arithmetic addition and string concatenation");
         AKL_ADD_CFUN(in, minus, "-", "Artihmetic subtraction");
         AKL_ADD_CFUN(in, times, "*", "Arithmetic multiplication");
@@ -761,6 +838,8 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, mod,   "%", "Arithmetic modulus");
         /* Ok. Again... */
         AKL_ADD_CFUN(in, plus,  "PLUS", "Arithmetic addition and string concatenation");
+        AKL_ADD_BUILTIN(in, incf, "INCF", "Increase a number value by 1");
+        AKL_ADD_BUILTIN(in, decf, "DECF", "Decrease a number value by 1");
         AKL_ADD_CFUN(in, minus, "MINUS", "Artihmetic substraction");
         AKL_ADD_CFUN(in, times, "TIMES", "Arithmetic multiplication");
         AKL_ADD_CFUN(in, div,   "DIV",  "Arithmetic division");
