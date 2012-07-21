@@ -291,7 +291,6 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
     struct akl_atom *fatm, *aval;
     struct akl_list_entry *ent;
     struct akl_value *ret, *tmp, *a1;
-    bool_t is_mutable = FALSE;
     assert(list);
 
     if (AKL_IS_NIL(list) || list->li_elem_count == 0) 
@@ -311,20 +310,16 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
         exit(-1);
     }
     cfun = fatm->at_value->va_value.cfunc;
+
     /* If the first atom is BUILTIN, i.e: it has full controll over
       it's arguments, the other elements of the list will not be evaluated...*/
-    if (fatm->at_value->va_type == TYPE_BUILTIN)
-        is_mutable = TRUE;
-
-    if (list->li_elem_count > 1) {
+    if (list->li_elem_count > 1 
+            && fatm->at_value->va_type != TYPE_BUILTIN) {
         /* Not quoted, so start the list processing 
             from the second element. */
-        for (ent = AKL_LIST_SECOND(list); ent; ent = AKL_LIST_NEXT(ent)) {
-            tmp = AKL_ENTRY_VALUE(ent);
-            /* Only evaluate the list members if the function is not
-               a builtin. */
-            if (!is_mutable)
-                ent->le_value = akl_eval_value(in, AKL_ENTRY_VALUE(ent));
+        AKL_LIST_FOREACH_SECOND(ent, list) {
+            tmp = akl_entry_to_value(ent);
+            ent->le_value = akl_eval_value(in, akl_entry_to_value(ent));
         }
     }
 

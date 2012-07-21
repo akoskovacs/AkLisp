@@ -44,7 +44,7 @@ struct akl_atom;
 struct akl_value;
 struct akl_io_device;
 struct akl_instance;
-enum type { TYPE_NIL, TYPE_ATOM, TYPE_NUMBER, TYPE_STRING, TYPE_LIST, TYPE_TRUE, TYPE_CFUN, TYPE_BUILTIN };
+enum akl_type { TYPE_NIL, TYPE_ATOM, TYPE_NUMBER, TYPE_STRING, TYPE_LIST, TYPE_TRUE, TYPE_CFUN, TYPE_BUILTIN };
 typedef enum { FALSE, TRUE } bool_t;
 typedef enum { DEVICE_FILE, DEVICE_STRING } device_type_t;
 typedef struct akl_value*(*akl_cfun_t)(struct akl_instance *, struct akl_list *);
@@ -55,10 +55,10 @@ typedef struct akl_value*(*akl_cfun_t)(struct akl_instance *, struct akl_list *)
 
 #define AKL_IS_NIL(type) ((type)->is_nil)
 #define AKL_IS_QUOTED(type) ((type)->is_quoted)
-#define AKL_IS_TRUE(type) (!IS_NIL(type))
+#define AKL_IS_TRUE(type) (!AKL_IS_NIL(type))
 
 static struct akl_value {
-    enum type va_type;
+    enum akl_type va_type;
     union {
         struct akl_atom *atom;
         char *string;
@@ -70,6 +70,14 @@ static struct akl_value {
     bool_t is_quoted : 1;
     bool_t is_nil : 1;
 } NIL_VALUE, TRUE_VALUE;
+
+static inline bool_t akl_check_type(struct akl_value *val, enum akl_type t)
+{
+    if (val != NULL && val->va_type == t)
+        return TRUE;
+    else
+        return FALSE;
+}
 
 struct akl_atom {
     RB_ENTRY(akl_atom) at_entry;
@@ -143,6 +151,14 @@ static struct akl_list {
        ; (elem)                        \
        ; (elem) = AKL_LIST_NEXT(elem))
 
+/* Sometimes, useful to traverse the list from the second element */
+#define AKL_LIST_FOREACH_SECOND(elem, list)  \
+    for ((elem) = AKL_LIST_SECOND(list)\
+       ; (elem)                        \
+       ; (elem) = AKL_LIST_NEXT(elem))
+
+/* If, the elem pointer will be modified (i.e: free()'d) you
+  must use this macro */
 #define AKL_LIST_FOREACH_SAFE(elem, list, tmp)  \
     for ((tmp) = (elem) = AKL_LIST_FIRST(list) \
        ; (tmp)                                  \

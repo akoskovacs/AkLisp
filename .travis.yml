@@ -1,0 +1,11 @@
+language: c
+script: cmake
+compiler:
+    - clang
+    - gcc
+script: cmake . && make
+notifications:
+    email:
+        recipients:
+            - akoskovacs@gmx.com
+        on_faulure: always
