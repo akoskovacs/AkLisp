@@ -3,7 +3,7 @@ script: cmake
 compiler:
     - clang
     - gcc
-
+script: cmake . && make
 notifications:
     email:
         recipients:
