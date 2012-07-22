@@ -466,14 +466,22 @@ AKL_CFUN_DEFINE(about, in, args)
 {
     printf("AkLisp version %d.%d-%s\n"
             "\tCopyleft (c) Akos Kovacs\n"
-            "\tBuilt on %s %s\n\n"
-            "GC Statics:\n"
+            "\tBuilt on %s %s\n"
+#ifdef AKL_SYSTEM_INFO
+            "\tBuild platform: %s (%s)\n"
+            "\tBuild processor: %s\n"
+#endif // AKL_SYSTEM_INFO
+            "\n"
+            "GC statics:\n"
             "\tATOMS: %d\n"
             "\tLISTS: %d\n"
             "\tNUMBERS: %d\n"
             "\tSTRINGS: %d\n\n"
             , VER_MAJOR, VER_MINOR, VER_ADDITIONAL
             , __DATE__, __TIME__
+#ifdef AKL_SYSTEM_INFO
+            , AKL_SYSTEM_NAME, AKL_SYSTEM_VERSION, AKL_PROCESSOR
+#endif // AKL_SYSTEM_INFO
             , in->ai_atom_count, in->ai_list_count
            , in->ai_number_count, in->ai_string_count);
 

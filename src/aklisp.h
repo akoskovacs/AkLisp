@@ -30,10 +30,6 @@
 #include <string.h>
 #include "tree.h"
 
-#define VER_MAJOR 0
-#define VER_MINOR 1
-#define VER_ADDITIONAL "alpha"
-
 #define MALLOC_FUNCTION malloc
 #define FREE_FUNCTION free
 #define AKL_MALLOC(type) (type *)akl_malloc(sizeof(type))
