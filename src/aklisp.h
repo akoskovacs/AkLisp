@@ -179,9 +179,9 @@ typedef enum {
     tNUMBER,
     tSTRING,
     tTRUE,
-    tLBRACE = '(',
-    tRBRACE = ')',
-    tQUOTE = '\''
+    tLBRACE, 
+    tRBRACE,
+    tQUOTE
 } token_t;
 
 struct akl_instance  *akl_new_file_interpreter(FILE *);
