@@ -34,8 +34,21 @@
 #define FREE_FUNCTION free
 #define AKL_MALLOC(type) (type *)akl_malloc(sizeof(type))
 #define AKL_FREE(ptr) FREE_FUNCTION((void *)(ptr))
-#define SINDRIRECT(ptr, member) (((ptr) != NULL) ? (ptr)->member : NULL)
+
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
+#define AKL_GET_VALUE_MEMBER_PTR(val, type, member) \
+                            ((AKL_CHECK_TYPE(val, type) \
+                            ? (val)->va_value.member : NULL))
+
+#define AKL_GET_VALUE_MEMBER(val, type, member) \
+                            ((AKL_CHECK_TYPE(val, type) \
+                            ? (val)->va_value.member : 0))
+
+#define AKL_GET_ATOM_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_ATOM, atom))
+#define AKL_GET_NUMBER_VALUE(val) (AKL_GET_VALUE_MEMBER(val, TYPE_NUMBER, number))
+#define AKL_GET_STRING_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_STRING, string))
+#define AKL_GET_CFUN_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_CFUN, cfunc))
+#define AKL_GET_LIST_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_LIST, list))
 
 struct akl_list;
 struct akl_atom;

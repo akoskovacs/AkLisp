@@ -166,16 +166,16 @@ void akl_free_value(struct akl_instance *in, struct akl_value *val)
     if (val != NULL) {
         switch (val->va_type) {
             case TYPE_LIST:
-                akl_free_list(in, akl_get_list_value(val));
+                akl_free_list(in, AKL_GET_LIST_VALUE(val));
             break;
 
             case TYPE_ATOM:
-                akl_free_atom(in, akl_get_atom_value(val));
+                akl_free_atom(in, AKL_GET_ATOM_VALUE(val));
             break;
 
             case TYPE_STRING:
             /* No need for akl_free_string_value()  */
-                AKL_FREE(akl_get_string_value(val));
+                AKL_FREE(AKL_GET_STRING_VALUE(val));
                 in && in->ai_string_count--;
             break;
 
@@ -266,54 +266,12 @@ void akl_free_atom(struct akl_instance *in, struct akl_atom *atom)
         in->ai_atom_count--;
 }
 
-/*
- * The following functions needed, to get different
- * values from a given akl_value *. They must be functions
- * to easily evaulate pointers and value types.
-*/
-struct akl_atom *
-akl_get_atom_value(struct akl_value *val)
-{
-    if (val != NULL && val->va_type == TYPE_ATOM
-        && val->va_value.atom != NULL)
-        return val->va_value.atom;
-    return NULL;
-}
-
-int *akl_get_number_value(struct akl_value *val)
-{
-    if (val != NULL && val->va_type == TYPE_NUMBER)
-        return &val->va_value.number;
-    return NULL;
-}
-
-char *akl_get_string_value(struct akl_value *val)
-{
-    if (val != NULL && val->va_type == TYPE_STRING)
-        return val->va_value.string;
-    return NULL;
-}
-
-akl_cfun_t akl_get_cfun_value(struct akl_value *val)
-{
-    if (val != NULL && val->va_type == TYPE_CFUN)
-        return val->va_value.cfunc;
-    return NULL;
-}
-
 char *akl_get_atom_name_value(struct akl_value *val)
 {
-    struct akl_atom *atom = akl_get_atom_value(val);
+    struct akl_atom *atom = AKL_GET_ATOM_VALUE(val);
     if (atom != NULL) {
         return atom->at_name;
     }
-    return NULL;
-}
-
-struct akl_list *akl_get_list_value(struct akl_value *val)
-{
-    if (val != NULL && val->va_type == TYPE_LIST)
-        return val->va_value.list;
     return NULL;
 }
 

@@ -39,23 +39,23 @@ AKL_CFUN_DEFINE(plus, in, args)
        val = AKL_ENTRY_VALUE(ent);
        switch (val->va_type) {
             case TYPE_NUMBER:
-            sum += *akl_get_number_value(val);
+            sum += AKL_GET_NUMBER_VALUE(val);
             break;
 
             case TYPE_STRING:
             if (str == NULL) {
-                str = strdup(akl_get_string_value(val));
+                str = strdup(AKL_GET_STRING_VALUE(val));
             } else {
                 str = (char *)realloc(str
-                  , strlen(str)+strlen(akl_get_string_value(val)));
-                str = strcat(str, akl_get_string_value(val));
+                  , strlen(str)+strlen(AKL_GET_STRING_VALUE(val)));
+                str = strcat(str, AKL_GET_STRING_VALUE(val));
             }
             break;
 
             case TYPE_LIST:
             /* TODO: Handle string lists */
-            sum += *akl_get_number_value(plus_function(in
-                 , akl_get_list_value(val)));
+            sum += AKL_GET_NUMBER_VALUE(plus_function(in
+                 , AKL_GET_LIST_VALUE(val)));
             break;
        }
     }
@@ -79,10 +79,10 @@ AKL_CFUN_DEFINE(minus, in, args)
        switch (val->va_type) {
             case TYPE_NUMBER:
             if (is_first) {
-                ret = *akl_get_number_value(val);
+                ret = AKL_GET_NUMBER_VALUE(val);
                 is_first = FALSE;
             } else {
-                ret -= *akl_get_number_value(val);
+                ret -= AKL_GET_NUMBER_VALUE(val);
             }
             break;
 #if 0
@@ -117,8 +117,8 @@ AKL_CFUN_DEFINE(times, in, args)
     a1 = AKL_FIRST_VALUE(args);
     a2 = AKL_SECOND_VALUE(args);
     if (a1->va_type == TYPE_NUMBER && a2->va_type == TYPE_STRING) {
-        n1 = *akl_get_number_value(a1);
-        s2 = akl_get_string_value(a2);
+        n1 = AKL_GET_NUMBER_VALUE(a1);
+        s2 = AKL_GET_STRING_VALUE(a2);
         str = (char *)malloc((size_t)n1*strlen(s2)+1);
         for (i = 0; i < n1; i++) {
             strcat(str, s2);
@@ -130,12 +130,12 @@ AKL_CFUN_DEFINE(times, in, args)
         val = AKL_ENTRY_VALUE(ent);
         switch (val->va_type) {
             case TYPE_NUMBER:
-            ret *= *akl_get_number_value(val);
+            ret *= AKL_GET_NUMBER_VALUE(val);
             break;
 
             case TYPE_LIST:
-            ret *= *akl_get_number_value(times_function(in
-                                , akl_get_list_value(val)));
+            ret *= AKL_GET_NUMBER_VALUE(times_function(in
+                                , AKL_GET_LIST_VALUE(val)));
             break;
         }
     }
@@ -155,10 +155,10 @@ AKL_CFUN_DEFINE(div, in, args)
        val = AKL_ENTRY_VALUE(ent);
         if (val->va_type == TYPE_NUMBER) {
             if (is_first) {
-                ret = *akl_get_number_value(val);
+                ret = AKL_GET_NUMBER_VALUE(val);
                 is_first = FALSE;
             } else {
-                ret /= *akl_get_number_value(val);
+                ret /= AKL_GET_NUMBER_VALUE(val);
             }
        }
     }
@@ -178,10 +178,10 @@ AKL_CFUN_DEFINE(mod, in, args)
        val = AKL_ENTRY_VALUE(ent);
         if (val->va_type == TYPE_NUMBER) {
             if (is_first) {
-                ret = *akl_get_number_value(val);
+                ret = AKL_GET_NUMBER_VALUE(val);
                 is_first = FALSE;
             } else {
-                ret %= *akl_get_number_value(val);
+                ret %= AKL_GET_NUMBER_VALUE(val);
             }
         }
     }
@@ -255,7 +255,7 @@ AKL_CFUN_DEFINE(exit, in __unused, args)
     if (AKL_IS_NIL(args)) {
         exit(0);
     } else {
-        exit(*akl_get_number_value(AKL_FIRST_VALUE(args)));
+        exit(AKL_GET_NUMBER_VALUE(AKL_FIRST_VALUE(args)));
     }
 }
 
@@ -267,15 +267,15 @@ void print_value(struct akl_value *val)
 
     switch (val->va_type) {
         case TYPE_NUMBER:
-        printf("%d", *akl_get_number_value(val));
+        printf("%d", AKL_GET_NUMBER_VALUE(val));
         break;
 
         case TYPE_STRING:
-        printf("\"%s\"", akl_get_string_value(val));
+        printf("\"%s\"", AKL_GET_STRING_VALUE(val));
         break;
 
         case TYPE_LIST:
-        print_list(akl_get_list_value(val));
+        print_list(AKL_GET_LIST_VALUE(val));
         break;
 
         case TYPE_ATOM:
@@ -324,11 +324,11 @@ AKL_CFUN_DEFINE(display, in, args)
         tmp = AKL_ENTRY_VALUE(ent);
         switch (tmp->va_type) {
             case TYPE_NUMBER:
-            printf("%d", *akl_get_number_value(tmp));
+            printf("%d", AKL_GET_NUMBER_VALUE(tmp));
             break;
 
             case TYPE_STRING:
-            printf("%s", akl_get_string_value(tmp));
+            printf("%s", AKL_GET_STRING_VALUE(tmp));
             break;
         }
     }
@@ -359,11 +359,11 @@ AKL_CFUN_DEFINE(len, in, args)
     struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
     switch (a1->va_type) {
         case TYPE_STRING:
-        return akl_new_number_value(in, strlen(akl_get_string_value(a1)));
+        return akl_new_number_value(in, strlen(AKL_GET_STRING_VALUE(a1)));
         break;
 
         case TYPE_LIST:
-        return akl_new_number_value(in, akl_get_list_value(a1)->li_elem_count);
+        return akl_new_number_value(in, AKL_GET_LIST_VALUE(a1)->li_elem_count);
         break;
 
         default:
@@ -376,7 +376,7 @@ AKL_BUILTIN_DEFINE(setq, in, args)
 {
     struct akl_atom *atom;
     struct akl_value *value;
-    atom = akl_get_atom_value(AKL_FIRST_VALUE(args));
+    atom = AKL_GET_ATOM_VALUE(AKL_FIRST_VALUE(args));
     if (atom == NULL) {
         fprintf(stderr, "setq: First argument is not an atom!\n");
         exit(-1);
@@ -501,7 +501,7 @@ AKL_CFUN_DEFINE(range, in, args)
     if (args->li_elem_count > 2) {
         targ = AKL_LIST_SECOND(args)->le_next->le_value;
         if (targ && targ->va_type == TYPE_NUMBER)
-            rt = *akl_get_number_value(targ);
+            rt = AKL_GET_NUMBER_VALUE(targ);
         else 
             rt = 1;
     } else {
@@ -511,8 +511,8 @@ AKL_CFUN_DEFINE(range, in, args)
     if (farg && sarg && farg->va_type == TYPE_NUMBER
             && sarg->va_type == TYPE_NUMBER) {
         range = akl_new_list(in);
-        rf = *akl_get_number_value(farg);
-        rs = *akl_get_number_value(sarg);
+        rf = AKL_GET_NUMBER_VALUE(farg);
+        rs = AKL_GET_NUMBER_VALUE(sarg);
         if (rf < rs) {
             for (i = rf; i <= rs; i += rt) {
                 akl_list_append(in, range, akl_new_number_value(in, i));
@@ -553,10 +553,10 @@ AKL_CFUN_DEFINE(index, in, args)
     a1 = AKL_FIRST_VALUE(args);
     a2 = AKL_SECOND_VALUE(args);
     if (a1 && !AKL_IS_NIL(a1) && a1->va_type == TYPE_NUMBER) {
-        ind = *akl_get_number_value(a1);
+        ind = AKL_GET_NUMBER_VALUE(a1);
     }
     if (a2 && !AKL_IS_NIL(a2) && a2->va_type == TYPE_LIST) {
-        list = akl_get_list_value(a2);
+        list = AKL_GET_LIST_VALUE(a2);
         return akl_list_index(list, ind);
     }
     return &NIL_VALUE;
@@ -619,7 +619,7 @@ AKL_BUILTIN_DEFINE(cond, in, args)
     AKL_LIST_FOREACH(ent, args) {
         arg = akl_entry_to_value(ent);
         if (arg != NULL && arg->va_type == TYPE_LIST) {
-            ret = eval_if_true(in, akl_get_list_value(arg));
+            ret = eval_if_true(in, AKL_GET_LIST_VALUE(arg));
             if (ret != NULL)
                 return ret;
         }
@@ -640,7 +640,7 @@ AKL_BUILTIN_DEFINE(case, in, args)
     AKL_LIST_FOREACH_SECOND(ent, args) {
         arg = akl_entry_to_value(ent);
         if (arg != NULL && arg->va_type == TYPE_LIST) {
-            cl = akl_get_list_value(arg);
+            cl = AKL_GET_LIST_VALUE(arg);
             cv = akl_eval_value(in, AKL_FIRST_VALUE(cl));
             if (AKL_CHECK_TYPE(cv, TYPE_TRUE) || (akl_compare_values(a1, cv) == 0))
                 return akl_eval_value(in, AKL_SECOND_VALUE(cl));
@@ -715,7 +715,7 @@ AKL_CFUN_DEFINE(cons, in, args)
     if (a1 == NULL || a2 == NULL || a2->va_type != TYPE_LIST)
         return &NIL_VALUE;
    
-    akl_list_insert_head(in, akl_get_list_value(a2), a1);
+    akl_list_insert_head(in, AKL_GET_LIST_VALUE(a2), a1);
     return a2;
 }
 

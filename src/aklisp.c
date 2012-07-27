@@ -28,8 +28,8 @@ int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
     if (v1->va_type == v2->va_type) {
         switch (v1->va_type) {
             case TYPE_NUMBER:
-            n1 = *akl_get_number_value(v1);
-            n2 = *akl_get_number_value(v2);
+            n1 = AKL_GET_NUMBER_VALUE(v1);
+            n2 = AKL_GET_NUMBER_VALUE(v2);
             if (n1 == n2)
                 return 0;
             else if (n1 > n2)
@@ -39,8 +39,8 @@ int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
             break;
 
             case TYPE_STRING:
-            return strcmp(akl_get_string_value(v1)
-                          , akl_get_string_value(v2));
+            return strcmp(AKL_GET_STRING_VALUE(v1)
+                          , AKL_GET_STRING_VALUE(v2));
             break;
 
             case TYPE_ATOM:
@@ -79,7 +79,7 @@ struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
 
     switch (val->va_type) {
         case TYPE_ATOM:
-        aval = akl_get_atom_value(val);
+        aval = AKL_GET_ATOM_VALUE(val);
         if (aval->at_value != NULL)
            return aval->at_value;
         fname = aval->at_name;
@@ -94,7 +94,7 @@ struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
         break;
 
         case TYPE_LIST:
-        return akl_eval_list(in, akl_get_list_value(val));
+        return akl_eval_list(in, AKL_GET_LIST_VALUE(val));
         break;
 
         default:
