@@ -40,7 +40,16 @@ struct akl_atom;
 struct akl_value;
 struct akl_io_device;
 struct akl_instance;
-enum akl_type { TYPE_NIL, TYPE_ATOM, TYPE_NUMBER, TYPE_STRING, TYPE_LIST, TYPE_TRUE, TYPE_CFUN, TYPE_BUILTIN };
+enum akl_type { 
+    TYPE_NIL, 
+    TYPE_ATOM,
+    TYPE_NUMBER, 
+    TYPE_STRING,
+    TYPE_LIST,
+    TYPE_TRUE,
+    TYPE_CFUN,
+    TYPE_BUILTIN
+};
 typedef enum { FALSE, TRUE } bool_t;
 typedef enum { DEVICE_FILE, DEVICE_STRING } device_type_t;
 typedef struct akl_value*(*akl_cfun_t)(struct akl_instance *, struct akl_list *);
@@ -128,6 +137,7 @@ struct akl_list_entry {
 static struct akl_list {
     struct akl_list_entry *li_head;
     struct akl_list_entry *li_last;
+    struct akl_list *li_parent;
     unsigned int li_elem_count;
     bool_t is_quoted : 1;
 /* Yep element count == 0 can simply mean NIL, but

@@ -25,10 +25,11 @@
 struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *dev, bool_t is_q)
 {
     struct akl_value *val;
-    struct akl_list *list = akl_new_list(in);
-    list->is_quoted = is_q;
+    struct akl_list *list, *l;
     int is_quoted = 0;
     token_t tok;
+    list = akl_new_list(in);
+    list->is_quoted = is_q;
     while ((tok = akl_lex(dev))) {
         switch (tok) {
             case tEOF: case tRBRACE:
@@ -49,8 +50,9 @@ struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *d
 
             /* Whooa new list */
             case tLBRACE:
-            val = akl_new_list_value(in
-                , akl_parse_list(in, dev, is_quoted));
+            l = akl_parse_list(in, dev, is_quoted);
+            l->li_parent = list;
+            val = akl_new_list_value(in, l);
             break;
 
             case tQUOTE:

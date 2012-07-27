@@ -110,6 +110,7 @@ struct akl_list *akl_new_list(struct akl_instance *in)
     lh->is_quoted = FALSE;
     lh->is_nil = FALSE;
     lh->li_elem_count = 0;
+    lh->li_parent = NULL;
     if (in != NULL)
         in->ai_list_count++;
 
