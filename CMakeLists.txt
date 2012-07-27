@@ -20,6 +20,7 @@ set(SOURCES
     ${SDIR}lib.c
     ${SDIR}gc.c
     ${SDIR}parser.c
+    ${SDIR}list.c
     ${SDIR}lexer.c)
 
 set(TARGET aklisp)
