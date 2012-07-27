@@ -136,9 +136,11 @@ struct akl_list_entry {
 
 static struct akl_list {
     struct akl_list_entry *li_head;
-    struct akl_list_entry *li_last;
-    struct akl_list *li_parent;
+    struct akl_list_entry *li_last; /* Last element (not the tail) */
+    struct akl_list *li_parent; /* Parent (container) list */
+    struct akl_atom *li_locals; /* Array of local variables */
     unsigned int li_elem_count;
+    unsigned int li_local_count; /* Count of local variables pointed by *li_locals */
     bool_t is_quoted : 1;
 /* Yep element count == 0 can simply mean NIL, but
   then we cannot use the AKL_IS_NIL() macro :-( */
