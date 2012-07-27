@@ -34,6 +34,8 @@
 #define FREE_FUNCTION free
 #define AKL_MALLOC(type) (type *)akl_malloc(sizeof(type))
 #define AKL_FREE(ptr) FREE_FUNCTION((void *)(ptr))
+#define SINDRIRECT(ptr, member) (((ptr) != NULL) ? (ptr)->member : NULL)
+#define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
 
 struct akl_list;
 struct akl_atom;
@@ -75,14 +77,6 @@ static struct akl_value {
     bool_t is_quoted : 1;
     bool_t is_nil : 1;
 } NIL_VALUE, TRUE_VALUE;
-
-static inline bool_t akl_check_type(struct akl_value *val, enum akl_type t)
-{
-    if (val != NULL && val->va_type == t)
-        return TRUE;
-    else
-        return FALSE;
-}
 
 struct akl_atom {
     RB_ENTRY(akl_atom) at_entry;

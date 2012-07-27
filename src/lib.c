@@ -392,10 +392,10 @@ AKL_BUILTIN_DEFINE(incf, in, args)
     struct akl_value *a1, *v;
     struct akl_atom *at;
     a1 = AKL_FIRST_VALUE(args);
-    if (akl_check_type(a1, TYPE_ATOM)) {
+    if (AKL_CHECK_TYPE(a1, TYPE_ATOM)) {
         at = akl_get_global_atom(in, akl_get_atom_name_value(a1));
         v = at->at_value;
-        if (akl_check_type(v, TYPE_NUMBER)) {
+        if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
             v->va_value.number += 1;
             return at->at_value;
         }
@@ -408,10 +408,10 @@ AKL_BUILTIN_DEFINE(decf, in, args)
     struct akl_value *a1, *v;
     struct akl_atom *at;
     a1 = AKL_FIRST_VALUE(args);
-    if (akl_check_type(a1, TYPE_ATOM)) {
+    if (AKL_CHECK_TYPE(a1, TYPE_ATOM)) {
         at = akl_get_global_atom(in, akl_get_atom_name_value(a1));
         v = at->at_value;
-        if (akl_check_type(v, TYPE_NUMBER)) {
+        if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
             v->va_value.number -= 1;
             return at->at_value;
         }
@@ -642,7 +642,7 @@ AKL_BUILTIN_DEFINE(case, in, args)
         if (arg != NULL && arg->va_type == TYPE_LIST) {
             cl = akl_get_list_value(arg);
             cv = akl_eval_value(in, AKL_FIRST_VALUE(cl));
-            if (akl_check_type(cv, TYPE_TRUE) || (akl_compare_values(a1, cv) == 0))
+            if (AKL_CHECK_TYPE(cv, TYPE_TRUE) || (akl_compare_values(a1, cv) == 0))
                 return akl_eval_value(in, AKL_SECOND_VALUE(cl));
         }
     }
