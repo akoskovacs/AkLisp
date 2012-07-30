@@ -95,11 +95,9 @@ struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
 
         case TYPE_LIST:
         return akl_eval_list(in, AKL_GET_LIST_VALUE(val));
-        break;
 
         default:
         return val;
-        break;
     }
 }
 
@@ -150,8 +148,11 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
     assert(args);
     assert(cfun);
     ret = cfun(in, args);
-//    akl_free_list(in, list);
-//    AKL_FREE(args);
+    if (fatm->at_value->va_type != TYPE_BUILTIN) {
+        AKL_DEC_REF_LIST(in, list);
+        if (list->li_elem_count > 1)
+            AKL_FREE(args);
+    }
     return ret;
 }
 

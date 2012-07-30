@@ -50,6 +50,16 @@
 #define AKL_GET_CFUN_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_CFUN, cfunc))
 #define AKL_GET_LIST_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_LIST, list))
 
+#define AKL_INC_REF(in, obj) fprintf(stderr, "ref inc from %d\n", (obj)->ref_count); (obj)->ref_count++
+#define AKL_DEC_REF(in, obj, type) if((obj) && (obj)->is_nil != TRUE \
+                                            && (obj)->ref_count-- <= 1)  \
+                                        akl_free_##type(in, obj)
+
+#define AKL_DEC_REF_ATOM(in, a) if ((a) && (a)->ref_count-- <= 0) \
+                                        akl_free_atom(in, a)
+#define AKL_DEC_REF_LIST(in, l) AKL_DEC_REF(in, l, list)
+#define AKL_DEC_REF_VALUE(in, v) AKL_DEC_REF(in, v, value)
+
 struct akl_list;
 struct akl_atom;
 struct akl_value;
@@ -78,6 +88,7 @@ typedef struct akl_value*(*akl_cfun_t)(struct akl_instance *, struct akl_list *)
 #define AKL_IS_TRUE(type) (!AKL_IS_NIL(type))
 
 static struct akl_value {
+    unsigned int ref_count;
     enum akl_type va_type;
     union {
         struct akl_atom *atom;
@@ -92,6 +103,7 @@ static struct akl_value {
 } NIL_VALUE, TRUE_VALUE;
 
 struct akl_atom {
+    unsigned int ref_count;
     RB_ENTRY(akl_atom) at_entry;
     struct akl_value *at_value;
     char *at_name;
@@ -142,6 +154,7 @@ struct akl_list_entry {
 };
 
 static struct akl_list {
+    unsigned int ref_count;
     struct akl_list_entry *li_head;
     struct akl_list_entry *li_last; /* Last element (not the tail) */
     struct akl_list *li_parent; /* Parent (container) list */

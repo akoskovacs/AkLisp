@@ -28,6 +28,9 @@ static struct akl_list NIL_LIST = {
     .li_last = NULL,
     .li_elem_count = 0,
     .is_nil = TRUE,
+    .li_locals = NULL,
+    .li_local_count = 0,
+    .ref_count = 1,
 };
 
 static struct akl_value TRUE_VALUE = {
@@ -35,6 +38,7 @@ static struct akl_value TRUE_VALUE = {
     .va_value.number = 1,
     .is_quoted = TRUE,
     .is_nil = FALSE,
+    .ref_count = 1,
 };
 
 static struct akl_value NIL_VALUE = {
@@ -42,6 +46,7 @@ static struct akl_value NIL_VALUE = {
     .va_value.number = 0,
     .is_quoted = TRUE, 
     .is_nil = TRUE,
+    .ref_count = 1,
 };
 
 void *akl_malloc(size_t size)
@@ -90,14 +95,14 @@ struct akl_instance *akl_new_instance(void)
 {
     struct akl_instance *in = AKL_MALLOC(struct akl_instance);
     RB_INIT(&in->ai_atom_head);
-    in->ai_list_count = 0;
-    in->ai_atom_count = 0;
-    in->ai_value_count = 0;
+    in->ai_list_count   = 0;
+    in->ai_atom_count   = 0;
+    in->ai_value_count  = 0;
     in->ai_string_count = 0;
     in->ai_number_count = 0;
-    in->ai_bool_count = 0;
+    in->ai_bool_count   = 0;
     in->ai_list_entry_count = 0;
-    in->ai_program = NULL;
+    in->ai_program  = NULL;
     in->ai_is_stdin = FALSE;
     return in;
 }
@@ -105,14 +110,15 @@ struct akl_instance *akl_new_instance(void)
 struct akl_list *akl_new_list(struct akl_instance *in)
 {
     struct akl_list *lh = AKL_MALLOC(struct akl_list);
-    lh->li_head = NULL;
-    lh->li_last = NULL;
+    lh->li_head   = NULL;
+    lh->li_last   = NULL;
     lh->is_quoted = FALSE;
-    lh->is_nil = FALSE;
-    lh->li_elem_count = 0;
+    lh->is_nil    = FALSE;
     lh->li_locals = NULL;
-    lh->li_local_count = 0;
     lh->li_parent = NULL;
+    lh->ref_count = 0;
+    lh->li_elem_count  = 0;
+    lh->li_local_count = 0;
     if (in != NULL)
         in->ai_list_count++;
 
@@ -125,6 +131,8 @@ struct akl_atom *akl_new_atom(struct akl_instance *in, char *name)
     assert(name);
     atom->at_value = NULL;
     atom->at_name = name;
+    atom->at_desc = NULL;
+    atom->ref_count = 0;
     if (in != NULL)
         in->ai_atom_count++;
     return atom;
@@ -145,8 +153,7 @@ void akl_free_list_entry(struct akl_instance *in, struct akl_list_entry *ent)
 {
     if (ent == NULL)
         return;
-
-    akl_free_value(in, AKL_ENTRY_VALUE(ent));
+    AKL_DEC_REF_VALUE(in, AKL_ENTRY_VALUE(ent));
     if (in != NULL)
         in->ai_list_entry_count--;
 
@@ -156,8 +163,9 @@ void akl_free_list_entry(struct akl_instance *in, struct akl_list_entry *ent)
 struct akl_value *akl_new_value(struct akl_instance *in)
 {
     struct akl_value *val = AKL_MALLOC(struct akl_value);
-    val->is_nil = 0;
-    val->is_quoted = 0;
+    val->is_nil    = FALSE;
+    val->is_quoted = FALSE;
+    val->ref_count = 0;
     return val;
 }
 
@@ -166,24 +174,26 @@ void akl_free_value(struct akl_instance *in, struct akl_value *val)
     if (val != NULL) {
         switch (val->va_type) {
             case TYPE_LIST:
-                akl_free_list(in, AKL_GET_LIST_VALUE(val));
+                AKL_DEC_REF_LIST(in, val->va_value.list);
             break;
 
             case TYPE_ATOM:
-                akl_free_atom(in, AKL_GET_ATOM_VALUE(val));
+                AKL_DEC_REF_ATOM(in, val->va_value.atom);
             break;
 
             case TYPE_STRING:
             /* No need for akl_free_string_value()  */
-                AKL_FREE(AKL_GET_STRING_VALUE(val));
+                AKL_FREE(val->va_value.string);
                 in && in->ai_string_count--;
             break;
 
-            /*  Nothing to do */
-            case TYPE_CFUN: case TYPE_TRUE:
-            break;
             case TYPE_NUMBER:
                 in && in->ai_number_count--;
+            break;
+
+            case TYPE_CFUN: case TYPE_TRUE:
+            case TYPE_NIL:  case TYPE_BUILTIN:
+            val->ref_count = 1;
             break;
         }
         AKL_FREE(val);
@@ -193,9 +203,9 @@ void akl_free_value(struct akl_instance *in, struct akl_value *val)
 struct akl_value *akl_new_string_value(struct akl_instance *in, char *str)
 {
     struct akl_value *val = akl_new_value(in);
-    assert(str != NULL);
     val->va_type = TYPE_STRING;
     val->va_value.string = str;
+    val->is_nil = FALSE;
     if (in != NULL)
         in->ai_string_count++;
 
@@ -219,6 +229,7 @@ struct akl_value *akl_new_list_value(struct akl_instance *in, struct akl_list *l
     assert(lh != NULL);
     val->va_type = TYPE_LIST;
     val->va_value.list = lh;
+    AKL_INC_REF(in, lh);
     if (in != NULL)
         in->ai_list_count++;
 
@@ -248,6 +259,7 @@ akl_new_atom_value(struct akl_instance *in, char *name)
     struct akl_atom *atm = akl_new_atom(in, name);
     val->va_type = TYPE_ATOM;
     val->va_value.atom = atm;
+    AKL_INC_REF(in, atm);
     return val;
 }
 
@@ -256,7 +268,8 @@ void akl_free_atom(struct akl_instance *in, struct akl_atom *atom)
     if (atom == NULL)
         return;
     if (atom->at_value != NULL 
-        && atom->at_value->va_type != TYPE_CFUN) {
+        && atom->at_value->va_type != TYPE_CFUN
+        && atom->at_value->va_type != TYPE_BUILTIN) {
         AKL_FREE(atom->at_name);
         AKL_FREE(atom->at_desc);
     }
@@ -269,10 +282,7 @@ void akl_free_atom(struct akl_instance *in, struct akl_atom *atom)
 char *akl_get_atom_name_value(struct akl_value *val)
 {
     struct akl_atom *atom = AKL_GET_ATOM_VALUE(val);
-    if (atom != NULL) {
-        return atom->at_name;
-    }
-    return NULL;
+    return (atom != NULL) ? atom->at_name : NULL;
 }
 
 struct akl_io_device *
