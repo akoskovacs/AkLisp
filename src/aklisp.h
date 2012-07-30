@@ -50,7 +50,7 @@
 #define AKL_GET_CFUN_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_CFUN, cfunc))
 #define AKL_GET_LIST_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_LIST, list))
 
-#define AKL_INC_REF(in, obj) fprintf(stderr, "ref inc from %d\n", (obj)->ref_count); (obj)->ref_count++
+#define AKL_INC_REF(in, obj) (obj)->ref_count++
 #define AKL_DEC_REF(in, obj, type) if((obj) && (obj)->is_nil != TRUE \
                                             && (obj)->ref_count-- <= 1)  \
                                         akl_free_##type(in, obj)
