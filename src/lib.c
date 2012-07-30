@@ -286,6 +286,10 @@ void print_value(struct akl_value *val)
         case TYPE_TRUE:
         printf("T");
         break;
+
+        case TYPE_NIL:
+        printf("NIL");
+        break;
     }
 }
 
@@ -294,8 +298,9 @@ void print_list(struct akl_list *list)
     struct akl_list_entry *ent;
     
     assert(list);
-    if (AKL_IS_NIL(list) || list == NULL) {
-        printf("(NIL)");
+    if (AKL_IS_NIL(list) || list == NULL 
+        || list->li_elem_count == 0) {
+        printf("NIL");
         return;
     }
 
