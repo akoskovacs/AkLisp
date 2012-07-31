@@ -169,7 +169,7 @@ void akl_eval_program(struct akl_instance *in)
                 assert(ret);
                 if (in->ai_is_stdin) {
                     printf(" => ");
-                    print_value(ret);
+                    akl_print_value(ret);
                     printf("\n");
                 }
             }

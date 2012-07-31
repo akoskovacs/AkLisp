@@ -264,8 +264,8 @@ bool_t akl_io_eof(struct akl_io_device *dev);
 struct akl_value *akl_eval_value(struct akl_instance *, struct akl_value *);
 struct akl_value *akl_eval_list(struct akl_instance *, struct akl_list *);
 
-void print_value(struct akl_value *);
-void print_list(struct akl_list *);
+void akl_print_value(struct akl_value *);
+void akl_print_list(struct akl_list *);
 
 enum AKL_INIT_FLAGS { 
     AKL_LIB_BASIC = 0x001,
@@ -296,5 +296,19 @@ void akl_init_os(struct akl_instance *);
 
 #define AKL_ADD_BUILTIN(in, bname, name, desc) \
     akl_add_builtin((in), (name), bname##_builtin, (desc))
+
+#define GREEN "\x1b[32m"
+#define BRIGHT_GREEN "\x1b[1;32m"
+#define YELLOW "\x1b[33m"
+#define GRAY "\x1b[1;30m"
+#define BLUE "\x1b[34m"
+#ifdef USE_COLORS
+#define START_COLOR(c) printf("%s", (c))
+#define END_COLOR printf("\x1b[0m")
+#else
+#define START_COLOR(c)
+#define END_COLOR
+#endif
+
 
 #endif // AKLISP_H

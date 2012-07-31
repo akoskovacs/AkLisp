@@ -23,6 +23,11 @@ set(SOURCES
     ${SDIR}list.c
     ${SDIR}lexer.c)
 
+option(USE_COLORS "Use standard terminal colors" ON)
+if (USE_COLORS)
+    add_definitions(-DUSE_COLORS)
+endif()
+
 set(TARGET aklisp)
 include(CheckIncludeFiles)
 check_include_files(ucontext.h HAVE_UCONTEXT_H)

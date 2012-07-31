@@ -205,3 +205,72 @@ struct akl_list *akl_cdr(struct akl_instance *in, struct akl_list *l)
     }
     return nhead;
 }
+
+void akl_print_value(struct akl_value *val)
+{
+    if (AKL_IS_NIL(val) || val == NULL) {
+        printf("NIL");
+    }
+
+    switch (val->va_type) {
+        case TYPE_NUMBER:
+        START_COLOR(YELLOW);
+        printf("%d", AKL_GET_NUMBER_VALUE(val));
+        END_COLOR;
+        break;
+
+        case TYPE_STRING:
+        START_COLOR(GREEN);
+        printf("\"%s\"", AKL_GET_STRING_VALUE(val));
+        END_COLOR;
+        break;
+
+        case TYPE_LIST:
+        akl_print_list(AKL_GET_LIST_VALUE(val));
+        break;
+
+        case TYPE_ATOM:
+        START_COLOR(BLUE);
+        printf("%s%s", AKL_IS_QUOTED(val) ? ":" : ""
+            , akl_get_atom_name_value(val));
+        END_COLOR;
+        break;
+
+        case TYPE_TRUE:
+        START_COLOR(BRIGHT_GREEN);
+        printf("T");
+        END_COLOR;
+        break;
+
+        case TYPE_NIL:
+        START_COLOR(GRAY);
+        printf("NIL");
+        END_COLOR;
+        break;
+    }
+}
+
+void akl_print_list(struct akl_list *list)
+{
+    struct akl_list_entry *ent;
+    
+    assert(list);
+    if (AKL_IS_NIL(list) || list == NULL 
+        || list->li_elem_count == 0) {
+        START_COLOR(GRAY);
+        printf("NIL");
+        END_COLOR;
+        return;
+    }
+
+    if (AKL_IS_QUOTED(list)) 
+        printf("\'");
+    printf("(");
+    AKL_LIST_FOREACH(ent, list) {
+        akl_print_value(AKL_ENTRY_VALUE(ent));
+        if (ent->le_next != NULL)
+            printf(" ");
+    }
+    printf(")");
+}
+
