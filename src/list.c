@@ -230,9 +230,13 @@ void akl_print_value(struct akl_value *val)
         break;
 
         case TYPE_ATOM:
-        START_COLOR(BLUE);
-        printf("%s%s", AKL_IS_QUOTED(val) ? ":" : ""
-            , akl_get_atom_name_value(val));
+        if (AKL_IS_QUOTED(val)) {
+            START_COLOR(YELLOW);
+            printf(":%s", akl_get_atom_name_value(val));
+        } else {
+            START_COLOR(PURPLE);
+            printf("%s", akl_get_atom_name_value(val));
+        }
         END_COLOR;
         break;
 
@@ -273,4 +277,3 @@ void akl_print_list(struct akl_list *list)
     }
     printf(")");
 }
-

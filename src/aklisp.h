@@ -302,6 +302,8 @@ void akl_init_os(struct akl_instance *);
 #define YELLOW "\x1b[33m"
 #define GRAY "\x1b[1;30m"
 #define BLUE "\x1b[34m"
+#define RED "\x1b[31m"
+#define PURPLE "\x1b[35m"
 #ifdef USE_COLORS
 #define START_COLOR(c) printf("%s", (c))
 #define END_COLOR printf("\x1b[0m")
