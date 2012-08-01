@@ -289,7 +289,7 @@ AKL_CFUN_DEFINE(car, in __unused, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
     if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
-        return akl_car(a1->va_value.list);
+        akl_car(a1->va_value.list);
     }
     return &NIL_VALUE;
 }
@@ -297,8 +297,11 @@ AKL_CFUN_DEFINE(car, in __unused, args)
 AKL_CFUN_DEFINE(cdr, in, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    struct akl_value *ret;
     if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
-       return akl_new_list_value(in, akl_cdr(in, a1->va_value.list));
+        ret = akl_new_list_value(in, akl_cdr(in, a1->va_value.list));
+        AKL_INC_REF(in, ret);
+        return ret;
     }
     return &NIL_VALUE;
 }
@@ -411,22 +414,33 @@ AKL_CFUN_DEFINE(list, in, args)
 AKL_CFUN_DEFINE(version, in, args __unused)
 {
     struct akl_list *version = akl_new_list(in);
-    akl_list_append(in, version, akl_new_atom_value(in, "VERSION"));
+    char *ver = strdup(VER_ADDITIONAL);
+    struct akl_value *addit;
+    int i;
+    for (i = 0; ver[i]; i++) {
+        ver[i] = toupper(ver[i]);
+    }
     akl_list_append(in, version, akl_new_number_value(in, VER_MAJOR));
     akl_list_append(in, version, akl_new_number_value(in, VER_MINOR));
+    addit = akl_new_atom_value(in, ver);
+    addit->is_quoted = TRUE;
+    akl_list_append(in, version, addit);
     version->is_quoted = 1;
     return akl_new_list_value(in, version);
 }
 
 AKL_CFUN_DEFINE(about, in, args)
 {
-    printf("AkLisp version %d.%d-%s\n"
+    printf("\nAkLisp version %d.%d-%s\n"
             "\tCopyleft (c) Akos Kovacs\n"
             "\tBuilt on %s %s\n"
 #ifdef AKL_SYSTEM_INFO
             "\tBuild platform: %s (%s)\n"
             "\tBuild processor: %s\n"
 #endif // AKL_SYSTEM_INFO
+#ifdef AKL_USER_INFO
+            "\tBuild by: %s@%s\n"
+#endif // AKL_USER_INFO
             "\n"
             "GC statics:\n"
             "\tATOMS: %d\n"
@@ -438,8 +452,11 @@ AKL_CFUN_DEFINE(about, in, args)
 #ifdef AKL_SYSTEM_INFO
             , AKL_SYSTEM_NAME, AKL_SYSTEM_VERSION, AKL_PROCESSOR
 #endif // AKL_SYSTEM_INFO
+#ifdef AKL_USER_INFO
+            , AKL_USER_NAME, AKL_HOST_NAME
+#endif // AKL_USER_INFO
             , in->ai_atom_count, in->ai_list_count
-           , in->ai_number_count, in->ai_string_count);
+            , in->ai_number_count, in->ai_string_count);
 
     return version_function(in, args);
 }

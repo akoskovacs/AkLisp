@@ -8,6 +8,10 @@ set(SDIR "./src/")
 
 if (UNIX)
     set(PLATSRC os_unix.c)
+    SITE_NAME(HOSTNAME)
+    add_definitions(-DAKL_USER_INFO)
+    add_definitions(-DAKL_USER_NAME="$ENV{USER}")
+    add_definitions(-DAKL_HOST_NAME="${HOSTNAME}")
 endif()
 
 if (!UNIX)
