@@ -61,13 +61,23 @@ akl_completition(char *text, int start, int end)
     char **matches = (char **)NULL;
     if (rl_line_buffer[start-1] == '(')
         matches = rl_completion_matches(text, akl_generator);
+
     return matches;
+}
+
+static int akl_insert_rbrace(int count, int key)
+{
+    rl_insert_text("(");
+    rl_insert_text(")");
+    rl_backward_char(1, 1);
+    return 0;
 }
 
 static void init_readline(void)
 {
     rl_readline_name = "AkLisp";
     rl_attempted_completion_function = (CPPFunction *)akl_completition;
+    rl_bind_key('(', akl_insert_rbrace);
 }
 
 static void interactive_mode(void)
@@ -76,9 +86,9 @@ static void interactive_mode(void)
     int lnum = 1;
     struct akl_list *il;
     char *line;
-    printf("Interactive AkLisp v%d.%d-%s\n\n"
+    printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
-    printf("Copyleft (C) 2012 Akos Kovacs\nWelcome!\n\n");
+    printf("Copyleft (C) 2012 Akos Kovacs\n\n");
     in = akl_new_instance();
     akl_init_lib(in, AKL_LIB_ALL);
     init_readline();
