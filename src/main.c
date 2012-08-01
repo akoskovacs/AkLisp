@@ -33,12 +33,16 @@
 #define PROMPT_MAX 10
 static struct akl_instance *in = NULL;
 
+/* Give back a possible completion of 'text', by traversing
+ through the red black tree of all global atoms. */
 static char *
 akl_generator(const char *text, int state)
 {
     static struct akl_atom *atom;
     static size_t tlen = 0;
     char *ret = NULL;
+    /* If this is the first run, initialize the 'atom' with
+      the first element of the red black tree. */
     if (!state) {
         atom = RB_MIN(ATOM_TREE, &in->ai_atom_head);
         tlen = strlen(text);
@@ -55,8 +59,10 @@ akl_generator(const char *text, int state)
     return NULL;
 }
 
+/* Create an array of strings, containing the possible
+  completions of the given 'text', using 'akl_generator'.*/
 static char **
-akl_completition(char *text, int start, int end)
+akl_completion(char *text, int start, int end)
 {
     char **matches = (char **)NULL;
     if (rl_line_buffer[start-1] == '(')
@@ -65,6 +71,8 @@ akl_completition(char *text, int start, int end)
     return matches;
 }
 
+/* Insert the closing right brace after the fresly typed left
+  brace. We should also move left the text cursor. */
 static int akl_insert_rbrace(int count, int key)
 {
     rl_insert_text("(");
@@ -76,7 +84,7 @@ static int akl_insert_rbrace(int count, int key)
 static void init_readline(void)
 {
     rl_readline_name = "AkLisp";
-    rl_attempted_completion_function = (CPPFunction *)akl_completition;
+    rl_attempted_completion_function = (CPPFunction *)akl_completion;
     rl_bind_key('(', akl_insert_rbrace);
 }
 
@@ -120,7 +128,6 @@ static void interactive_mode(void)
 int main(int argc, const char *argv[])
 {
     FILE *fp;
-    struct akl_instance *inst;
     struct akl_list *list;
     if (argc > 1) {
         fp = fopen(argv[1], "r");
@@ -128,14 +135,14 @@ int main(int argc, const char *argv[])
             fprintf(stderr, "ERROR: Cannot open file %s!\n", argv[1]);
             return -1;
         }
-        inst = akl_new_file_interpreter(fp);
+        in = akl_new_file_interpreter(fp);
     } else {
         interactive_mode();
         return 0;
     }
-    akl_init_lib(inst, AKL_LIB_ALL);
-    akl_parse_io(inst);
-    akl_eval_program(inst);
-    akl_free_instance(inst);
+    akl_init_lib(in, AKL_LIB_ALL);
+    akl_parse_io(in);
+    akl_eval_program(in);
+    akl_free_instance(in);
     return 0;
 }
