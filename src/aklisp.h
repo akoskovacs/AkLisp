@@ -297,17 +297,24 @@ void akl_init_os(struct akl_instance *);
 #define AKL_ADD_BUILTIN(in, bname, name, desc) \
     akl_add_builtin((in), (name), bname##_builtin, (desc))
 
-#define GREEN "\x1b[32m"
-#define BRIGHT_GREEN "\x1b[1;32m"
-#define YELLOW "\x1b[33m"
-#define GRAY "\x1b[1;30m"
-#define BLUE "\x1b[34m"
-#define RED "\x1b[31m"
-#define PURPLE "\x1b[35m"
 #ifdef USE_COLORS
+#define GREEN  "\x1b[32m"
+#define YELLOW "\x1b[33m"
+#define GRAY   "\x1b[1;30m"
+#define BLUE   "\x1b[34m"
+#define RED    "\x1b[31m"
+#define PURPLE "\x1b[35m"
+#define BRIGHT_GREEN "\x1b[1;32m"
 #define START_COLOR(c) printf("%s", (c))
 #define END_COLOR printf("\x1b[0m")
 #else
+#define GREEN  ""
+#define YELLOW ""
+#define GRAY   ""
+#define BLUE   ""
+#define RED    ""
+#define PURPLE ""
+#define BRIGHT_GREEN ""
 #define START_COLOR(c)
 #define END_COLOR
 #endif
