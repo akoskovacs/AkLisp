@@ -61,6 +61,9 @@ struct akl_atom *
 akl_get_global_atom(struct akl_instance *in, const char *name)
 {
     struct akl_atom *atm, *res;
+    if (name == NULL)
+        return NULL;
+
     atm = akl_new_atom(in, strdup(name));
     res = ATOM_TREE_RB_FIND(&in->ai_atom_head, atm);
     akl_free_atom(in, atm);
@@ -154,7 +157,7 @@ struct akl_value *akl_list_index(struct akl_list *list, int index)
             if ((ent = AKL_LIST_NEXT(ent)) == NULL)
                 return &NIL_VALUE;
         }
-        val = akl_entry_to_value(ent);
+        val = AKL_ENTRY_VALUE(ent);
     }
     return val;
 }
@@ -167,12 +170,12 @@ bool_t akl_list_remove(struct akl_instance *in, struct akl_list *list
     if (list == NULL || val == NULL)
         return FALSE;
 
-    v = akl_entry_to_value(list->li_head);
+    v = AKL_ENTRY_VALUE(list->li_head);
     if (v != NULL && akl_compare_values(val, v)) {
         list->li_head = AKL_LIST_SECOND(list);
     }
     AKL_LIST_FOREACH(ent, list) {
-       v = akl_entry_to_value(ent->le_next);
+       v = AKL_ENTRY_VALUE(ent->le_next);
        if (v != NULL && akl_compare_values(val, v)) {
            /* TODO: Free the entry */
            ent = ent->le_next;

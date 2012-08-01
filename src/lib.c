@@ -205,12 +205,12 @@ AKL_BUILTIN_DEFINE(and, in, args)
         return &TRUE_VALUE;
 
     AKL_LIST_FOREACH(ent, args) {
-        arg = akl_entry_to_value(ent);
+        arg = AKL_ENTRY_VALUE(ent);
         ent->le_value = akl_eval_value(in, arg);
         if (AKL_IS_NIL(ent->le_value)) 
             return &NIL_VALUE;
     }
-    return akl_entry_to_value(AKL_LIST_LAST(args));
+    return AKL_ENTRY_VALUE(AKL_LIST_LAST(args));
 }
 
 AKL_BUILTIN_DEFINE(or, in, args)
@@ -221,7 +221,7 @@ AKL_BUILTIN_DEFINE(or, in, args)
         return &NIL_VALUE;
 
     AKL_LIST_FOREACH(ent, args) {
-        arg = akl_entry_to_value(ent);
+        arg = AKL_ENTRY_VALUE(ent);
         ent->le_value = akl_eval_value(in, arg);
         if (!AKL_IS_NIL(ent->le_value)) 
             return ent->le_value;
@@ -348,6 +348,9 @@ AKL_BUILTIN_DEFINE(incf, in, args)
             v->va_value.number += 1;
             return at->at_value;
         }
+    } else if (AKL_CHECK_TYPE(a1, TYPE_NUMBER)) {
+        a1->va_value.number += 1;
+        return a1;
     }
     return &NIL_VALUE;
 }
@@ -364,7 +367,11 @@ AKL_BUILTIN_DEFINE(decf, in, args)
             v->va_value.number -= 1;
             return at->at_value;
         }
+    } else if (AKL_CHECK_TYPE(a1, TYPE_NUMBER)) {
+        a1->va_value.number -= 1;
+        return a1;
     }
+
     return &NIL_VALUE;
 }
 
@@ -566,7 +573,7 @@ AKL_BUILTIN_DEFINE(cond, in, args)
     struct akl_value *arg, *ret;
     struct akl_list_entry *ent;
     AKL_LIST_FOREACH(ent, args) {
-        arg = akl_entry_to_value(ent);
+        arg = AKL_ENTRY_VALUE(ent);
         if (arg != NULL && arg->va_type == TYPE_LIST) {
             ret = eval_if_true(in, AKL_GET_LIST_VALUE(arg));
             if (ret != NULL)
@@ -587,7 +594,7 @@ AKL_BUILTIN_DEFINE(case, in, args)
     /* Evaulate the first argument (the base of the comparision) */
     a1 = akl_eval_value(in, AKL_FIRST_VALUE(args));
     AKL_LIST_FOREACH_SECOND(ent, args) {
-        arg = akl_entry_to_value(ent);
+        arg = AKL_ENTRY_VALUE(ent);
         if (arg != NULL && arg->va_type == TYPE_LIST) {
             cl = AKL_GET_LIST_VALUE(arg);
             cv = akl_eval_value(in, AKL_FIRST_VALUE(cl));
@@ -739,7 +746,7 @@ AKL_CFUN_DEFINE(progn, in, args)
 {
     struct akl_list_entry *lent = AKL_LIST_LAST(args);
     if (lent != NULL && lent->le_value != NULL)
-        return akl_entry_to_value(lent);
+        return AKL_ENTRY_VALUE(lent);
     else
         return &NIL_VALUE;
 }

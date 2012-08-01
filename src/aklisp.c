@@ -61,14 +61,6 @@ int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
     return -1;
 }
 
-struct akl_value *akl_entry_to_value(struct akl_list_entry *ent)
-{
-    if (ent != NULL) {
-        return ent->le_value;
-    }
-    return NULL;
-}
-
 struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
 {
     struct akl_atom *aval;
@@ -105,7 +97,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
 {
     akl_cfun_t cfun;
     struct akl_list *args;
-    struct akl_atom *fatm, *aval;
+    struct akl_atom *fatm = NULL, *aval;
     struct akl_list_entry *ent;
     struct akl_value *ret, *tmp, *a1;
     assert(list);
@@ -120,13 +112,18 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
     }
     
     a1 = AKL_FIRST_VALUE(list);
-    fatm = akl_get_global_atom(in, akl_get_atom_name_value(a1));
-    if (fatm == NULL || fatm->at_value == NULL) {
-        fprintf(stderr, "ERROR: Cannot find \'%s\' function!\n"
-            , akl_get_atom_name_value(a1));
-        exit(-1);
+    if (AKL_CHECK_TYPE(a1, TYPE_ATOM)) {
+        fatm = akl_get_global_atom(in, akl_get_atom_name_value(a1));
+        if (fatm == NULL || fatm->at_value == NULL) {
+            fprintf(stderr, "ERROR: Cannot find \'%s\' function!\n"
+                , akl_get_atom_name_value(a1));
+            exit(-1);
+        }
+        cfun = fatm->at_value->va_value.cfunc;
+    } else {
+        ret = akl_eval_list(in, AKL_GET_LIST_VALUE(a1));
+        list->li_head->le_value = ret;
     }
-    cfun = fatm->at_value->va_value.cfunc;
 
     /* If the first atom is BUILTIN, i.e: it has full controll over
       it's arguments, the other elements of the list will not be evaluated...*/
@@ -135,44 +132,30 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
         /* Not quoted, so start the list processing 
             from the second element. */
         AKL_LIST_FOREACH_SECOND(ent, list) {
-            tmp = akl_entry_to_value(ent);
-            ent->le_value = akl_eval_value(in, akl_entry_to_value(ent));
+            tmp = AKL_ENTRY_VALUE(ent);
+            ent->le_value = akl_eval_value(in, AKL_ENTRY_VALUE(ent));
         }
     }
 
-    if (list->li_elem_count > 1)
-        args = akl_cdr(in, list);
-    else 
-        args = &NIL_LIST;
-
-    assert(args);
-    assert(cfun);
-    ret = cfun(in, args);
-    if (fatm->at_value->va_type != TYPE_BUILTIN) {
-        AKL_DEC_REF_LIST(in, list);
+    if (fatm != NULL) {
         if (list->li_elem_count > 1)
-            AKL_FREE(args);
+            args = akl_cdr(in, list);
+        else 
+            args = &NIL_LIST;
+
+        assert(args);
+        assert(cfun);
+        ret = cfun(in, args);
+        if (fatm->at_value->va_type != TYPE_BUILTIN) {
+            AKL_DEC_REF_LIST(in, list);
+            if (list->li_elem_count > 1)
+                AKL_FREE(args);
+        }
     }
     return ret;
 }
 
 void akl_eval_program(struct akl_instance *in)
 {
-    struct akl_list *plist = in->ai_program;
-    struct akl_list_entry *ent;
-    struct akl_value *val, *ret;
-    if (plist != NULL) {
-        AKL_LIST_FOREACH(ent, plist) {
-            val = AKL_ENTRY_VALUE(ent);
-            if (val->va_type == TYPE_LIST) {
-                ret = akl_eval_list(in, val->va_value.list);
-                assert(ret);
-                if (in->ai_is_stdin) {
-                    printf(" => ");
-                    akl_print_value(ret);
-                    printf("\n");
-                }
-            }
-        }
-    }
+    akl_eval_list(in, in->ai_program);
 }
