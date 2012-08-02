@@ -40,21 +40,20 @@ akl_generator(const char *text, int state)
 {
     static struct akl_atom *atom;
     static size_t tlen = 0;
-    char *ret = NULL;
     /* If this is the first run, initialize the 'atom' with
       the first element of the red black tree. */
     if (!state) {
         atom = RB_MIN(ATOM_TREE, &in->ai_atom_head);
         tlen = strlen(text);
+    } else {
+        atom = RB_NEXT(ATOM_TREE, &in->ai_atom_head, atom);
     }
 
     while (atom != NULL) {
         if (strncasecmp(atom->at_name, text, tlen) == 0)
-            ret = strdup(atom->at_name);
+            return strdup(atom->at_name);
 
         atom = RB_NEXT(ATOM_TREE, &in->ai_atom_head, atom);
-        if (ret)
-            return ret;
     }
     return NULL;
 }
