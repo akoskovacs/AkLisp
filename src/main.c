@@ -75,17 +75,23 @@ akl_completion(char *text, int start, int end)
   brace. We should also move left the text cursor. */
 static int akl_insert_rbrace(int count, int key)
 {
-    rl_insert_text("(");
-    rl_insert_text(")");
+    rl_insert_text("()");
     rl_backward_char(1, 1);
     return 0;
 }
 
+static int akl_insert_strterm(int count, int key)
+{
+    rl_insert_text("\"\"");
+    rl_backward_char(1, 1);
+    return 0;
+}
 static void init_readline(void)
 {
     rl_readline_name = "AkLisp";
     rl_attempted_completion_function = (CPPFunction *)akl_completion;
     rl_bind_key('(', akl_insert_rbrace);
+    rl_bind_key('"', akl_insert_strterm);
 }
 
 static void interactive_mode(void)
