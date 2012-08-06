@@ -8,12 +8,18 @@ set(SDIR "./src/")
 
 if (UNIX)
     set(PLATSRC os_unix.c)
+    SITE_NAME(HOSTNAME)
+    add_definitions(-DAKL_USER_INFO)
+    add_definitions(-DAKL_USER_NAME="$ENV{USER}")
+    add_definitions(-DAKL_HOST_NAME="${HOSTNAME}")
 endif()
 
 if (!UNIX)
     set(PLATSRC os_other.c)
 endif ()
 
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
+find_package(Readline REQUIRED)
 set(SOURCES 
     ${SDIR}${PLATSRC}
     ${SDIR}aklisp.c
@@ -46,9 +52,8 @@ add_definitions(-DAKL_PROCESSOR="${CMAKE_SYSTEM_PROCESSOR}")
 
 set_target_properties(${TARGET}_static PROPERTIES VERSION ${VER_MAJOR}.${VER_MINOR}.0 SOVERSION 1)
 set_target_properties(${TARGET}_shared PROPERTIES VERSION ${VER_MAJOR}.${VER_MINOR}.0 SOVERSION 1)
-
 add_executable(${TARGET} ${SDIR}/main.c)
-target_link_libraries(${TARGET} ${TARGET}_static)
+target_link_libraries(${TARGET} ${TARGET}_static ${READLINE_LIBRARY})
 set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME aklisp)
 INSTALL(TARGETS ${TARGET}
         RUNTIME

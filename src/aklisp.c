@@ -61,14 +61,6 @@ int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
     return -1;
 }
 
-struct akl_value *akl_entry_to_value(struct akl_list_entry *ent)
-{
-    if (ent != NULL) {
-        return ent->le_value;
-    }
-    return NULL;
-}
-
 struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
 {
     struct akl_atom *aval;
@@ -140,8 +132,8 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
         /* Not quoted, so start the list processing 
             from the second element. */
         AKL_LIST_FOREACH_SECOND(ent, list) {
-            tmp = akl_entry_to_value(ent);
-            ent->le_value = akl_eval_value(in, akl_entry_to_value(ent));
+            tmp = AKL_ENTRY_VALUE(ent);
+            ent->le_value = akl_eval_value(in, AKL_ENTRY_VALUE(ent));
         }
     }
 

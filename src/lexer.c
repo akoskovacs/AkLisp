@@ -28,15 +28,21 @@ static char buffer[256];
 
 int akl_io_getc(struct akl_io_device *dev)
 {
+    int ch;
     if (dev == NULL)
         return EOF;
+
     switch (dev->iod_type) {
         case DEVICE_FILE:
-        return fgetc(dev->iod_source.file);
+        ch = fgetc(dev->iod_source.file);
+        break;
 
         case DEVICE_STRING:
-        return dev->iod_source.string[dev->iod_pos];
+        ch = dev->iod_source.string[dev->iod_pos];
+        dev->iod_pos++;
+        break;
     }
+    return ch;
 }
 
 int akl_io_ungetc(int ch, struct akl_io_device *dev)
@@ -48,8 +54,10 @@ int akl_io_ungetc(int ch, struct akl_io_device *dev)
         return ungetc(ch, dev->iod_source.file);
 
         case DEVICE_STRING:
+        dev->iod_pos--;
         return dev->iod_source.string[dev->iod_pos];
     }
+    return 0;
 }
 
 bool_t akl_io_eof(struct akl_io_device *dev)
@@ -62,7 +70,7 @@ bool_t akl_io_eof(struct akl_io_device *dev)
         return feof(dev->iod_source.file);
 
         case DEVICE_STRING:
-        return dev->iod_source.string[dev->iod_pos];
+        return dev->iod_source.string[dev->iod_pos] == 0 ? 1 : 0;
     }
 }
 
@@ -203,7 +211,9 @@ char *akl_lex_get_string(void)
 
 char *akl_lex_get_atom(void)
 {
-    return strdup(buffer);
+    char *str = strdup(buffer);
+    buffer[0] = '\0';
+    return str;
 }
 
 int akl_lex_get_number(void)
