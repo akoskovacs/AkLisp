@@ -254,6 +254,10 @@ void akl_print_value(struct akl_value *val)
         printf("NIL");
         END_COLOR;
         break;
+
+        case TYPE_CFUN: case TYPE_BUILTIN:
+        /* Nothing to do... */
+        break;
     }
 }
 

@@ -22,73 +22,81 @@
  ************************************************************************/
 #include "aklisp.h"
 
-struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *dev, bool_t is_q)
+struct akl_value *akl_parse_value(struct akl_instance *in, struct akl_io_device *dev)
 {
-    struct akl_value *val;
-    struct akl_list *list, *l;
-    int is_quoted = 0;
+    bool_t is_quoted = FALSE;
+    struct akl_list *l;
+    struct akl_value *value;
     token_t tok;
-    list = akl_new_list(in);
-    list->is_quoted = is_q;
+    int quote_count = 0;
     while ((tok = akl_lex(dev))) {
         switch (tok) {
             case tEOF: case tRBRACE:
-            goto list_end;
-            break;
+            return NULL;
 
             case tATOM:
-            val = akl_new_atom_value(in, akl_lex_get_atom());
-            break;
-            
+            value = akl_new_atom_value(in, akl_lex_get_atom());
+            value->is_quoted = is_quoted;
+            is_quoted = FALSE;
+            return value;
+
             case tNUMBER:
-            val = akl_new_number_value(in, akl_lex_get_number());
-            break;
+            return akl_new_number_value(in, akl_lex_get_number());
 
             case tSTRING:
-            val = akl_new_string_value(in, akl_lex_get_string());
-            break;
+            return akl_new_string_value(in, akl_lex_get_string());
 
             /* Whooa new list */
             case tLBRACE:
-            l = akl_parse_list(in, dev, is_quoted);
-            l->li_parent = list;
-            val = akl_new_list_value(in, l);
-            break;
+            l = akl_parse_list(in, dev);
+            l->is_quoted = is_quoted;
+            is_quoted = FALSE;
+            return akl_new_list_value(in, l);
 
             case tQUOTE:
-            is_quoted = 1;
+            is_quoted = TRUE;
             continue;
 
             case tNIL:
-            val = &NIL_VALUE;
-            break;
+            return &NIL_VALUE;
 
             case tTRUE:
-            val = &TRUE_VALUE;
-            break;
+            return &TRUE_VALUE;
 
             default:
             break;
         }
-        if (is_quoted) {
-            val->is_quoted = TRUE;
-            is_quoted = FALSE;
-        }
-        akl_list_append(in, list, val);
     }
+    return NULL;
+}
 
-list_end:
-    if (list->li_elem_count == 0) {
-        akl_free_list(in, list);
-        return &NIL_LIST;
-    } 
+struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *dev)
+{
+    struct akl_value *value = NULL;
+    struct akl_list *list, *lval, *last_list = NULL;
+    token_t tok = akl_lex_get(dev);
+    if (tok == tLBRACE) {
+        list = akl_new_list(in);
+        while ((value = akl_parse_value(in, dev)) != NULL) {
+            /* If the next value is a list, reparent it... */
+            if (AKL_CHECK_TYPE(value, TYPE_LIST)) {
+                lval = AKL_GET_LIST_VALUE(value);
+                lval->li_parent = list;
+            }
+            akl_list_append(in, list, value);
+        }
+    }
     return list;
 }
 
 struct akl_list *akl_parse_io(struct akl_instance *in)
 {
     struct akl_io_device *dev = in->ai_device;
+    struct akl_value *value = NULL;
     assert(dev);
-    in->ai_program = akl_parse_list(in, dev, FALSE);
+    in->ai_program = akl_new_list(in);
+    while ((value = akl_parse_value(in, dev)))
+        akl_list_append(in, in->ai_program, value);
+
     return in->ai_program;
 }

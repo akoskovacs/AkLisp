@@ -117,7 +117,7 @@ static void interactive_mode(void)
             add_history(line);
             in->ai_device = akl_new_string_device(line);
             /*inst->ai_program = akl_new_list(in);*/
-            il = akl_parse_list(in, in->ai_device, FALSE);
+            il = akl_parse_list(in, in->ai_device);
             il = AKL_GET_LIST_VALUE(AKL_FIRST_VALUE(il));
             akl_print_list(il);
             /*akl_list_append(in, inst->ai_program, il);*/

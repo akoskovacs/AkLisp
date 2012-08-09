@@ -83,8 +83,6 @@ akl_new_file_interpreter(FILE *fp)
 {
     struct akl_instance *in = akl_new_instance();
     in->ai_device = akl_new_file_device(fp);
-    if (fp == stdin)
-        in->ai_is_stdin = TRUE;
     return in;
 }
 
@@ -117,7 +115,6 @@ struct akl_instance *akl_new_instance(void)
     AKL_GC_INIT_OBJ(&NIL_LIST, akl_gc_list_destruct);
     memset(in->ai_gc_stat, 0, AKL_NR_GC_STAT_ENT * sizeof(unsigned int));
     in->ai_program  = NULL;
-    in->ai_is_stdin = FALSE;
     return in;
 }
 

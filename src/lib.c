@@ -57,6 +57,9 @@ AKL_CFUN_DEFINE(plus, in, args)
             sum += AKL_GET_NUMBER_VALUE(plus_function(in
                  , AKL_GET_LIST_VALUE(val)));
             break;
+
+            default:
+            break;
        }
     }
     if (str == NULL)
@@ -76,27 +79,15 @@ AKL_CFUN_DEFINE(minus, in, args)
 
     AKL_LIST_FOREACH(ent, args) {
        val = AKL_ENTRY_VALUE(ent);
-       switch (val->va_type) {
-            case TYPE_NUMBER:
+        if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
             if (is_first) {
                 ret = AKL_GET_NUMBER_VALUE(val);
                 is_first = FALSE;
             } else {
                 ret -= AKL_GET_NUMBER_VALUE(val);
             }
-            break;
-#if 0
-            case TYPE_STRING:
-            /* TODO */
-            break;
+        } /* TODO: else: throw error! */
 
-            case TYPE_LIST:
-            /* TODO: Handle string lists */
-            ret += *akl_get_number_value(minus_function(in
-                 , akl_get_list_value(val)));
-            break;
-#endif
-       }
     }
     return akl_new_number_value(in, ret);
 }
@@ -136,6 +127,9 @@ AKL_CFUN_DEFINE(times, in, args)
             case TYPE_LIST:
             ret *= AKL_GET_NUMBER_VALUE(times_function(in
                                 , AKL_GET_LIST_VALUE(val)));
+            break;
+
+            default:
             break;
         }
     }
@@ -278,6 +272,9 @@ AKL_CFUN_DEFINE(display, in, args)
 
             case TYPE_STRING:
             printf("%s", AKL_GET_STRING_VALUE(tmp));
+            break;
+
+            default:
             break;
         }
     }
@@ -715,6 +712,7 @@ AKL_CFUN_DEFINE(read_string, in, args __unused)
     scanf("%s", str);
     if (str != NULL)
         return akl_new_string_value(in, str);
+    return &NIL_VALUE;
 }
 #endif // _GNUC_
 

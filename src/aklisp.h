@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <ctype.h>
 #include "tree.h"
 
 #define MALLOC_FUNCTION malloc
@@ -155,7 +156,6 @@ struct akl_instance {
     RB_HEAD(ATOM_TREE, akl_atom) ai_atom_head;
     unsigned int ai_gc_stat[AKL_NR_GC_STAT_ENT];
     struct akl_list *ai_program;
-    bool_t ai_is_stdin;
 };
 
 static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
@@ -235,17 +235,19 @@ struct akl_io_device *akl_new_file_device(FILE *);
 struct akl_io_device *akl_new_string_device(const char *);
 
 token_t akl_lex(struct akl_io_device *);
+token_t akl_lex_get(struct akl_io_device *);
+void    akl_lex_put(token_t);
 char   *akl_lex_get_string(void);
 int     akl_lex_get_number(void);
 char   *akl_lex_get_atom(void);
 
-struct akl_list *
-akl_parse_list(struct akl_instance *, struct akl_io_device *, bool_t);
-struct akl_list  *akl_parse_file(struct akl_instance *, FILE *fp);
+struct akl_list  *akl_parse_list(struct akl_instance *, struct akl_io_device *);
+struct akl_value *akl_parse_value(struct akl_instance *, struct akl_io_device *);
+struct akl_list  *akl_parse_file(struct akl_instance *, FILE *);
 struct akl_list  *akl_parse_string(struct akl_instance *, const char *);
 struct akl_list  *akl_parse_io(struct akl_instance *);
-struct akl_value *akl_car(struct akl_list *l);
-struct akl_list  *akl_cdr(struct akl_instance *, struct akl_list *l);
+struct akl_value *akl_car(struct akl_list *);
+struct akl_list  *akl_cdr(struct akl_instance *, struct akl_list *);
 
 /* Creating and destroying structures */
 struct akl_instance   *akl_new_instance(void);
@@ -280,9 +282,11 @@ bool_t akl_io_eof(struct akl_io_device *dev);
 
 struct akl_value *akl_eval_value(struct akl_instance *, struct akl_value *);
 struct akl_value *akl_eval_list(struct akl_instance *, struct akl_list *);
+void akl_eval_program(struct akl_instance *);
 
 void akl_print_value(struct akl_value *);
 void akl_print_list(struct akl_list *);
+int akl_compare_values(struct akl_value *, struct akl_value *);
 
 enum AKL_INIT_FLAGS { 
     AKL_LIB_BASIC = 0x001,
