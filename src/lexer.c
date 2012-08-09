@@ -23,26 +23,28 @@
 #include <ctype.h>
 
 #include "aklisp.h"
-
-static char buffer[256];
+#define BUF_SIZE 256
+static char buffer[BUF_SIZE];
+static token_t last_token;
+static int last_char;
 
 int akl_io_getc(struct akl_io_device *dev)
 {
-    int ch;
     if (dev == NULL)
         return EOF;
 
     switch (dev->iod_type) {
         case DEVICE_FILE:
-        ch = fgetc(dev->iod_source.file);
+        last_char = fgetc(dev->iod_source.file);
         break;
 
         case DEVICE_STRING:
-        ch = dev->iod_source.string[dev->iod_pos];
+        last_char = dev->iod_source.string[dev->iod_pos];
         dev->iod_pos++;
         break;
     }
-    return ch;
+    dev->iod_char_count++;
+    return last_char;
 }
 
 int akl_io_ungetc(int ch, struct akl_io_device *dev)
@@ -57,6 +59,7 @@ int akl_io_ungetc(int ch, struct akl_io_device *dev)
         dev->iod_pos--;
         return dev->iod_source.string[dev->iod_pos];
     }
+    dev->iod_char_count--;
     return 0;
 }
 
@@ -70,7 +73,7 @@ bool_t akl_io_eof(struct akl_io_device *dev)
         return feof(dev->iod_source.file);
 
         case DEVICE_STRING:
-        return dev->iod_source.string[dev->iod_pos] == 0 ? 1 : 0;
+        return dev->iod_source.string[dev->iod_pos] == '\0' ? 1 : 0;
     }
 }
 
@@ -93,8 +96,6 @@ size_t copy_number(struct akl_io_device *dev)
             break;
         }
     }
-
-    buffer[i] = '\0';
     return i;
 }
 
@@ -113,8 +114,6 @@ size_t copy_string(struct akl_io_device *dev)
             break;
         }
     }
-
-    buffer[i] = '\0';
     return i;
 }
 
@@ -135,9 +134,27 @@ size_t copy_atom(struct akl_io_device *dev)
             break;
         }
     }
-
-    buffer[i] = '\0';
     return i;
+}
+
+/* Only get the next token if there is no other in
+   the 'last_token' variable -- i.e.: the 'akl_lex_put()'
+   function is not used before -- */
+token_t akl_lex_get(struct akl_io_device *dev)
+{
+    token_t tok;
+    if (last_token != -1) {
+        tok = last_token;
+        last_token = -1;
+    } else {
+        tok = akl_lex(dev);
+    }
+    return tok;
+}
+
+void akl_lex_put(token_t tok)
+{
+    last_token = tok;
 }
 
 token_t akl_lex(struct akl_io_device *dev)
@@ -197,6 +214,8 @@ token_t akl_lex(struct akl_io_device *dev)
                 return tTRUE;
             else
                 return tATOM;
+        } else if (ch == '\n') {
+            dev->iod_char_count++;
         } else {
             continue;
         }
@@ -212,7 +231,6 @@ char *akl_lex_get_string(void)
 char *akl_lex_get_atom(void)
 {
     char *str = strdup(buffer);
-    buffer[0] = '\0';
     return str;
 }
 

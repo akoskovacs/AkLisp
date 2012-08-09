@@ -300,7 +300,7 @@ AKL_CFUN_DEFINE(cdr, in, args)
     struct akl_value *ret;
     if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
         ret = akl_new_list_value(in, akl_cdr(in, a1->va_value.list));
-        AKL_INC_REF(in, ret);
+        AKL_GC_INC_REF(ret);
         return ret;
     }
     return &NIL_VALUE;
@@ -431,6 +431,10 @@ AKL_CFUN_DEFINE(version, in, args __unused)
 
 AKL_CFUN_DEFINE(about, in, args)
 {
+    const char *tnames[] = { "Atoms", "Lists"
+                           , "Numbers", "Strings"
+                           , "List entries",  NULL };
+    int i;
     printf("\nAkLisp version %d.%d-%s\n"
             "\tCopyleft (c) Akos Kovacs\n"
             "\tBuilt on %s %s\n"
@@ -441,12 +445,6 @@ AKL_CFUN_DEFINE(about, in, args)
 #ifdef AKL_USER_INFO
             "\tBuild by: %s@%s\n"
 #endif // AKL_USER_INFO
-            "\n"
-            "GC statics:\n"
-            "\tATOMS: %d\n"
-            "\tLISTS: %d\n"
-            "\tNUMBERS: %d\n"
-            "\tSTRINGS: %d\n\n"
             , VER_MAJOR, VER_MINOR, VER_ADDITIONAL
             , __DATE__, __TIME__
 #ifdef AKL_SYSTEM_INFO
@@ -455,9 +453,13 @@ AKL_CFUN_DEFINE(about, in, args)
 #ifdef AKL_USER_INFO
             , AKL_USER_NAME, AKL_HOST_NAME
 #endif // AKL_USER_INFO
-            , in->ai_atom_count, in->ai_list_count
-            , in->ai_number_count, in->ai_string_count);
-
+            );
+    printf("\nGC statistics:\n");
+    for (i = 0; i < AKL_NR_GC_STAT_ENT; i++) {
+        printf("\t%s: %d\n", tnames[i], in->ai_gc_stat[i]);
+    }
+    printf("\n");
+    
     return version_function(in, args);
 }
 

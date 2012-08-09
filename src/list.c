@@ -26,7 +26,7 @@ RB_GENERATE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
 void akl_add_global_atom(struct akl_instance *in, struct akl_atom *atom)
 {
-    AKL_INC_REF(in, atom);
+    AKL_GC_INC_REF(atom);
     ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
 }
 
@@ -107,7 +107,7 @@ akl_list_append(struct akl_instance *in, struct akl_list *list, struct akl_value
     list->li_last = le;
     list->li_elem_count++;
     list->is_nil = 0;
-    AKL_INC_REF(in, val);
+    AKL_GC_INC_REF(val);
     return le; 
 }
 
@@ -126,7 +126,7 @@ akl_list_insert_head(struct akl_instance *in, struct akl_list *list, struct akl_
     }
     list->li_head = le;
     list->li_elem_count++;
-    AKL_INC_REF(in, val);
+    AKL_GC_INC_REF(val);
     return le;
 }
 
