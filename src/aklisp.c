@@ -25,6 +25,8 @@
 int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
 {
     int n1, n2;
+    assert(v1);
+    assert(v2);
     if (v1->va_type == v2->va_type) {
         switch (v1->va_type) {
             case TYPE_NUMBER:
@@ -147,7 +149,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
         assert(cfun);
         ret = cfun(in, args);
         if (fatm->at_value->va_type != TYPE_BUILTIN) {
-            AKL_DEC_REF_LIST(in, list);
+            AKL_GC_DEC_REF(in, list);
             if (list->li_elem_count > 1)
                 AKL_FREE(args);
         }
@@ -157,5 +159,11 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
 
 void akl_eval_program(struct akl_instance *in)
 {
-    akl_eval_list(in, in->ai_program);
+    struct akl_list *list;
+    struct akl_list_entry *ent;
+    struct akl_value *value;
+    AKL_LIST_FOREACH(ent, list) {
+        value = AKL_ENTRY_VALUE(ent);
+        ent->le_value = akl_eval_value(in, value);
+    }
 }

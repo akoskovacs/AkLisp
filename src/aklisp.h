@@ -28,11 +28,12 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <ctype.h>
 #include "tree.h"
 
 #define MALLOC_FUNCTION malloc
 #define FREE_FUNCTION free
-#define AKL_MALLOC(type) (type *)akl_malloc(sizeof(type))
+#define AKL_MALLOC(in, type) (type *)akl_malloc(in, sizeof(type))
 #define AKL_FREE(ptr) FREE_FUNCTION((void *)(ptr))
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
@@ -49,16 +50,6 @@
 #define AKL_GET_STRING_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_STRING, string))
 #define AKL_GET_CFUN_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_CFUN, cfunc))
 #define AKL_GET_LIST_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_LIST, list))
-
-#define AKL_INC_REF(in, obj) (obj)->ref_count++
-#define AKL_DEC_REF(in, obj, type) if((obj) && (obj)->is_nil != TRUE \
-                                            && (obj)->ref_count-- <= 1)  \
-                                        akl_free_##type(in, obj)
-
-#define AKL_DEC_REF_ATOM(in, a) if ((a) && (a)->ref_count-- <= 0) \
-                                        akl_free_atom(in, a)
-#define AKL_DEC_REF_LIST(in, l) AKL_DEC_REF(in, l, list)
-#define AKL_DEC_REF_VALUE(in, v) AKL_DEC_REF(in, v, value)
 
 struct akl_list;
 struct akl_atom;
@@ -87,13 +78,41 @@ typedef struct akl_value*(*akl_cfun_t)(struct akl_instance *, struct akl_list *)
 #define AKL_IS_QUOTED(type) ((type)->is_quoted)
 #define AKL_IS_TRUE(type) (!AKL_IS_NIL(type))
 
-static struct akl_value {
-    unsigned int ref_count;
+/* This section contains the most important datastructures
+ for the garbage collector */
+typedef void (*akl_destructor_t)(struct akl_instance *, void *obj);
+/* Every structure, which is suitable for collection, have to
+   embed this structure as a 'gc_obj' variable.
+   BE AWARE: This is object orineted! :-) */
+struct akl_gc_object {
+    /* Reference count for the object */
+    unsigned int gc_ref_count;
+    /* Desctructor function for the object getting a pointer 
+     of the active instance and the object pointer as parameters. */
+    akl_destructor_t gc_de_fun;
+};
+#define AKL_GC_DEFINE_OBJ struct akl_gc_object gc_obj
+#define AKL_GC_INIT_OBJ(obj, de_fun) (obj)->gc_obj.gc_ref_count = 0; \
+                                     (obj)->gc_obj.gc_de_fun = de_fun
+/* Call the destructor */
+#define AKL_GC_COLLECT_OBJ(in, obj) (obj)->gc_obj.gc_de_fun(in, obj)
+/* Increase the reference count for an object */
+#define AKL_GC_INC_REF(obj) (obj)->gc_obj.gc_ref_count++
+/* Decrease the reference count for an object and free it
+  if it's 'ref_count' is zero. */
+#define AKL_GC_DEC_REF(in, obj) (obj)->gc_obj.gc_ref_count--; \
+                            if ((obj)->gc_obj.gc_ref_count <= 0) \
+                                AKL_GC_COLLECT_OBJ(in,obj)
+
+void *akl_malloc(struct akl_instance *, size_t);
+
+extern struct akl_value {
+    AKL_GC_DEFINE_OBJ;
     enum akl_type va_type;
     union {
         struct akl_atom *atom;
         char *string;
-        int number;
+        double number;
         struct akl_list *list;
         akl_cfun_t cfunc;
     } va_value;
@@ -103,7 +122,7 @@ static struct akl_value {
 } NIL_VALUE, TRUE_VALUE;
 
 struct akl_atom {
-    unsigned int ref_count;
+    AKL_GC_DEFINE_OBJ;
     RB_ENTRY(akl_atom) at_entry;
     struct akl_value *at_value;
     char *at_name;
@@ -118,21 +137,25 @@ struct akl_io_device {
         FILE *file;
         const char *string;
     } iod_source;
-    off_t iod_pos; /*  Only used for DEVICE_STRING */
+    size_t iod_pos; /*  Only used for DEVICE_STRING */
+    unsigned iod_char_count;
+    unsigned iod_line_count;
 };
+
+#define AKL_NR_GC_STAT_ENT 6
+enum { AKL_GC_STAT_ATOM,
+       AKL_GC_STAT_LIST,
+       AKL_GC_STAT_NUMBER,
+       AKL_GC_STAT_STRING,
+       AKL_GC_STAT_LIST_ENTRY,
+       AKL_GC_STAT_ALLOC
+ };
 
 struct akl_instance {
     struct akl_io_device *ai_device;
     RB_HEAD(ATOM_TREE, akl_atom) ai_atom_head;
-    unsigned int ai_list_count;
-    unsigned int ai_list_entry_count;
-    unsigned int ai_atom_count;
-    unsigned int ai_value_count;
-    unsigned int ai_string_count;
-    unsigned int ai_number_count;
-    unsigned int ai_bool_count;
+    unsigned int ai_gc_stat[AKL_NR_GC_STAT_ENT];
     struct akl_list *ai_program;
-    bool_t ai_is_stdin;
 };
 
 static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
@@ -153,12 +176,12 @@ struct akl_list_entry {
     struct akl_list_entry *le_next;
 };
 
-static struct akl_list {
-    unsigned int ref_count;
+extern struct akl_list {
+    AKL_GC_DEFINE_OBJ;
     struct akl_list_entry *li_head;
     struct akl_list_entry *li_last; /* Last element (not the tail) */
     struct akl_list *li_parent; /* Parent (container) list */
-    struct akl_atom *li_locals; /* Array of local variables */
+    struct akl_atom **li_locals; /* Array of pointers to local variables */
     unsigned int li_elem_count;
     unsigned int li_local_count; /* Count of local variables pointed by *li_locals */
     bool_t is_quoted : 1;
@@ -203,26 +226,28 @@ typedef enum {
     tTRUE,
     tLBRACE, 
     tRBRACE,
-    tQUOTE
+    tQUOTE,
 } token_t;
 
 struct akl_instance  *akl_new_file_interpreter(FILE *);
 struct akl_instance  *akl_new_string_interpreter(const char *);
+struct akl_instance  *
+akl_reset_string_interpreter(struct akl_instance *in, const char *str);
 struct akl_io_device *akl_new_file_device(FILE *);
 struct akl_io_device *akl_new_string_device(const char *);
 
 token_t akl_lex(struct akl_io_device *);
 char   *akl_lex_get_string(void);
-int     akl_lex_get_number(void);
+double  akl_lex_get_number(void);
 char   *akl_lex_get_atom(void);
 
-struct akl_list *
-akl_parse_list(struct akl_instance *, struct akl_io_device *, bool_t);
-struct akl_list  *akl_parse_file(struct akl_instance *, FILE *fp);
+struct akl_list  *akl_parse_list(struct akl_instance *, struct akl_io_device *);
+struct akl_value *akl_parse_value(struct akl_instance *, struct akl_io_device *);
+struct akl_list  *akl_parse_file(struct akl_instance *, FILE *);
 struct akl_list  *akl_parse_string(struct akl_instance *, const char *);
 struct akl_list  *akl_parse_io(struct akl_instance *);
-struct akl_value *akl_car(struct akl_list *l);
-struct akl_list  *akl_cdr(struct akl_instance *, struct akl_list *l);
+struct akl_value *akl_car(struct akl_list *);
+struct akl_list  *akl_cdr(struct akl_instance *, struct akl_list *);
 
 /* Creating and destroying structures */
 struct akl_instance   *akl_new_instance(void);
@@ -231,9 +256,11 @@ struct akl_atom       *akl_new_atom(struct akl_instance *in, char *name);
 struct akl_list_entry *akl_new_list_entry(struct akl_instance *in);
 struct akl_value      *akl_new_value(struct akl_instance *in);
 struct akl_value      *akl_new_string_value(struct akl_instance *in, char *str);
-struct akl_value      *akl_new_number_value(struct akl_instance *in, int num);
+struct akl_value      *akl_new_number_value(struct akl_instance *in, double num);
 struct akl_value      *akl_new_list_value(struct akl_instance *in, struct akl_list *lh);
 struct akl_value      *akl_new_atom_value(struct akl_instance * in, char *name);
+
+char *akl_get_atom_name_value(struct akl_value *);
 
 void akl_free_atom(struct akl_instance *in, struct akl_atom *atom);
 void akl_free_value(struct akl_instance *in, struct akl_value *val);
@@ -248,14 +275,8 @@ akl_list_insert_head(struct akl_instance *, struct akl_list *, struct akl_value 
 struct akl_value *akl_list_index(struct akl_list *, int);
 struct akl_list_entry *akl_list_find(struct akl_list *, struct akl_value *);
 struct akl_value *akl_entry_to_value(struct akl_list_entry *);
-/*  Getting back values */
-struct akl_atom *akl_get_atom_value(struct akl_value *);
-struct akl_list *akl_get_list_value(struct akl_value *);
-/* WARNING: It is also a pointer! */
-int             *akl_get_number_value(struct akl_value *);
-char            *akl_get_string_value(struct akl_value *);
-akl_cfun_t       akl_get_cfun_value(struct akl_value *);
-char            *akl_get_atom_name_value(struct akl_value *);
+struct akl_value *akl_duplicate_value(struct akl_instance *, struct akl_value *);
+struct akl_list *akl_list_duplicate(struct akl_instance *, struct akl_list *);
 
 int    akl_io_getc(struct akl_io_device *);
 int    akl_io_ungetc(int, struct akl_io_device *);
@@ -263,9 +284,11 @@ bool_t akl_io_eof(struct akl_io_device *dev);
 
 struct akl_value *akl_eval_value(struct akl_instance *, struct akl_value *);
 struct akl_value *akl_eval_list(struct akl_instance *, struct akl_list *);
+void akl_eval_program(struct akl_instance *);
 
 void akl_print_value(struct akl_value *);
 void akl_print_list(struct akl_list *);
+int akl_compare_values(struct akl_value *, struct akl_value *);
 
 enum AKL_INIT_FLAGS { 
     AKL_LIB_BASIC = 0x001,

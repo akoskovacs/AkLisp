@@ -20,29 +20,29 @@
  * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ************************************************************************/
-#include <ctype.h>
-
 #include "aklisp.h"
-
-static char buffer[256];
+#define BUF_SIZE 256
+static char buffer[BUF_SIZE];
+static token_t last_token;
+static int last_char;
 
 int akl_io_getc(struct akl_io_device *dev)
 {
-    int ch;
     if (dev == NULL)
         return EOF;
 
     switch (dev->iod_type) {
         case DEVICE_FILE:
-        ch = fgetc(dev->iod_source.file);
+        last_char = fgetc(dev->iod_source.file);
         break;
 
         case DEVICE_STRING:
-        ch = dev->iod_source.string[dev->iod_pos];
+        last_char = dev->iod_source.string[dev->iod_pos];
         dev->iod_pos++;
         break;
     }
-    return ch;
+    dev->iod_char_count++;
+    return last_char;
 }
 
 int akl_io_ungetc(int ch, struct akl_io_device *dev)
@@ -57,6 +57,7 @@ int akl_io_ungetc(int ch, struct akl_io_device *dev)
         dev->iod_pos--;
         return dev->iod_source.string[dev->iod_pos];
     }
+    dev->iod_char_count--;
     return 0;
 }
 
@@ -70,31 +71,29 @@ bool_t akl_io_eof(struct akl_io_device *dev)
         return feof(dev->iod_source.file);
 
         case DEVICE_STRING:
-        return dev->iod_source.string[dev->iod_pos] == 0 ? 1 : 0;
+        return dev->iod_source.string[dev->iod_pos] == '\0' ? 1 : 0;
     }
 }
 
-size_t copy_number(struct akl_io_device *dev)
+size_t copy_number(struct akl_io_device *dev, char op)
 {
     int ch;
     size_t i = 0;
     assert(dev);
-    if (buffer[0] == '+' || buffer[0] == '-')
-        i++;
+    if (op != 0)
+        buffer[i++] = op;
 
     while ((ch = akl_io_getc(dev))) {
-        if (akl_io_eof(dev))
-            break;
-        if (isdigit(ch)) {
+        if (isdigit(ch) || ch == '.') {
             buffer[i] = ch;
             buffer[++i] = '\0';
         } else {
             akl_io_ungetc(ch, dev);
             break;
         }
+        if (akl_io_eof(dev))
+            break;
     }
-
-    buffer[i] = '\0';
     return i;
 }
 
@@ -104,17 +103,15 @@ size_t copy_string(struct akl_io_device *dev)
     size_t i = 0;
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
-        if (akl_io_eof(dev))
-            break;
         if (ch != '\"') {
             buffer[i] = ch;
             buffer[++i] = '\0';
         } else {
             break;
         }
+        if (akl_io_eof(dev))
+            break;
     }
-
-    buffer[i] = '\0';
     return i;
 }
 
@@ -125,8 +122,6 @@ size_t copy_atom(struct akl_io_device *dev)
 
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
-        if (akl_io_eof(dev))
-            break;
         if (ch != ' ' && ch != ')' && ch != '\n') {
             buffer[i] = toupper(ch); /* Good old times... */
             buffer[++i] = '\0';
@@ -134,33 +129,38 @@ size_t copy_atom(struct akl_io_device *dev)
             akl_io_ungetc(ch, dev);
             break;
         }
+        if (akl_io_eof(dev))
+            break;
     }
-
-    buffer[i] = '\0';
     return i;
 }
 
 token_t akl_lex(struct akl_io_device *dev)
 {
     int ch;
-    int i;
-    int op = 0;
+    /* We should take care of the '+', '++',
+      and etc. style functions. Moreover the
+      positive and negative numbers must also work:
+      '(++ +5)' should be valid. */
+    char op = 0;
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
         if (ch == EOF) {
             return tEOF;
         } else if (ch == '+' || ch == '-') {
+            if (op != 0) {
+                if (op == '+')
+                    strcpy(buffer, "++");
+                else
+                    strcpy(buffer, "--");
+                op = 0;
+                return tATOM;
+            }
             op = ch;
         } else if (isdigit(ch)) {
             akl_io_ungetc(ch, dev);
-            if (op != 0) {
-                if (op == '+')
-                    strcpy(buffer, "+");
-                else
-                    strcpy(buffer, "-");
-                op = 0;
-            }
-            copy_number(dev);
+            copy_number(dev, op);
+            op = 0;
             return tNUMBER;
         } else if (ch == ' ' || ch == '\n') {
             if (op != 0) {
@@ -197,6 +197,8 @@ token_t akl_lex(struct akl_io_device *dev)
                 return tTRUE;
             else
                 return tATOM;
+        } else if (ch == '\n') {
+            dev->iod_line_count++;
         } else {
             continue;
         }
@@ -212,11 +214,10 @@ char *akl_lex_get_string(void)
 char *akl_lex_get_atom(void)
 {
     char *str = strdup(buffer);
-    buffer[0] = '\0';
     return str;
 }
 
-int akl_lex_get_number(void)
+double akl_lex_get_number(void)
 {
-    return atoi(buffer);
+    return strtod(buffer, NULL);
 }

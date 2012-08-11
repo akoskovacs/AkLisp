@@ -21,17 +21,15 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ************************************************************************/
 #include "aklisp.h"
-#define HAVE_READLINE
-
-#ifdef HAVE_READLINE
-#include <readline/readline.h>
-#include <readline/history.h>
-#endif
 #include <unistd.h>
 #include <string.h>
 
 #define PROMPT_MAX 10
 static struct akl_instance *in = NULL;
+
+#ifdef HAVE_READLINE
+#include <readline/readline.h>
+#include <readline/history.h>
 
 /* Give back a possible completion of 'text', by traversing
  through the red black tree of all global atoms. */
@@ -40,21 +38,20 @@ akl_generator(const char *text, int state)
 {
     static struct akl_atom *atom;
     static size_t tlen = 0;
-    char *ret = NULL;
     /* If this is the first run, initialize the 'atom' with
       the first element of the red black tree. */
     if (!state) {
         atom = RB_MIN(ATOM_TREE, &in->ai_atom_head);
         tlen = strlen(text);
+    } else {
+        atom = RB_NEXT(ATOM_TREE, &in->ai_atom_head, atom);
     }
 
     while (atom != NULL) {
         if (strncasecmp(atom->at_name, text, tlen) == 0)
-            ret = strdup(atom->at_name);
+            return strdup(atom->at_name);
 
         atom = RB_NEXT(ATOM_TREE, &in->ai_atom_head, atom);
-        if (ret)
-            return ret;
     }
     return NULL;
 }
@@ -75,24 +72,49 @@ akl_completion(char *text, int start, int end)
   brace. We should also move left the text cursor. */
 static int akl_insert_rbrace(int count, int key)
 {
-    rl_insert_text("(");
-    rl_insert_text(")");
+    rl_insert_text("()");
     rl_backward_char(1, 1);
     return 0;
 }
 
+static int akl_insert_strterm(int count, int key)
+{
+    rl_insert_text("\"\"");
+    rl_backward_char(1, 1);
+    return 0;
+}
 static void init_readline(void)
 {
     rl_readline_name = "AkLisp";
     rl_attempted_completion_function = (CPPFunction *)akl_completion;
     rl_bind_key('(', akl_insert_rbrace);
+    rl_bind_key('"', akl_insert_strterm);
 }
+#else //HAVE_READLINE
+static void init_readline(void) {}
+static void add_history(char *line __unused) {}
+
+static char *readline(char *prompt)
+{
+#define INPUT_BUFSIZE 256
+    static char buffer[INPUT_BUFSIZE];
+    int ind = 0;
+    char ch;
+    printf("%s", prompt);
+    while ((ch = getchar()) != '\n'
+        && ind < INPUT_BUFSIZE) {
+        buffer[ind] = ch; 
+        buffer[++ind] = '\0';
+    }
+    return buffer;
+}
+#endif //HAVE_READLINE
 
 static void interactive_mode(void)
 {
     char prompt[PROMPT_MAX];
     int lnum = 1;
-    struct akl_list *il;
+    struct akl_value *value;
     char *line;
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
@@ -105,21 +127,18 @@ static void interactive_mode(void)
         line = readline(prompt);
         if (line == NULL || strcmp(line, "exit") == 0) {
             printf("Bye!\n");
-            free(line);
+            AKL_FREE(line);
             return;
         }
         if (line && *line) {
             add_history(line);
-            in->ai_device = akl_new_string_device(line);
-            /*inst->ai_program = akl_new_list(in);*/
-            il = akl_parse_list(in, in->ai_device, FALSE);
-            il = AKL_GET_LIST_VALUE(AKL_FIRST_VALUE(il));
-            akl_print_list(il);
+            akl_reset_string_interpreter(in, line);
+            value = akl_parse_value(in, in->ai_device);
+            akl_print_value(value);
             /*akl_list_append(in, inst->ai_program, il);*/
             printf("\n => ");
-            akl_print_value(akl_eval_list(in, il));
+            akl_print_value(akl_eval_value(in, value));
             printf("\n");
-            free(in->ai_device);
         }
         lnum++;
     }
