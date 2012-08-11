@@ -114,7 +114,7 @@ static void interactive_mode(void)
 {
     char prompt[PROMPT_MAX];
     int lnum = 1;
-    struct akl_list *il;
+    struct akl_value *value;
     char *line;
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
@@ -133,11 +133,11 @@ static void interactive_mode(void)
         if (line && *line) {
             add_history(line);
             akl_reset_string_interpreter(in, line);
-            akl_parse_io(in);
-//            akl_print_list(il);
+            value = akl_parse_value(in, in->ai_device);
+            akl_print_value(value);
             /*akl_list_append(in, inst->ai_program, il);*/
             printf("\n => ");
-            akl_print_value(akl_eval_list(in, il));
+            akl_print_value(akl_eval_value(in, value));
             printf("\n");
         }
         lnum++;
