@@ -122,8 +122,6 @@ size_t copy_atom(struct akl_io_device *dev)
 
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
-        if (akl_io_eof(dev))
-            break;
         if (ch != ' ' && ch != ')' && ch != '\n') {
             buffer[i] = toupper(ch); /* Good old times... */
             buffer[++i] = '\0';
@@ -131,6 +129,8 @@ size_t copy_atom(struct akl_io_device *dev)
             akl_io_ungetc(ch, dev);
             break;
         }
+        if (akl_io_eof(dev))
+            break;
     }
     return i;
 }
