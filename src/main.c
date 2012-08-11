@@ -21,17 +21,15 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ************************************************************************/
 #include "aklisp.h"
-#define HAVE_READLINE
-
-#ifdef HAVE_READLINE
-#include <readline/readline.h>
-#include <readline/history.h>
-#endif
 #include <unistd.h>
 #include <string.h>
 
 #define PROMPT_MAX 10
 static struct akl_instance *in = NULL;
+
+#ifdef HAVE_READLINE
+#include <readline/readline.h>
+#include <readline/history.h>
 
 /* Give back a possible completion of 'text', by traversing
  through the red black tree of all global atoms. */
@@ -92,6 +90,25 @@ static void init_readline(void)
     rl_bind_key('(', akl_insert_rbrace);
     rl_bind_key('"', akl_insert_strterm);
 }
+#else //HAVE_READLINE
+static void init_readline(void) {}
+static void add_history(char *line __unused) {}
+
+static char *readline(char *prompt)
+{
+#define INPUT_BUFSIZE 256
+    static char buffer[INPUT_BUFSIZE];
+    int ind = 0;
+    char ch;
+    printf("%s", prompt);
+    while ((ch = getchar()) != '\n'
+        && ind < INPUT_BUFSIZE) {
+        buffer[ind] = ch; 
+        buffer[++ind] = '\0';
+    }
+    return buffer;
+}
+#endif //HAVE_READLINE
 
 static void interactive_mode(void)
 {
@@ -110,21 +127,18 @@ static void interactive_mode(void)
         line = readline(prompt);
         if (line == NULL || strcmp(line, "exit") == 0) {
             printf("Bye!\n");
-            free(line);
+            AKL_FREE(line);
             return;
         }
         if (line && *line) {
             add_history(line);
-            in->ai_device = akl_new_string_device(line);
-            /*inst->ai_program = akl_new_list(in);*/
-            il = akl_parse_list(in, in->ai_device);
-            il = AKL_GET_LIST_VALUE(AKL_FIRST_VALUE(il));
-            akl_print_list(il);
+            akl_reset_string_interpreter(in, line);
+            akl_parse_io(in);
+//            akl_print_list(il);
             /*akl_list_append(in, inst->ai_program, il);*/
             printf("\n => ");
             akl_print_value(akl_eval_list(in, il));
             printf("\n");
-            free(in->ai_device);
         }
         lnum++;
     }
