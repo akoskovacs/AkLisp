@@ -262,10 +262,11 @@ struct akl_list *akl_cdr(struct akl_instance *in, struct akl_list *l)
 
 void akl_print_value(struct akl_value *val)
 {
-    if (AKL_IS_NIL(val) || val == NULL) {
+    if (val == NULL || AKL_IS_NIL(val)) {
         START_COLOR(GRAY);
         printf("NIL");
         END_COLOR;
+        return;
     }
 
     switch (val->va_type) {
@@ -314,7 +315,7 @@ void akl_print_list(struct akl_list *list)
     struct akl_list_entry *ent;
     
     assert(list);
-    if (AKL_IS_NIL(list) || list == NULL 
+    if (list == NULL || AKL_IS_NIL(list)
         || list->li_elem_count == 0) {
         START_COLOR(GRAY);
         printf("NIL");
