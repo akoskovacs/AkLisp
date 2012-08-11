@@ -809,7 +809,7 @@ AKL_CFUN_DEFINE(cons, in, args)
 AKL_CFUN_DEFINE(read_number, in, args)
 {
     double num = 0;
-    scanf("%f", &num);
+    scanf("%lf", &num);
     return akl_new_number_value(in, num);
 }
 #ifdef _GNUC_
