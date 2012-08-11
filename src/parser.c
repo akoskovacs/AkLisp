@@ -65,6 +65,8 @@ struct akl_value *akl_parse_value(struct akl_instance *in, struct akl_io_device 
 
             default:
             break;
+            /* TODO: Set the 'is_quote' to false
+              when is "not used" */
         }
     }
     return NULL;
@@ -74,7 +76,7 @@ struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *d
 {
     struct akl_value *value = NULL;
     struct akl_list *list, *lval, *last_list = NULL;
-    token_t tok = akl_lex_get(dev);
+    token_t tok = akl_lex(dev);
     if (tok == tLBRACE) {
         list = akl_new_list(in);
         while ((value = akl_parse_value(in, dev)) != NULL) {

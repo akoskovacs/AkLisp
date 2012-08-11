@@ -33,7 +33,7 @@
 
 #define MALLOC_FUNCTION malloc
 #define FREE_FUNCTION free
-#define AKL_MALLOC(type) (type *)akl_malloc(sizeof(type))
+#define AKL_MALLOC(in, type) (type *)akl_malloc(in, sizeof(type))
 #define AKL_FREE(ptr) FREE_FUNCTION((void *)(ptr))
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
@@ -143,13 +143,14 @@ struct akl_io_device {
     unsigned iod_line_count;
 };
 
-#define AKL_NR_GC_STAT_ENT 5
+#define AKL_NR_GC_STAT_ENT 6
 enum { AKL_GC_STAT_ATOM,
        AKL_GC_STAT_LIST,
        AKL_GC_STAT_NUMBER,
        AKL_GC_STAT_STRING,
-       AKL_GC_STAT_LIST_ENTRY
-};
+       AKL_GC_STAT_LIST_ENTRY,
+       AKL_GC_STAT_ALLOC
+ };
 
 struct akl_instance {
     struct akl_io_device *ai_device;
@@ -231,12 +232,12 @@ typedef enum {
 
 struct akl_instance  *akl_new_file_interpreter(FILE *);
 struct akl_instance  *akl_new_string_interpreter(const char *);
+struct akl_instance  *
+akl_reset_string_interpreter(struct akl_instance *in, const char *str);
 struct akl_io_device *akl_new_file_device(FILE *);
 struct akl_io_device *akl_new_string_device(const char *);
 
 token_t akl_lex(struct akl_io_device *);
-token_t akl_lex_get(struct akl_io_device *);
-void    akl_lex_put(token_t);
 char   *akl_lex_get_string(void);
 int     akl_lex_get_number(void);
 char   *akl_lex_get_atom(void);
@@ -275,6 +276,8 @@ akl_list_insert_head(struct akl_instance *, struct akl_list *, struct akl_value 
 struct akl_value *akl_list_index(struct akl_list *, int);
 struct akl_list_entry *akl_list_find(struct akl_list *, struct akl_value *);
 struct akl_value *akl_entry_to_value(struct akl_list_entry *);
+struct akl_value *akl_duplicate_value(struct akl_instance *, struct akl_value *);
+struct akl_list *akl_list_duplicate(struct akl_instance *, struct akl_list *);
 
 int    akl_io_getc(struct akl_io_device *);
 int    akl_io_ungetc(int, struct akl_io_device *);

@@ -86,7 +86,7 @@ size_t copy_number(struct akl_io_device *dev)
     while ((ch = akl_io_getc(dev))) {
         if (akl_io_eof(dev))
             break;
-        if (isdigit(ch)) {
+        if (isdigit(ch) || ch == '.') {
             buffer[i] = ch;
             buffer[++i] = '\0';
         } else {
@@ -135,36 +135,28 @@ size_t copy_atom(struct akl_io_device *dev)
     return i;
 }
 
-/* Only get the next token if there is no other in
-   the 'last_token' variable -- i.e.: the 'akl_lex_put()'
-   function is not used before -- */
-token_t akl_lex_get(struct akl_io_device *dev)
-{
-    token_t tok;
-    if (last_token != -1) {
-        tok = last_token;
-        last_token = -1;
-    } else {
-        tok = akl_lex(dev);
-    }
-    return tok;
-}
-
-void akl_lex_put(token_t tok)
-{
-    last_token = tok;
-}
-
 token_t akl_lex(struct akl_io_device *dev)
 {
     int ch;
     int i;
-    int op = 0;
+    /* We should take care of the '+', '++',
+      and etc. style functions. Moreover the
+      positive and negative numbers must also work:
+      '(++ +5)' should be valid. */
+    char op = 0;
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
         if (ch == EOF) {
             return tEOF;
         } else if (ch == '+' || ch == '-') {
+            if (op != 0) {
+                if (op == '+')
+                    strcat(buffer, "+");
+                else
+                    strcat(buffer, "-");
+                op = 0;
+                return tATOM;
+            }
             op = ch;
         } else if (isdigit(ch)) {
             akl_io_ungetc(ch, dev);
@@ -213,7 +205,7 @@ token_t akl_lex(struct akl_io_device *dev)
             else
                 return tATOM;
         } else if (ch == '\n') {
-            dev->iod_char_count++;
+            dev->iod_line_count++;
         } else {
             continue;
         }

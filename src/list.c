@@ -130,6 +130,54 @@ akl_list_insert_head(struct akl_instance *in, struct akl_list *list, struct akl_
     return le;
 }
 
+struct akl_value *akl_duplicate_value(struct akl_instance *in, struct akl_value *oval)
+{
+    struct akl_value *nval;
+    struct akl_atom *natom, *oatom;
+    if (oval == NULL)
+        return NULL;
+
+    switch (oval->va_type) {
+        case TYPE_LIST:
+        return akl_new_list_value(in
+                  , akl_list_duplicate(in, AKL_GET_LIST_VALUE(oval)));
+
+        case TYPE_ATOM:
+        oatom = AKL_GET_ATOM_VALUE(oval);
+        natom = akl_new_atom(in, strdup(oatom->at_name));
+        natom->at_desc = strdup(oatom->at_desc);
+        natom->at_value = akl_duplicate_value(in, oatom->at_value);
+        return akl_new_atom_value(in, strdup(oatom->at_name));
+
+        case TYPE_NUMBER:
+        return akl_new_number_value(in, AKL_GET_NUMBER_VALUE(oval));
+
+        case TYPE_BUILTIN: case TYPE_CFUN:
+        nval = akl_new_value(in);
+        *nval = *oval;
+        return nval;
+
+        case TYPE_NIL:
+        return &NIL_VALUE;
+
+        case TYPE_TRUE:
+        return &TRUE_VALUE;
+    }
+    return NULL;
+}
+
+struct akl_list *akl_list_duplicate(struct akl_instance *in, struct akl_list *list)
+{
+    struct akl_list *nlist = akl_new_list(in);
+    struct akl_list_entry *ent;
+    struct akl_value *nval;
+    AKL_LIST_FOREACH(ent, list) {
+        nval = akl_duplicate_value(in, AKL_ENTRY_VALUE(ent));
+        akl_list_append(in, nlist, nval);
+    }
+    return nlist;
+}
+
 struct akl_list_entry *akl_list_find(struct akl_list *list, struct akl_value *val)
 {
     struct akl_list_entry *ent;
