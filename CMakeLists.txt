@@ -19,7 +19,12 @@ if (!UNIX)
 endif ()
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
-find_package(Readline REQUIRED)
+
+find_package(Readline)
+if (READLINE_FOUND)
+    add_definitions(-DHAVE_READLINE)
+endif()
+
 set(SOURCES 
     ${SDIR}${PLATSRC}
     ${SDIR}aklisp.c
