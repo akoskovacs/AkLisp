@@ -504,20 +504,6 @@ AKL_CFUN_DEFINE(range, in, args)
     return akl_new_list_value(in, range);
 }
 
-AKL_CFUN_DEFINE(zerop, in, args)
-{
-    struct akl_value *a1 = AKL_FIRST_VALUE(args);
-    if (a1 == NULL || AKL_IS_NIL(a1))
-        return &NIL_VALUE;
-    else if (a1->va_type == TYPE_NUMBER) {
-        if (a1->va_value.number == 0)
-            return &TRUE_VALUE;
-    } else {
-        return &NIL_VALUE;
-    }
-    return &NIL_VALUE;
-}
-
 AKL_CFUN_DEFINE(index, in, args)
 {
     int ind;
@@ -562,6 +548,29 @@ AKL_CFUN_DEFINE(lessp, in, args)
     return cmp_two_args(in, args, -1);
 }
 
+/* Less or equal */
+AKL_CFUN_DEFINE(less_eqp, in, args)
+{
+    if (cmp_two_args(in, args, -1) == &NIL_VALUE) {
+        if (cmp_two_args(in, args, 0) == &TRUE_VALUE)
+            return &TRUE_VALUE;
+    } else {
+        return &TRUE_VALUE;
+    }
+    return &NIL_VALUE;
+}
+
+/* Greater or equal */
+AKL_CFUN_DEFINE(greater_eqp, in, args)
+{
+    if (cmp_two_args(in, args, 1) == &NIL_VALUE) {
+        if (cmp_two_args(in, args, 0) == &TRUE_VALUE)
+            return &TRUE_VALUE;
+    } else {
+        return &TRUE_VALUE;
+    }
+    return &NIL_VALUE;
+}
 
 /* Evaulate the first expression (mostly a list with a logical function),
     if that is not NIL, return with the evaulated second argument. */
@@ -630,6 +639,81 @@ AKL_CFUN_DEFINE(nilp, in, args)
         return &TRUE_VALUE;
     else
         return &NIL_VALUE;
+}
+
+AKL_CFUN_DEFINE(zerop, in, args)
+{
+    int n;
+    struct akl_value *val = AKL_FIRST_VALUE(args);
+    if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
+        n = AKL_GET_NUMBER_VALUE(val);
+        if (n == 0) 
+            return &TRUE_VALUE;
+        else
+            return &NIL_VALUE;
+    }
+    /* TODO: Give error message */
+    return &NIL_VALUE;
+}
+
+AKL_CFUN_DEFINE(evenp, in, args)
+{
+    int n;
+    struct akl_value *val = AKL_FIRST_VALUE(args);
+    if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
+        n = AKL_GET_NUMBER_VALUE(val);
+        if ((n % 2) == 0) 
+            return &TRUE_VALUE;
+        else
+            return &NIL_VALUE;
+    }
+    /* TODO: Give error message */
+    return &NIL_VALUE;
+}
+
+AKL_CFUN_DEFINE(oddp, in, args)
+{
+    int n;
+    struct akl_value *val = AKL_FIRST_VALUE(args);
+    if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
+        n = AKL_GET_NUMBER_VALUE(val);
+        if ((n % 2) != 0) 
+            return &TRUE_VALUE;
+        else
+            return &NIL_VALUE;
+    }
+    /* TODO: Give error message */
+    return &NIL_VALUE;
+}
+
+AKL_CFUN_DEFINE(posp, in, args)
+{
+    int n;
+    struct akl_value *val = AKL_FIRST_VALUE(args);
+    if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
+        n = AKL_GET_NUMBER_VALUE(val);
+        if (n > 0)
+            return &TRUE_VALUE;
+        else
+            return &NIL_VALUE;
+    }
+    /* TODO: Give error message */
+    return &NIL_VALUE;
+}
+
+AKL_CFUN_DEFINE(negp, in, args)
+{
+    int n;
+    struct akl_value *val = AKL_FIRST_VALUE(args);
+    if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
+        n = AKL_GET_NUMBER_VALUE(val);
+        if (n < 0)
+            return &TRUE_VALUE;
+        else
+            return &NIL_VALUE;
+    }
+    /* TODO: Give error message */
+    return &NIL_VALUE;
 }
 
 AKL_CFUN_DEFINE(typeof, in, args)
@@ -778,6 +862,9 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, list, "LIST", "Create list");
         AKL_ADD_CFUN(in, car,  "CAR", "Get the head of a list");
         AKL_ADD_CFUN(in, cdr,  "CDR", "Get the tail of a list");
+        AKL_ADD_CFUN(in, car,  "FIRST", "Get the first element of the list");
+        AKL_ADD_CFUN(in, cdr,  "REST", "Get the tail of a list");
+        AKL_ADD_CFUN(in, cdr,  "TAIL", "Get the tail of a list");
     }
 
     if (flags & AKL_LIB_DATA) {
@@ -800,14 +887,20 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
     if (flags & AKL_LIB_PREDICATE) {
         AKL_ADD_CFUN(in, equal, "=", "Tests it\'s argument for equality");
         AKL_ADD_CFUN(in, lessp, "<",  "If it\'s first argument is less than the second returns with T");
+        AKL_ADD_CFUN(in, less_eqp, "<=",  "If it\'s first argument is less or equal to the second returns with T");
         AKL_ADD_CFUN(in, greaterp, ">", "If it\'s first argument is greater than the second returns with T");
-        AKL_ADD_CFUN(in, equal, "EQ", "Tests it\'s argument for equality");
+        AKL_ADD_CFUN(in, greater_eqp, ">=", "If it\'s first argument is greater or equal to the second returns with T");
+        AKL_ADD_CFUN(in, equal, "EQ?", "Tests it\'s argument for equality");
         AKL_ADD_CFUN(in, equal, "EQUAL", "Tests it\'s argument for equality");
-        AKL_ADD_CFUN(in, equal, "EQUALP", "Tests it\'s argument for equality");
-        AKL_ADD_CFUN(in, lessp, "LESSP",  "If it\'s first argument is less than the second returns with T");
-        AKL_ADD_CFUN(in, greaterp, "GREATERP", "If it\'s first argument is greater than the second returns with T");
-        AKL_ADD_CFUN(in, zerop, "ZEROP", "Predicate which, returns with true if it\'s argument is zero");
-        AKL_ADD_CFUN(in, nilp, "NILP", "Predicate which, returns with true when it\'s argument is NIL");
+        AKL_ADD_CFUN(in, equal, "EQUAL?", "Tests it\'s argument for equality");
+        AKL_ADD_CFUN(in, lessp, "LESS?",  "If it\'s first argument is less than the second returns with T");
+        AKL_ADD_CFUN(in, greaterp, "GREATER?", "If it\'s first argument is greater than the second returns with T");
+        AKL_ADD_CFUN(in, zerop, "ZERO?", "Predicate which, returns with true if it\'s argument is zero");
+        AKL_ADD_CFUN(in, nilp, "NIL?", "Predicate which, returns with true when it\'s argument is NIL");
+        AKL_ADD_CFUN(in, oddp, "ODD?", "Predicate which, returns with true when it\'s argument is odd");
+        AKL_ADD_CFUN(in, oddp, "EVEN?", "Predicate which, returns with true when it\'s argument is even");
+        AKL_ADD_CFUN(in, negp, "NEGATIVE?", "Predicate which, returns with true when it\'s argument is positive");
+        AKL_ADD_CFUN(in, posp, "POSITIVE?", "Predicate which, returns with true when it\'s argument is negative");
     }
 
     if (flags & AKL_LIB_NUMBERIC) {
@@ -820,8 +913,8 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, mod,   "%", "Arithmetic modulus");
         /* Ok. Again... */
         AKL_ADD_CFUN(in, plus,  "PLUS", "Arithmetic addition and string concatenation");
-        AKL_ADD_BUILTIN(in, incf, "INCF", "Increase a number value by 1");
-        AKL_ADD_BUILTIN(in, decf, "DECF", "Decrease a number value by 1");
+        AKL_ADD_BUILTIN(in, incf, "INC!", "Increase a number value by 1");
+        AKL_ADD_BUILTIN(in, decf, "DEC!", "Decrease a number value by 1");
         AKL_ADD_CFUN(in, minus, "MINUS", "Artihmetic substraction");
         AKL_ADD_CFUN(in, times, "TIMES", "Arithmetic multiplication");
         AKL_ADD_CFUN(in, div,   "DIV",  "Arithmetic division");
@@ -838,7 +931,7 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         
     if (flags & AKL_LIB_SYSTEM) {
         AKL_ADD_CFUN(in, read_number, "READ-NUMBER", "Read a number from the standard input");
-        AKL_ADD_CFUN(in, read_string, "READ-STRING", "Read a string from the standard input");
+        AKL_ADD_CFUN(in, read_string, "READ-WORD", "Read a word from the standard input");
         AKL_ADD_CFUN(in, newline, "NEWLINE", "Just put out a newline character to the standard output");
         AKL_ADD_CFUN(in, print,   "PRINT", "Print different values to the screen in Lisp-style");
         AKL_ADD_CFUN(in, display, "DISPLAY", "Print numbers or strings to the screen");
