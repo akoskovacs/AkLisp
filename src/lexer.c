@@ -217,7 +217,7 @@ char *akl_lex_get_atom(void)
     return str;
 }
 
-int akl_lex_get_number(void)
+double akl_lex_get_number(void)
 {
-    return atoi(buffer);
+    return strtod(buffer, NULL);
 }

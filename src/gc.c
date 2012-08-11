@@ -236,7 +236,7 @@ struct akl_value *akl_new_string_value(struct akl_instance *in, char *str)
     return val;
 }
 
-struct akl_value *akl_new_number_value(struct akl_instance *in, int num)
+struct akl_value *akl_new_number_value(struct akl_instance *in, double num)
 {
     struct akl_value *val = akl_new_value(in);
     val->va_type = TYPE_NUMBER;

@@ -112,7 +112,7 @@ extern struct akl_value {
     union {
         struct akl_atom *atom;
         char *string;
-        int number;
+        double number;
         struct akl_list *list;
         akl_cfun_t cfunc;
     } va_value;
@@ -238,7 +238,7 @@ struct akl_io_device *akl_new_string_device(const char *);
 
 token_t akl_lex(struct akl_io_device *);
 char   *akl_lex_get_string(void);
-int     akl_lex_get_number(void);
+double  akl_lex_get_number(void);
 char   *akl_lex_get_atom(void);
 
 struct akl_list  *akl_parse_list(struct akl_instance *, struct akl_io_device *);
@@ -256,7 +256,7 @@ struct akl_atom       *akl_new_atom(struct akl_instance *in, char *name);
 struct akl_list_entry *akl_new_list_entry(struct akl_instance *in);
 struct akl_value      *akl_new_value(struct akl_instance *in);
 struct akl_value      *akl_new_string_value(struct akl_instance *in, char *str);
-struct akl_value      *akl_new_number_value(struct akl_instance *in, int num);
+struct akl_value      *akl_new_number_value(struct akl_instance *in, double num);
 struct akl_value      *akl_new_list_value(struct akl_instance *in, struct akl_list *lh);
 struct akl_value      *akl_new_atom_value(struct akl_instance * in, char *name);
 

@@ -30,7 +30,7 @@ AKL_CFUN_DEFINE(plus, in, args)
 {
     struct akl_list_entry *ent;
     struct akl_value *val;
-    int sum = 0;
+    double sum = 0;
     char *str = NULL;
     if (AKL_IS_NIL(args))
         return &NIL_VALUE;
@@ -72,7 +72,7 @@ AKL_CFUN_DEFINE(minus, in, args)
 {
     struct akl_list_entry *ent;
     struct akl_value *val;
-    int ret = 0;
+    double ret = 0;
     bool_t is_first = TRUE;
     if (AKL_IS_NIL(args))
         return &NIL_VALUE;
@@ -98,7 +98,7 @@ AKL_CFUN_DEFINE(times, in, args)
     struct akl_value *val, *a1, *a2;
     int n1, i;
     char *str, *s2;
-    int ret = 1;
+    double ret = 1;
 
     if (AKL_IS_NIL(args))
         return &NIL_VALUE;
@@ -108,7 +108,7 @@ AKL_CFUN_DEFINE(times, in, args)
     a1 = AKL_FIRST_VALUE(args);
     a2 = AKL_SECOND_VALUE(args);
     if (a1->va_type == TYPE_NUMBER && a2->va_type == TYPE_STRING) {
-        n1 = AKL_GET_NUMBER_VALUE(a1);
+        n1 = (int)AKL_GET_NUMBER_VALUE(a1);
         s2 = AKL_GET_STRING_VALUE(a2);
         str = (char *)akl_malloc(in, n1*strlen(s2)+1);
         for (i = 0; i < n1; i++) {
@@ -140,7 +140,7 @@ AKL_CFUN_DEFINE(div, in, args)
 {
     struct akl_list_entry *ent;
     struct akl_value *val;
-    int ret = 0;
+    double ret = 0.0;
     bool_t is_first = TRUE;
     if (AKL_IS_NIL(args))
         return &NIL_VALUE;
@@ -172,14 +172,23 @@ AKL_CFUN_DEFINE(mod, in, args)
        val = AKL_ENTRY_VALUE(ent);
         if (val->va_type == TYPE_NUMBER) {
             if (is_first) {
-                ret = AKL_GET_NUMBER_VALUE(val);
+                ret = (int)AKL_GET_NUMBER_VALUE(val);
                 is_first = FALSE;
             } else {
-                ret %= AKL_GET_NUMBER_VALUE(val);
+                ret %= (int)AKL_GET_NUMBER_VALUE(val);
             }
         }
     }
     return akl_new_number_value(in, ret);
+}
+
+AKL_CFUN_DEFINE(average, in, args)
+{
+    struct akl_value *value = plus_function(in, args);
+    double num = AKL_GET_NUMBER_VALUE(value);
+    AKL_GC_DEC_REF(in, value);
+    num /= args->li_elem_count;
+    return akl_new_number_value(in, num);
 }
 
 AKL_CFUN_DEFINE(not, in __unused, args)
@@ -267,7 +276,7 @@ AKL_CFUN_DEFINE(display, in, args)
         tmp = AKL_ENTRY_VALUE(ent);
         switch (tmp->va_type) {
             case TYPE_NUMBER:
-            printf("%d", AKL_GET_NUMBER_VALUE(tmp));
+            printf("%g", AKL_GET_NUMBER_VALUE(tmp));
             break;
 
             case TYPE_STRING:
@@ -667,7 +676,7 @@ AKL_CFUN_DEFINE(evenp, in, args)
     int n;
     struct akl_value *val = AKL_FIRST_VALUE(args);
     if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
-        n = AKL_GET_NUMBER_VALUE(val);
+        n = (int)AKL_GET_NUMBER_VALUE(val);
         if ((n % 2) == 0) 
             return &TRUE_VALUE;
         else
@@ -682,7 +691,7 @@ AKL_CFUN_DEFINE(oddp, in, args)
     int n;
     struct akl_value *val = AKL_FIRST_VALUE(args);
     if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
-        n = AKL_GET_NUMBER_VALUE(val);
+        n = (int)AKL_GET_NUMBER_VALUE(val);
         if ((n % 2) != 0) 
             return &TRUE_VALUE;
         else
@@ -799,8 +808,8 @@ AKL_CFUN_DEFINE(cons, in, args)
 
 AKL_CFUN_DEFINE(read_number, in, args)
 {
-    int num = 0;
-    scanf("%d", &num);
+    double num = 0;
+    scanf("%f", &num);
     return akl_new_number_value(in, num);
 }
 #ifdef _GNUC_
@@ -941,6 +950,7 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, times, "TIMES", "Arithmetic multiplication");
         AKL_ADD_CFUN(in, div,   "DIV",  "Arithmetic division");
         AKL_ADD_CFUN(in, mod,   "MOD", "Arithmetic modulus");
+        AKL_ADD_CFUN(in, average, "AVERAGE", "Just average");
     }
 
     if (flags & AKL_LIB_LOGICAL) {

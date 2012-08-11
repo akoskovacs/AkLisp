@@ -272,7 +272,7 @@ void akl_print_value(struct akl_value *val)
     switch (val->va_type) {
         case TYPE_NUMBER:
         START_COLOR(YELLOW);
-        printf("%d", AKL_GET_NUMBER_VALUE(val));
+        printf("%g", AKL_GET_NUMBER_VALUE(val));
         END_COLOR;
         break;
 
