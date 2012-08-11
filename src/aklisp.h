@@ -106,7 +106,7 @@ struct akl_gc_object {
 
 void *akl_malloc(struct akl_instance *, size_t);
 
-static struct akl_value {
+extern struct akl_value {
     AKL_GC_DEFINE_OBJ;
     enum akl_type va_type;
     union {
@@ -176,7 +176,7 @@ struct akl_list_entry {
     struct akl_list_entry *le_next;
 };
 
-static struct akl_list {
+extern struct akl_list {
     AKL_GC_DEFINE_OBJ;
     struct akl_list_entry *li_head;
     struct akl_list_entry *li_last; /* Last element (not the tail) */
