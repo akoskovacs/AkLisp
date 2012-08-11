@@ -75,17 +75,15 @@ bool_t akl_io_eof(struct akl_io_device *dev)
     }
 }
 
-size_t copy_number(struct akl_io_device *dev)
+size_t copy_number(struct akl_io_device *dev, char op)
 {
     int ch;
     size_t i = 0;
     assert(dev);
-    if (buffer[0] == '+' || buffer[0] == '-')
-        i++;
+    if (op != 0)
+        buffer[i++] = op;
 
     while ((ch = akl_io_getc(dev))) {
-        if (akl_io_eof(dev))
-            break;
         if (isdigit(ch) || ch == '.') {
             buffer[i] = ch;
             buffer[++i] = '\0';
@@ -93,6 +91,8 @@ size_t copy_number(struct akl_io_device *dev)
             akl_io_ungetc(ch, dev);
             break;
         }
+        if (akl_io_eof(dev))
+            break;
     }
     return i;
 }
@@ -103,14 +103,14 @@ size_t copy_string(struct akl_io_device *dev)
     size_t i = 0;
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
-        if (akl_io_eof(dev))
-            break;
         if (ch != '\"') {
             buffer[i] = ch;
             buffer[++i] = '\0';
         } else {
             break;
         }
+        if (akl_io_eof(dev))
+            break;
     }
     return i;
 }
@@ -138,7 +138,6 @@ size_t copy_atom(struct akl_io_device *dev)
 token_t akl_lex(struct akl_io_device *dev)
 {
     int ch;
-    int i;
     /* We should take care of the '+', '++',
       and etc. style functions. Moreover the
       positive and negative numbers must also work:
@@ -160,14 +159,8 @@ token_t akl_lex(struct akl_io_device *dev)
             op = ch;
         } else if (isdigit(ch)) {
             akl_io_ungetc(ch, dev);
-            if (op != 0) {
-                if (op == '+')
-                    strcpy(buffer, "+");
-                else
-                    strcpy(buffer, "-");
-                op = 0;
-            }
-            copy_number(dev);
+            copy_number(dev, op);
+            op = 0;
             return tNUMBER;
         } else if (ch == ' ' || ch == '\n') {
             if (op != 0) {
