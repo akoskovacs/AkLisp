@@ -76,17 +76,14 @@ struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *d
 {
     struct akl_value *value = NULL;
     struct akl_list *list, *lval, *last_list = NULL;
-    token_t tok = akl_lex(dev);
-    if (tok == tLBRACE) {
-        list = akl_new_list(in);
-        while ((value = akl_parse_value(in, dev)) != NULL) {
-            /* If the next value is a list, reparent it... */
-            if (AKL_CHECK_TYPE(value, TYPE_LIST)) {
-                lval = AKL_GET_LIST_VALUE(value);
-                lval->li_parent = list;
-            }
-            akl_list_append(in, list, value);
+    list = akl_new_list(in);
+    while ((value = akl_parse_value(in, dev)) != NULL) {
+        /* If the next value is a list, reparent it... */
+        if (AKL_CHECK_TYPE(value, TYPE_LIST)) {
+            lval = AKL_GET_LIST_VALUE(value);
+            lval->li_parent = list;
         }
+        akl_list_append(in, list, value);
     }
     return list;
 }
