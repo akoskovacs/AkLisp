@@ -110,7 +110,7 @@ AKL_CFUN_DEFINE(times, in, args)
     if (a1->va_type == TYPE_NUMBER && a2->va_type == TYPE_STRING) {
         n1 = AKL_GET_NUMBER_VALUE(a1);
         s2 = AKL_GET_STRING_VALUE(a2);
-        str = (char *)malloc((size_t)n1*strlen(s2)+1);
+        str = (char *)akl_malloc(in, n1*strlen(s2)+1);
         for (i = 0; i < n1; i++) {
             strcat(str, s2);
         }
@@ -430,7 +430,8 @@ AKL_CFUN_DEFINE(about, in, args)
 {
     const char *tnames[] = { "Atoms", "Lists"
                            , "Numbers", "Strings"
-                           , "List entries",  NULL };
+                           , "List entries", "Total allocated bytes"
+                           , NULL };
     int i;
     printf("\nAkLisp version %d.%d-%s\n"
             "\tCopyleft (c) Akos Kovacs\n"
@@ -708,7 +709,7 @@ AKL_CFUN_DEFINE(read_string, in, args __unused)
 #else // _GNUC_
 AKL_CFUN_DEFINE(read_string, in, args __unused)
 {
-    char *str = (char *)malloc(256);
+    char *str = (char *)akl_malloc(in, 256);
     scanf("%s", str);
     if (str != NULL)
         return akl_new_string_value(in, str);
