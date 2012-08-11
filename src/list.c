@@ -263,7 +263,9 @@ struct akl_list *akl_cdr(struct akl_instance *in, struct akl_list *l)
 void akl_print_value(struct akl_value *val)
 {
     if (AKL_IS_NIL(val) || val == NULL) {
+        START_COLOR(GRAY);
         printf("NIL");
+        END_COLOR;
     }
 
     switch (val->va_type) {
@@ -301,11 +303,6 @@ void akl_print_value(struct akl_value *val)
         break;
 
         case TYPE_NIL:
-        START_COLOR(GRAY);
-        printf("NIL");
-        END_COLOR;
-        break;
-
         case TYPE_CFUN: case TYPE_BUILTIN:
         /* Nothing to do... */
         break;
