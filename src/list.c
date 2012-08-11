@@ -152,6 +152,9 @@ struct akl_value *akl_duplicate_value(struct akl_instance *in, struct akl_value 
         case TYPE_NUMBER:
         return akl_new_number_value(in, AKL_GET_NUMBER_VALUE(oval));
 
+        case TYPE_STRING:
+        return akl_new_string_value(in, AKL_GET_STRING_VALUE(oval));
+
         case TYPE_BUILTIN: case TYPE_CFUN:
         nval = akl_new_value(in);
         *nval = *oval;

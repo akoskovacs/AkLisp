@@ -104,9 +104,8 @@ struct akl_gc_object {
                             if ((obj)->gc_obj.gc_ref_count <= 0) \
                                 AKL_GC_COLLECT_OBJ(in,obj)
 
-void akl_gc_value_destruct(struct akl_instance *, void *);
-void akl_gc_list_destruct(struct akl_instance *, void *);
-void akl_gc_atom_destruct(struct akl_instance *, void *);                                    
+void *akl_malloc(struct akl_instance *, size_t);
+
 static struct akl_value {
     AKL_GC_DEFINE_OBJ;
     enum akl_type va_type;
