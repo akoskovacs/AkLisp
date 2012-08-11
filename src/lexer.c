@@ -151,9 +151,9 @@ token_t akl_lex(struct akl_io_device *dev)
         } else if (ch == '+' || ch == '-') {
             if (op != 0) {
                 if (op == '+')
-                    strcat(buffer, "+");
+                    strcpy(buffer, "++");
                 else
-                    strcat(buffer, "-");
+                    strcpy(buffer, "--");
                 op = 0;
                 return tATOM;
             }
