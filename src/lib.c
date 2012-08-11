@@ -324,13 +324,19 @@ AKL_CFUN_DEFINE(len, in, args)
 AKL_BUILTIN_DEFINE(setq, in, args)
 {
     struct akl_atom *atom;
-    struct akl_value *value;
+    struct akl_value *value, *desc;
     atom = AKL_GET_ATOM_VALUE(AKL_FIRST_VALUE(args));
     if (atom == NULL) {
         fprintf(stderr, "setq: First argument is not an atom!\n");
         exit(-1);
     }
     value = akl_eval_value(in, AKL_SECOND_VALUE(args));
+    if (args->li_elem_count > 1) {
+        desc = AKL_THIRD_VALUE(args);
+        if (AKL_CHECK_TYPE(desc, TYPE_STRING)) {
+            atom->at_desc = AKL_GET_STRING_VALUE(desc);
+        }
+    }
     atom->at_value = value;
     akl_add_global_atom(in, atom);
     return value;
@@ -763,6 +769,21 @@ AKL_CFUN_DEFINE(typeof, in, args)
     return ret;
 }
 
+AKL_BUILTIN_DEFINE(desc, in, args)
+{
+    struct akl_value *arg;
+    struct akl_atom *atom;
+    arg = AKL_FIRST_VALUE(args);
+    if (AKL_CHECK_TYPE(arg, TYPE_ATOM)) {
+        atom = akl_get_global_atom(in, akl_get_atom_name_value(arg));
+        if (atom == NULL || atom->at_desc == NULL)
+            return &NIL_VALUE;
+
+        return akl_new_string_value(in, strdup(atom->at_desc));
+    }
+    return &NIL_VALUE;
+}
+
 AKL_CFUN_DEFINE(cons, in, args)
 {
     struct akl_value *a1, *a2;
@@ -857,7 +878,7 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
 {
     if (flags & AKL_LIB_BASIC) {
         AKL_ADD_BUILTIN(in, quote, "QUOTE", "Quote listame like as \'");
-        AKL_ADD_BUILTIN(in, setq,  "SETQ", "Bound (set) a variable to a value");
+        AKL_ADD_BUILTIN(in, setq,  "SET!", "Bound (set) a variable to a value");
         AKL_ADD_CFUN(in, progn,"PROGN", "Return with the last value");
         AKL_ADD_CFUN(in, list, "LIST", "Create list");
         AKL_ADD_CFUN(in, car,  "CAR", "Get the head of a list");
@@ -873,6 +894,7 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, len,   "LENGTH", "The length of a given value");
         AKL_ADD_CFUN(in, index, "INDEX", "Index of list");
         AKL_ADD_CFUN(in, typeof,"TYPEOF", "Get the type of the value");
+        AKL_ADD_BUILTIN(in, desc ,"DESC", "Get the description (AKA documentation) of the variable");
     }
 
     if (flags & AKL_LIB_CONDITIONAL) {
