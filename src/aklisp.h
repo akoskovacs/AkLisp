@@ -237,6 +237,7 @@ struct akl_io_device *akl_new_file_device(FILE *);
 struct akl_io_device *akl_new_string_device(const char *);
 
 token_t akl_lex(struct akl_io_device *);
+void    akl_lex_free(void);
 char   *akl_lex_get_string(void);
 double  akl_lex_get_number(void);
 char   *akl_lex_get_atom(void);

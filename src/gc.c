@@ -54,7 +54,7 @@ void *akl_malloc(struct akl_instance *in, size_t size)
         in->ai_gc_stat[AKL_GC_STAT_ALLOC] += size;
     if (ptr == NULL) {
         fprintf(stderr, "ERROR! No memory left!\n");
-        exit(-1);
+        exit(1);
     } else {
         return ptr;
     }
