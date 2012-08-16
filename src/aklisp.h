@@ -253,6 +253,7 @@ struct akl_instance  *
 akl_reset_string_interpreter(struct akl_instance *in, const char *str);
 
 token_t akl_lex(struct akl_io_device *);
+void    akl_lex_free(void);
 char   *akl_lex_get_string(void);
 double  akl_lex_get_number(void);
 char   *akl_lex_get_atom(void);

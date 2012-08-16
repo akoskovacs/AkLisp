@@ -30,8 +30,10 @@ struct akl_value *akl_parse_value(struct akl_instance *in, struct akl_io_device 
     token_t tok;
     int quote_count = 0;
     while ((tok = akl_lex(dev))) {
-        switch (tok) {
-            case tEOF: case tRBRACE:
+        switch (tok) { 
+            case tEOF:
+            akl_lex_free();
+            case tRBRACE:
             return NULL;
 
             case tATOM:
