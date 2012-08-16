@@ -159,7 +159,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
 
 void akl_eval_program(struct akl_instance *in)
 {
-    struct akl_list *list;
+    struct akl_list *list = in->ai_program;
     struct akl_list_entry *ent;
     struct akl_value *value;
     AKL_LIST_FOREACH(ent, list) {
