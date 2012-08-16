@@ -123,6 +123,7 @@ void akl_free_instance(struct akl_instance *in)
         akl_free_atom(in, t1);
     }
     akl_free_list(in, in->ai_program);
+    /* TODO: Free up user types */
 #endif
 }
 
@@ -134,6 +135,9 @@ struct akl_instance *akl_new_instance(void)
     AKL_GC_INIT_OBJ(&TRUE_VALUE, akl_gc_value_destruct);
     AKL_GC_INIT_OBJ(&NIL_LIST, akl_gc_list_destruct);
     memset(in->ai_gc_stat, 0, AKL_NR_GC_STAT_ENT * sizeof(unsigned int));
+    in->ai_utypes = (struct akl_utype **)calloc(4, sizeof(struct akl_utype *));
+    in->ai_utype_size  = 4;
+    in->ai_utype_count = 0;
     in->ai_program  = NULL;
     return in;
 }
@@ -197,6 +201,10 @@ struct akl_value *akl_new_value(struct akl_instance *in)
 
 void akl_free_value(struct akl_instance *in, struct akl_value *val)
 {
+    int type;
+    struct akl_userdata *data;
+    struct akl_utype *utype;
+    akl_destructor_t destroy;
     if (val == NULL)
         return;
 
@@ -219,6 +227,28 @@ void akl_free_value(struct akl_instance *in, struct akl_value *val)
             in && in->ai_gc_stat[AKL_GC_STAT_NUMBER]--;
             break;
 
+        case TYPE_USERDATA:
+            data = akl_get_userdata_value(val);
+            if (in) {
+                utype = in->ai_utypes[data->ud_id];
+                if (type) {
+                    destroy = utype->ut_de_fun;
+                /* Call the proper destructor function */
+                /* The 'in->ai_utypes[data->ud_id]->ut_de_fun(in, data->ud_private);' */
+                /* could be do this job, but then we could not protect  */
+                /* ourselves from the NULL pointer dereference. */
+                    if (destroy)
+                        destroy(in, data->ud_private);
+                    else
+                    /* NULL means that the object can be free()'d normally */
+                        AKL_FREE(data);
+                } /* else: ERROR */
+            } else {
+                assert(in);
+            }
+        break;
+            
+        
         default:
         /* On NIL_* and TRUE_* values we don't need
           to decrease the reference count. */
@@ -254,6 +284,21 @@ struct akl_value *akl_new_list_value(struct akl_instance *in, struct akl_list *l
     val->va_value.list = lh;
     AKL_GC_INC_REF(lh);
     return val;
+}
+
+struct akl_value *akl_new_user_value(struct akl_instance *in, unsigned int type, void *data)
+{
+    struct akl_userdata *udata;
+    struct akl_value    *value;
+    /* We should stop now, since the requested type does not exist */
+    assert(in->ai_utype_size > type && in->ai_utypes[type] != NULL);
+    udata = AKL_MALLOC(in, struct akl_userdata);
+    value = akl_new_value(in);
+    udata->ud_id = type;
+    udata->ud_private = data;
+    value->va_type = TYPE_USERDATA;
+    value->va_value.udata = udata;
+    return value;
 }
 
 void akl_free_list(struct akl_instance *in, struct akl_list *list)
@@ -302,6 +347,34 @@ char *akl_get_atom_name_value(struct akl_value *val)
     return (atom != NULL) ? atom->at_name : NULL;
 }
 
+struct akl_userdata *akl_get_userdata_value(struct akl_value *value)
+{
+    struct akl_userdata *data;
+    if (AKL_CHECK_TYPE(value, TYPE_USERDATA)) {
+       data = value->va_value.udata; 
+       return data;
+    }
+    return NULL;
+}
+
+unsigned int akl_get_utype_value(struct akl_value *value)
+{
+    struct akl_userdata *data;
+    data = akl_get_userdata_value(value);
+    if (data)
+        return data->ud_id;
+    return (unsigned int)-1;
+}
+
+void *akl_get_udata_value(struct akl_value *value)
+{
+    struct akl_userdata *data;
+    data = akl_get_userdata_value(value);
+    if (data)
+        return data->ud_private;
+    return NULL;
+}
+
 struct akl_io_device *
 akl_new_file_device(FILE *fp)
 {
@@ -322,4 +395,50 @@ akl_new_string_device(const char *str)
     dev->iod_source.string = str;
     dev->iod_pos = 0;
     return dev;
+}
+
+unsigned int 
+akl_register_type(struct akl_instance *in, const char *name, akl_destructor_t de_fun)
+{
+    struct akl_utype *type = AKL_MALLOC(in, struct akl_utype);
+    unsigned nid = in->ai_utype_count;
+    unsigned i, nsize;
+    type->ut_name = name;
+    type->ut_de_fun = de_fun;
+    /* There are some free slots */
+    if (in->ai_utype_size > nid) {
+        /* The next is also free, so we can simply use it */
+        if (in->ai_utypes[nid] == NULL) {
+            in->ai_utypes[nid] = type;
+        } else {
+            /* Oops, the next is not free, we must iterate through the 
+              array to find a NULL'd room */
+            for (i = 0; i < in->ai_utype_size; i++) {
+                /* Cool this is free */
+                if (in->ai_utypes[i] == NULL) {
+                    nid = i; /* Use the proper index as the new id */
+                    in->ai_utypes[i] = type;
+                }
+            }
+        }
+    /* There is no free slot, we must allocate some; */
+    } else {
+        nsize = in->ai_utype_size + in->ai_utype_size / 2;
+        in->ai_utypes = (struct akl_utype **)realloc(in->ai_utypes, nsize);
+        /* Initialize the new elements */
+        for (i = in->ai_utype_size; i < nsize; i++) {
+            in->ai_utypes[i] = NULL;
+        }
+        in->ai_utypes[nid] = type;
+        in->ai_utype_size = nsize;
+    }
+    in->ai_utype_count++;
+    return nid;
+}
+
+void akl_deregister_type(struct akl_instance *in, unsigned int type)
+{
+    AKL_FREE(in->ai_utypes[type]);
+    in->ai_utypes[type] = NULL;
+    in->ai_utype_count--;
 }
