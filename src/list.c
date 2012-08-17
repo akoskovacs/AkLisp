@@ -27,6 +27,7 @@ RB_GENERATE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 void akl_add_global_atom(struct akl_instance *in, struct akl_atom *atom)
 {
     AKL_GC_INC_REF(atom);
+    AKL_GC_SET_STATIC(atom);
     ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
 }
 
@@ -159,6 +160,11 @@ struct akl_value *akl_duplicate_value(struct akl_instance *in, struct akl_value 
         nval = akl_new_value(in);
         *nval = *oval;
         return nval;
+
+        case TYPE_USERDATA:
+        /* TODO: Should provide specific copy function */
+        return akl_new_user_value(in, akl_get_utype_value(oval)
+                                 , akl_get_userdata_value(oval)->ud_private);
 
         case TYPE_NIL:
         return &NIL_VALUE;
@@ -300,6 +306,12 @@ void akl_print_value(struct akl_value *val)
         case TYPE_TRUE:
         START_COLOR(BRIGHT_GREEN);
         printf("T");
+        END_COLOR;
+        break;
+
+        case TYPE_USERDATA:
+        START_COLOR(YELLOW);
+        printf("<%s>", "USERDATA");
         END_COLOR;
         break;
 

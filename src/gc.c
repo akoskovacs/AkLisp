@@ -442,3 +442,24 @@ void akl_deregister_type(struct akl_instance *in, unsigned int type)
     in->ai_utypes[type] = NULL;
     in->ai_utype_count--;
 }
+
+#define CHECK_UTYPE(utype, tname) (utype && utype->ut_name \
+                    &&(strcasecmp(utype->ut_name, tname) == 0))
+
+int akl_get_typeid(struct akl_instance *in, const char *tname)
+{
+    /* Cache it */
+    static struct akl_utype *utype = NULL;
+    int i;
+    if (CHECK_UTYPE(utype, tname)) 
+        return (int)utype->ut_id;
+
+    if (in && in->ai_utypes) {
+        for (i = 0; i < in->ai_utype_size; i++) {
+            utype = in->ai_utypes[i];
+            if (CHECK_UTYPE(utype, tname)) 
+                return (int)utype->ut_id;
+        }
+    }
+    return -1;
+}

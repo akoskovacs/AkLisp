@@ -22,33 +22,38 @@
  ************************************************************************/
 #include "aklisp.h"
 
+static int compare_numbers(int n1, int n2)
+{
+    if (n1 == n2)
+        return 0;
+    else if (n1 > n2)
+        return 1;
+    else
+        return -1;
+}
+
 int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
 {
-    int n1, n2;
     assert(v1);
     assert(v2);
     if (v1->va_type == v2->va_type) {
         switch (v1->va_type) {
             case TYPE_NUMBER:
-            n1 = AKL_GET_NUMBER_VALUE(v1);
-            n2 = AKL_GET_NUMBER_VALUE(v2);
-            if (n1 == n2)
-                return 0;
-            else if (n1 > n2)
-                return 1;
-            else
-                return -1;
-            break;
+            return compare_numbers(AKL_GET_NUMBER_VALUE(v1)
+                                   , AKL_GET_NUMBER_VALUE(v2));
 
             case TYPE_STRING:
             return strcmp(AKL_GET_STRING_VALUE(v1)
                           , AKL_GET_STRING_VALUE(v2));
-            break;
 
             case TYPE_ATOM:
             return strcasecmp(akl_get_atom_name_value(v1)
                           , akl_get_atom_name_value(v2));
-            break;
+
+            case TYPE_USERDATA:
+            /* TODO: userdata compare function */
+            return compare_numbers(akl_get_utype_value(v1)
+                                   , akl_get_utype_value(v2));
 
             case TYPE_NIL:
             return 0;
