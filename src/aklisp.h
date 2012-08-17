@@ -37,8 +37,8 @@
 #define AKL_FREE(ptr) FREE_FUNCTION((void *)(ptr))
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
-#define AKL_CHECK_USER_TYPE(v1, type) (AKL_CHECK_TYPE(v1,TYPE_USERDATA) \
-                                    && (strcasecmp(AKL_GET_USERDATA_VALUE(v1)->ud_name, type)==0))
+#define AKL_CHECK_USER_TYPE(v1, type_id) (AKL_CHECK_TYPE(v1,TYPE_USERDATA) \
+                                    && (AKL_GET_USERDATA_VALUE(v1)->ud_id == type))
 #define AKL_GET_VALUE_MEMBER_PTR(val, type, member) \
                             ((AKL_CHECK_TYPE(val, type) \
                             ? (val)->va_value.member : NULL))
@@ -92,18 +92,21 @@ struct akl_gc_object {
     /* Desctructor function for the object getting a pointer 
      of the active instance and the object pointer as parameters. */
     akl_destructor_t gc_de_fun;
+    bool_t gc_is_static : 1; /* Static object will not be free()'d */
 };
 #define AKL_GC_DEFINE_OBJ struct akl_gc_object gc_obj
 #define AKL_GC_INIT_OBJ(obj, de_fun) (obj)->gc_obj.gc_ref_count = 0; \
+                                     (obj)->gc_obj.gc_is_static = FALSE; \
                                      (obj)->gc_obj.gc_de_fun = de_fun
 /* Call the destructor */
 #define AKL_GC_COLLECT_OBJ(in, obj) (obj)->gc_obj.gc_de_fun(in, obj)
 /* Increase the reference count for an object */
 #define AKL_GC_INC_REF(obj) (obj)->gc_obj.gc_ref_count++
+#define AKL_GC_SET_STATIC(obj) (obj)->gc_obj.gc_is_static = TRUE
 /* Decrease the reference count for an object and free it
-  if it's 'ref_count' is zero. */
-#define AKL_GC_DEC_REF(in, obj) (obj)->gc_obj.gc_ref_count--; \
-                            if ((obj)->gc_obj.gc_ref_count <= 0) \
+  if it's 'ref_count' is zero and if the object is not static. */
+#define AKL_GC_DEC_REF(in, obj) if (--(obj)->gc_obj.gc_ref_count == 0 \
+                                && (!(obj)->gc_obj.gc_is_static)) \
                                 AKL_GC_COLLECT_OBJ(in,obj)
 
 void *akl_malloc(struct akl_instance *, size_t);
@@ -310,6 +313,7 @@ void akl_eval_program(struct akl_instance *);
 void akl_print_value(struct akl_value *);
 void akl_print_list(struct akl_list *);
 int akl_compare_values(struct akl_value *, struct akl_value *);
+int akl_get_typeid(struct akl_instance *, const char *);
 
 /* Create a new user type and register it for the interpreter. The returned
   integer will identify this new type. */
