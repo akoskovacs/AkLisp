@@ -1,5 +1,5 @@
 (display "Water tempature (in C): ")
-(setq TEMP (read-number))
+(set! TEMP (read-number))
 (display "The water is " 
     (cond 
         ((> TEMP 100) "steam.")

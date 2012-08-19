@@ -21,10 +21,43 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ************************************************************************/
 #include "aklisp.h"
-#define BUF_SIZE 256
-static char buffer[BUF_SIZE];
+
+/* Starting size of the buffer */
+static size_t buf_size = 50;
+/*
+ * The buffer is dynamic, so the: "The Ultimate Answer to Life,
+ * the Universe and Everything" will not work, for the first time...
+ * Use '42' instead!
+*/
+static char *buffer = NULL;
 static token_t last_token;
 static int last_char;
+
+static void init_buffer(void)
+{
+    buffer = (char *)akl_malloc(NULL, buf_size);
+}
+
+void akl_lex_free(void)
+{
+    FREE_FUNCTION(buffer);
+    buffer = NULL;
+}
+
+static void put_buffer(int pos, char ch)
+{
+    if (pos+1 >= buf_size) {
+        buf_size = buf_size + (buf_size / 2);
+        buffer = realloc(buffer, buf_size);
+        if (buffer == NULL) {
+            fprintf(stderr, "ERROR! No memory left!\n");
+            exit(1);
+        }
+    }
+    buffer[pos]   = ch;
+    /* XXX: Take this serious! */
+    buffer[++pos] = '\0';
+}
 
 int akl_io_getc(struct akl_io_device *dev)
 {
@@ -81,12 +114,11 @@ size_t copy_number(struct akl_io_device *dev, char op)
     size_t i = 0;
     assert(dev);
     if (op != 0)
-        buffer[i++] = op;
+        put_buffer(i++, op);
 
     while ((ch = akl_io_getc(dev))) {
         if (isdigit(ch) || ch == '.') {
-            buffer[i] = ch;
-            buffer[++i] = '\0';
+            put_buffer(i++, ch);
         } else {
             akl_io_ungetc(ch, dev);
             break;
@@ -104,8 +136,7 @@ size_t copy_string(struct akl_io_device *dev)
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
         if (ch != '\"') {
-            buffer[i] = ch;
-            buffer[++i] = '\0';
+            put_buffer(i++, ch);
         } else {
             break;
         }
@@ -123,8 +154,7 @@ size_t copy_atom(struct akl_io_device *dev)
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
         if (ch != ' ' && ch != ')' && ch != '\n') {
-            buffer[i] = toupper(ch); /* Good old times... */
-            buffer[++i] = '\0';
+            put_buffer(i++, toupper(ch)); /* Good old times... */
         } else {
             akl_io_ungetc(ch, dev);
             break;
@@ -143,6 +173,9 @@ token_t akl_lex(struct akl_io_device *dev)
       positive and negative numbers must also work:
       '(++ +5)' should be valid. */
     char op = 0;
+    if (!buffer)
+        init_buffer();
+
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
         if (ch == EOF) {

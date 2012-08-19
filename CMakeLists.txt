@@ -5,6 +5,7 @@ set(VER_MINOR 1)
 set(VER_ADDITIONAL "alpha")
 
 set(SDIR "./src/")
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 
 if (UNIX)
     set(PLATSRC os_unix.c)
@@ -12,18 +13,15 @@ if (UNIX)
     add_definitions(-DAKL_USER_INFO)
     add_definitions(-DAKL_USER_NAME="$ENV{USER}")
     add_definitions(-DAKL_HOST_NAME="${HOSTNAME}")
+    find_package(Readline)
+    if (READLINE_FOUND)
+        add_definitions(-DHAVE_READLINE)
+    endif()
 endif()
 
 if (!UNIX)
     set(PLATSRC os_other.c)
 endif ()
-
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
-
-find_package(Readline)
-if (READLINE_FOUND)
-    add_definitions(-DHAVE_READLINE)
-endif()
 
 set(SOURCES 
     ${SDIR}${PLATSRC}
