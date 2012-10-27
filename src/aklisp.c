@@ -122,13 +122,19 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
     }
     
     a1 = AKL_FIRST_VALUE(list);
-    fatm = akl_get_global_atom(in, akl_get_atom_name_value(a1));
-    if (fatm == NULL || fatm->at_value == NULL) {
-        fprintf(stderr, "ERROR: Cannot find \'%s\' function!\n"
-            , akl_get_atom_name_value(a1));
-        exit(-1);
+    if (a1 && a1->va_type == TYPE_ATOM) {
+        fatm = akl_get_global_atom(in, akl_get_atom_name_value(a1));
+        if (fatm == NULL || fatm->at_value == NULL) {
+            fprintf(stderr, "ERROR: Cannot find \'%s\' function!\n"
+                , akl_get_atom_name_value(a1));
+            exit(-1);
+        }
+        cfun = fatm->at_value->va_value.cfunc;
+    } else if (a1 && a1->va_type == TYPE_LIST) {
+        return akl_eval_list(in, AKL_GET_LIST_VALUE(a1));
+    } else {
+        return &NIL_VALUE;
     }
-    cfun = fatm->at_value->va_value.cfunc;
 
     /* If the first atom is BUILTIN, i.e: it has full controll over
       it's arguments, the other elements of the list will not be evaluated...*/
