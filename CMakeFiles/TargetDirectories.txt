@@ -1,3 +1,0 @@
-/home/akos/devel/AkLisp/CMakeFiles/aklisp.dir
-/home/akos/devel/AkLisp/CMakeFiles/aklisp_shared.dir
-/home/akos/devel/AkLisp/CMakeFiles/aklisp_static.dir

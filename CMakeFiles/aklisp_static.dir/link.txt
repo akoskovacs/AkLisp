@@ -1,2 +1,0 @@
-/usr/bin/ar cr libaklisp_static.a  CMakeFiles/aklisp_static.dir/src/os_unix.c.o CMakeFiles/aklisp_static.dir/src/aklisp.c.o CMakeFiles/aklisp_static.dir/src/lib.c.o CMakeFiles/aklisp_static.dir/src/gc.c.o CMakeFiles/aklisp_static.dir/src/parser.c.o CMakeFiles/aklisp_static.dir/src/list.c.o CMakeFiles/aklisp_static.dir/src/lexer.c.o
-/usr/bin/ranlib libaklisp_static.a

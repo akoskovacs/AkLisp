@@ -1,1 +1,0 @@
-/usr/bin/gcc  -g   CMakeFiles/aklisp.dir/src/main.c.o  -o aklisp -rdynamic libaklisp_static.a 
