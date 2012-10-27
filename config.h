@@ -1,0 +1,2 @@
+#define HAVE_UCONTEXT_H 1
+#define HAVE_EXECINFO_H 1

@@ -1,0 +1,5 @@
+(setq IND 10)
+(while (> IND 0) 
+       ((display "bigger") (newline))
+       (decf IND)
+)

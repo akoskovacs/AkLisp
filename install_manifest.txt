@@ -1,0 +1,6 @@
+/usr/local/bin/aklisp
+/usr/local/lib/libaklisp_static.a
+/usr/local/lib/libaklisp_shared.so.0.1.0
+/usr/local/lib/libaklisp_shared.so.1
+/usr/local/lib/libaklisp_shared.so
+/usr/local/include/aklisp.h

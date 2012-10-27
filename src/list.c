@@ -26,6 +26,8 @@ RB_GENERATE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
 void akl_add_global_atom(struct akl_instance *in, struct akl_atom *atom)
 {
+    AKL_GC_INC_REF(atom);
+    AKL_GC_SET_STATIC(atom);
     ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
 }
 
@@ -60,6 +62,9 @@ struct akl_atom *
 akl_get_global_atom(struct akl_instance *in, const char *name)
 {
     struct akl_atom *atm, *res;
+    if (name == NULL)
+        return NULL;
+
     atm = akl_new_atom(in, strdup(name));
     res = ATOM_TREE_RB_FIND(&in->ai_atom_head, atm);
     akl_free_atom(in, atm);
@@ -103,6 +108,7 @@ akl_list_append(struct akl_instance *in, struct akl_list *list, struct akl_value
     list->li_last = le;
     list->li_elem_count++;
     list->is_nil = 0;
+    AKL_GC_INC_REF(val);
     return le; 
 }
 
@@ -121,7 +127,64 @@ akl_list_insert_head(struct akl_instance *in, struct akl_list *list, struct akl_
     }
     list->li_head = le;
     list->li_elem_count++;
+    AKL_GC_INC_REF(val);
     return le;
+}
+
+struct akl_value *akl_duplicate_value(struct akl_instance *in, struct akl_value *oval)
+{
+    struct akl_value *nval;
+    struct akl_atom *natom, *oatom;
+    if (oval == NULL)
+        return NULL;
+
+    switch (oval->va_type) {
+        case TYPE_LIST:
+        return akl_new_list_value(in
+                  , akl_list_duplicate(in, AKL_GET_LIST_VALUE(oval)));
+
+        case TYPE_ATOM:
+        oatom = AKL_GET_ATOM_VALUE(oval);
+        natom = akl_new_atom(in, strdup(oatom->at_name));
+        natom->at_desc = strdup(oatom->at_desc);
+        natom->at_value = akl_duplicate_value(in, oatom->at_value);
+        return akl_new_atom_value(in, strdup(oatom->at_name));
+
+        case TYPE_NUMBER:
+        return akl_new_number_value(in, AKL_GET_NUMBER_VALUE(oval));
+
+        case TYPE_STRING:
+        return akl_new_string_value(in, AKL_GET_STRING_VALUE(oval));
+
+        case TYPE_BUILTIN: case TYPE_CFUN:
+        nval = akl_new_value(in);
+        *nval = *oval;
+        return nval;
+
+        case TYPE_USERDATA:
+        /* TODO: Should provide specific copy function */
+        return akl_new_user_value(in, akl_get_utype_value(oval)
+                                 , akl_get_userdata_value(oval)->ud_private);
+
+        case TYPE_NIL:
+        return &NIL_VALUE;
+
+        case TYPE_TRUE:
+        return &TRUE_VALUE;
+    }
+    return NULL;
+}
+
+struct akl_list *akl_list_duplicate(struct akl_instance *in, struct akl_list *list)
+{
+    struct akl_list *nlist = akl_new_list(in);
+    struct akl_list_entry *ent;
+    struct akl_value *nval;
+    AKL_LIST_FOREACH(ent, list) {
+        nval = akl_duplicate_value(in, AKL_ENTRY_VALUE(ent));
+        akl_list_append(in, nlist, nval);
+    }
+    return nlist;
 }
 
 struct akl_list_entry *akl_list_find(struct akl_list *list, struct akl_value *val)
@@ -151,7 +214,7 @@ struct akl_value *akl_list_index(struct akl_list *list, int index)
             if ((ent = AKL_LIST_NEXT(ent)) == NULL)
                 return &NIL_VALUE;
         }
-        val = akl_entry_to_value(ent);
+        val = AKL_ENTRY_VALUE(ent);
     }
     return val;
 }
@@ -164,12 +227,12 @@ bool_t akl_list_remove(struct akl_instance *in, struct akl_list *list
     if (list == NULL || val == NULL)
         return FALSE;
 
-    v = akl_entry_to_value(list->li_head);
+    v = AKL_ENTRY_VALUE(list->li_head);
     if (v != NULL && akl_compare_values(val, v)) {
         list->li_head = AKL_LIST_SECOND(list);
     }
     AKL_LIST_FOREACH(ent, list) {
-       v = akl_entry_to_value(ent->le_next);
+       v = AKL_ENTRY_VALUE(ent->le_next);
        if (v != NULL && akl_compare_values(val, v)) {
            /* TODO: Free the entry */
            ent = ent->le_next;
@@ -201,4 +264,84 @@ struct akl_list *akl_cdr(struct akl_instance *in, struct akl_list *l)
         nhead->li_last = l->li_last;
     }
     return nhead;
+}
+
+void akl_print_value(struct akl_value *val)
+{
+    if (val == NULL || AKL_IS_NIL(val)) {
+        START_COLOR(GRAY);
+        printf("NIL");
+        END_COLOR;
+        return;
+    }
+
+    switch (val->va_type) {
+        case TYPE_NUMBER:
+        START_COLOR(YELLOW);
+        printf("%g", AKL_GET_NUMBER_VALUE(val));
+        END_COLOR;
+        break;
+
+        case TYPE_STRING:
+        START_COLOR(GREEN);
+        printf("\"%s\"", AKL_GET_STRING_VALUE(val));
+        END_COLOR;
+        break;
+
+        case TYPE_LIST:
+        akl_print_list(AKL_GET_LIST_VALUE(val));
+        break;
+
+        case TYPE_ATOM:
+        if (AKL_IS_QUOTED(val)) {
+            START_COLOR(YELLOW);
+            printf(":%s", akl_get_atom_name_value(val));
+        } else {
+            START_COLOR(PURPLE);
+            printf("%s", akl_get_atom_name_value(val));
+        }
+        END_COLOR;
+        break;
+
+        case TYPE_TRUE:
+        START_COLOR(BRIGHT_GREEN);
+        printf("T");
+        END_COLOR;
+        break;
+
+        case TYPE_USERDATA:
+        START_COLOR(YELLOW);
+        printf("<%s>", "USERDATA");
+        END_COLOR;
+        break;
+
+        case TYPE_NIL:
+        case TYPE_CFUN: case TYPE_BUILTIN:
+        /* Nothing to do... */
+        break;
+    }
+}
+
+void akl_print_list(struct akl_list *list)
+{
+    struct akl_list_entry *ent;
+    
+    assert(list);
+    if (list == NULL || AKL_IS_NIL(list)
+        || list->li_elem_count == 0) {
+        START_COLOR(GRAY);
+        printf("NIL");
+        END_COLOR;
+        return;
+    }
+
+    if (AKL_IS_QUOTED(list)) 
+        printf("\'");
+    printf("(");
+    AKL_LIST_FOREACH(ent, list) {
+        akl_print_value(AKL_ENTRY_VALUE(ent));
+        if (ent->le_next != NULL)
+            printf(" ");
+    }
+    printf(")");
 }
