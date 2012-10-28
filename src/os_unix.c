@@ -89,6 +89,13 @@ AKL_CFUN_DEFINE(getpid, in, args __unused)
     return akl_new_number_value(in, (int)getpid());
 }
 
+AKL_CFUN_DEFINE(sleep, in, args)
+{
+    struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    sleep(AKL_GET_NUMBER_VALUE(a1));
+    return &NIL_VALUE;
+}
+
 void akl_init_os(struct akl_instance *in)
 {
 #if HAVE_UCONTEXT_H && HAVE_EXECINFO_H
@@ -105,4 +112,5 @@ void akl_init_os(struct akl_instance *in)
 #endif
 
   AKL_ADD_CFUN(in, getpid, "GETPID", "Get the process id");
+  AKL_ADD_CFUN(in, sleep, "SLEEP", "Sleeping for a given time (in seconds)");
 }
