@@ -39,21 +39,27 @@ struct akl_value *akl_parse_value(struct akl_instance *in, struct akl_io_device 
             case tATOM:
             value = akl_new_atom_value(in, akl_lex_get_atom());
             value->is_quoted = is_quoted;
+            value->va_lex_info = akl_new_lex_info(in, dev);
             is_quoted = FALSE;
             return value;
 
             case tNUMBER:
-            return akl_new_number_value(in, akl_lex_get_number());
+            value = akl_new_number_value(in, akl_lex_get_number());
+            value->va_lex_info = akl_new_lex_info(in, dev);
+            return value;
 
             case tSTRING:
-            return akl_new_string_value(in, akl_lex_get_string());
+            value = akl_new_string_value(in, akl_lex_get_string());
+            value->va_lex_info = akl_new_lex_info(in, dev);
+            return value;
 
             /* Whooa new list */
             case tLBRACE:
             l = akl_parse_list(in, dev);
             l->is_quoted = is_quoted;
             is_quoted = FALSE;
-            return akl_new_list_value(in, l);
+            value = akl_new_list_value(in, l);
+            return value;
 
             case tQUOTE:
             is_quoted = TRUE;

@@ -333,11 +333,12 @@ AKL_CFUN_DEFINE(len, in, args)
 AKL_BUILTIN_DEFINE(setq, in, args)
 {
     struct akl_atom *atom;
-    struct akl_value *value, *desc;
-    atom = AKL_GET_ATOM_VALUE(AKL_FIRST_VALUE(args));
+    struct akl_value *value, *desc, *av;
+    av = AKL_FIRST_VALUE(args);
+    atom = AKL_GET_ATOM_VALUE(av);
     if (atom == NULL) {
-        fprintf(stderr, "setq: First argument is not an atom!\n");
-        exit(-1);
+        akl_add_error(in, AKL_ERROR, av->va_lex_info, "ERROR: setq: First argument is not an atom!\n");
+        return &NIL_VALUE;
     }
     value = akl_eval_value(in, AKL_SECOND_VALUE(args));
     if (args->li_elem_count > 1) {
@@ -762,6 +763,10 @@ AKL_CFUN_DEFINE(typeof, in, args)
 
         case TYPE_BUILTIN:
         tname = "BUILTIN";
+        break;
+
+        case TYPE_USERDATA:
+        tname = in->ai_utypes[akl_get_utype_value(a1)]->ut_name;
         break;
 
         case TYPE_TRUE:
