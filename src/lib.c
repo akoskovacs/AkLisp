@@ -290,12 +290,19 @@ AKL_CFUN_DEFINE(display, in, args)
     return &NIL_VALUE;
 }
 
+AKL_CFUN_DEFINE(last, in, args)
+{
+    struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    if (AKL_CHECK_TYPE(a1, TYPE_LIST) && a1->va_value.list != NULL)
+        return AKL_ENTRY_VALUE(AKL_LIST_LAST(AKL_GET_LIST_VALUE(a1)));
+    return &NIL_VALUE;
+}
 
 AKL_CFUN_DEFINE(car, in __unused, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
     if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
-        akl_car(a1->va_value.list);
+        return akl_car(a1->va_value.list);
     }
     return &NIL_VALUE;
 }
@@ -898,6 +905,7 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, car,  "CAR", "Get the head of a list");
         AKL_ADD_CFUN(in, cdr,  "CDR", "Get the tail of a list");
         AKL_ADD_CFUN(in, car,  "FIRST", "Get the first element of the list");
+        AKL_ADD_CFUN(in, last,  "LAST", "Get back the last element of a list");
         AKL_ADD_CFUN(in, cdr,  "REST", "Get the tail of a list");
         AKL_ADD_CFUN(in, cdr,  "TAIL", "Get the tail of a list");
     }
