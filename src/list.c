@@ -208,6 +208,9 @@ struct akl_value *akl_list_index(struct akl_list *list, int index)
     if (index < 0) {
         /* Yeah! Extremely inefficient! */
         return akl_list_index(list, list->li_elem_count + index);
+    } else if (index == 0) {
+        if (list->li_head && list->li_head->le_value)
+            val = list->li_head->le_value;
     } else {
         ent = list->li_head;
         while (index--) {

@@ -290,12 +290,19 @@ AKL_CFUN_DEFINE(display, in, args)
     return &NIL_VALUE;
 }
 
+AKL_CFUN_DEFINE(last, in, args)
+{
+    struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    if (AKL_CHECK_TYPE(a1, TYPE_LIST) && a1->va_value.list != NULL)
+        return AKL_ENTRY_VALUE(AKL_LIST_LAST(AKL_GET_LIST_VALUE(a1)));
+    return &NIL_VALUE;
+}
 
 AKL_CFUN_DEFINE(car, in __unused, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
     if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
-        akl_car(a1->va_value.list);
+        return akl_car(a1->va_value.list);
     }
     return &NIL_VALUE;
 }
@@ -333,11 +340,12 @@ AKL_CFUN_DEFINE(len, in, args)
 AKL_BUILTIN_DEFINE(setq, in, args)
 {
     struct akl_atom *atom;
-    struct akl_value *value, *desc;
-    atom = AKL_GET_ATOM_VALUE(AKL_FIRST_VALUE(args));
+    struct akl_value *value, *desc, *av;
+    av = AKL_FIRST_VALUE(args);
+    atom = AKL_GET_ATOM_VALUE(av);
     if (atom == NULL) {
-        fprintf(stderr, "setq: First argument is not an atom!\n");
-        exit(-1);
+        akl_add_error(in, AKL_ERROR, av->va_lex_info, "ERROR: setq: First argument is not an atom!\n");
+        return &NIL_VALUE;
     }
     value = akl_eval_value(in, AKL_SECOND_VALUE(args));
     if (args->li_elem_count > 1) {
@@ -764,6 +772,10 @@ AKL_CFUN_DEFINE(typeof, in, args)
         tname = "BUILTIN";
         break;
 
+        case TYPE_USERDATA:
+        tname = in->ai_utypes[akl_get_utype_value(a1)]->ut_name;
+        break;
+
         case TYPE_TRUE:
         tname = "T";
         break;
@@ -893,6 +905,7 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, car,  "CAR", "Get the head of a list");
         AKL_ADD_CFUN(in, cdr,  "CDR", "Get the tail of a list");
         AKL_ADD_CFUN(in, car,  "FIRST", "Get the first element of the list");
+        AKL_ADD_CFUN(in, last,  "LAST", "Get back the last element of a list");
         AKL_ADD_CFUN(in, cdr,  "REST", "Get the tail of a list");
         AKL_ADD_CFUN(in, cdr,  "TAIL", "Get the tail of a list");
     }

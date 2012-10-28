@@ -178,8 +178,15 @@ token_t akl_lex(struct akl_io_device *dev)
 
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
+        /* We should avoid the interpretation of the Unix shebang */
+        if (dev->iod_char_count == 1 && ch == '#') {
+            while ((ch = akl_io_getc(dev)) && ch != '\n') 
+                ;
+        }
         if (ch == EOF) {
-            return tEOF;
+           return tEOF;
+        } else if (ch == '\n') {
+           dev->iod_line_count++;
         } else if (ch == '+' || ch == '-') {
             if (op != 0) {
                 if (op == '+')
@@ -230,8 +237,6 @@ token_t akl_lex(struct akl_io_device *dev)
                 return tTRUE;
             else
                 return tATOM;
-        } else if (ch == '\n') {
-            dev->iod_line_count++;
         } else {
             continue;
         }

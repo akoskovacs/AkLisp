@@ -81,28 +81,28 @@ void akl_gc_atom_destruct(struct akl_instance *in, void *obj)
 }
 
 struct akl_instance * 
-akl_new_file_interpreter(FILE *fp)
+akl_new_file_interpreter(const char *file_name, FILE *fp)
 {
     struct akl_instance *in = akl_new_instance();
-    in->ai_device = akl_new_file_device(fp);
+    in->ai_device = akl_new_file_device(file_name, fp);
     return in;
 }
 
 struct akl_instance *
-akl_new_string_interpreter(const char *str)
+akl_new_string_interpreter(const char *name, const char *str)
 {
     struct akl_instance *in = akl_new_instance();
-    in->ai_device = akl_new_string_device(str);
+    in->ai_device = akl_new_string_device(name, str);
     return in;
 }
 
 struct akl_instance *
-akl_reset_string_interpreter(struct akl_instance *in, const char *str)
+akl_reset_string_interpreter(struct akl_instance *in, const char *name, const char *str)
 {
    if (in == NULL) {
-       return akl_new_string_interpreter(str);
+       return akl_new_string_interpreter(name, str);
    } else if (in->ai_device == NULL) {
-       in->ai_device = akl_new_string_device(str);
+       in->ai_device = akl_new_string_device(name, str);
        return in;
    } else {
        in->ai_device->iod_type = DEVICE_STRING;
@@ -125,6 +125,8 @@ void akl_free_instance(struct akl_instance *in)
     akl_free_list(in, in->ai_program);
     /* TODO: Free up user types */
 #endif
+    akl_clear_errors(in);
+    akl_free_list(in, in->ai_errors);
 }
 
 struct akl_instance *akl_new_instance(void)
@@ -139,6 +141,7 @@ struct akl_instance *akl_new_instance(void)
     in->ai_utype_size  = 4;
     in->ai_utype_count = 0;
     in->ai_program  = NULL;
+    in->ai_errors   = NULL;
     return in;
 }
 
@@ -180,6 +183,15 @@ struct akl_list_entry *akl_new_list_entry(struct akl_instance *in)
     return ent;
 }
 
+struct akl_lex_info *akl_new_lex_info(struct akl_instance *in, struct akl_io_device *dev)
+{
+    struct akl_lex_info *info = AKL_MALLOC(in, struct akl_lex_info);
+    info->li_line = dev->iod_line_count;
+    info->li_count = dev->iod_char_count;
+    info->li_name = dev->iod_name;
+    return info;
+}
+
 void akl_free_list_entry(struct akl_instance *in, struct akl_list_entry *ent)
 {
     if (ent == NULL)
@@ -196,6 +208,7 @@ struct akl_value *akl_new_value(struct akl_instance *in)
     AKL_GC_INIT_OBJ(val, akl_gc_value_destruct);
     val->is_nil    = FALSE;
     val->is_quoted = FALSE;
+    val->va_lex_info = NULL;
     return val;
 }
 
@@ -208,6 +221,8 @@ void akl_free_value(struct akl_instance *in, struct akl_value *val)
     if (val == NULL)
         return;
 
+    if (val->va_lex_info != NULL)
+        FREE_FUNCTION(val->va_lex_info);
     switch (val->va_type) {
         case TYPE_LIST:
             AKL_GC_DEC_REF(in, val->va_value.list);
@@ -376,24 +391,29 @@ void *akl_get_udata_value(struct akl_value *value)
 }
 
 struct akl_io_device *
-akl_new_file_device(FILE *fp)
+akl_new_file_device(const char *file_name, FILE *fp)
 {
     struct akl_io_device *dev;
     dev = AKL_MALLOC(NULL, struct akl_io_device);
     dev->iod_type = DEVICE_FILE;
     dev->iod_source.file = fp;
     dev->iod_pos = 0;
+    dev->iod_line_count = 1;
+    dev->iod_name = file_name;
     return dev;
 }
 
 struct akl_io_device *
-akl_new_string_device(const char *str)
+akl_new_string_device(const char *name, const char *str)
 {
     struct akl_io_device *dev;
     dev = AKL_MALLOC(NULL, struct akl_io_device);
     dev->iod_type = DEVICE_STRING;
     dev->iod_source.string = str;
     dev->iod_pos = 0;
+    dev->iod_line_count = 1;
+    dev->iod_char_count = 0;
+    dev->iod_name = name;
     return dev;
 }
 

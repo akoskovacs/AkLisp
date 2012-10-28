@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdarg.h>
 #include "tree.h"
 
 #define MALLOC_FUNCTION malloc
@@ -115,8 +116,15 @@ struct akl_userdata {
     void *ud_private; /* Arbitrary userdata */
 };
 
+struct akl_lex_info {
+    const char *li_name;
+    unsigned int li_line; /* Line count */
+    unsigned int li_count; /* Column count */
+};
+
 extern struct akl_value {
     AKL_GC_DEFINE_OBJ;
+    struct akl_lex_info *va_lex_info;
     enum akl_type va_type;
     union {
         struct akl_atom *atom;
@@ -147,6 +155,7 @@ struct akl_io_device {
         FILE *file;
         const char *string;
     } iod_source;
+    const char *iod_name; /* Name of the input device (for ex.: name of the file) */
     size_t iod_pos; /*  Only used for DEVICE_STRING */
     unsigned iod_char_count;
     unsigned iod_line_count;
@@ -175,6 +184,8 @@ struct akl_instance {
     struct akl_utype **ai_utypes; /* Available user-defined types */
     size_t ai_utype_count; /* Number of utypes */
     size_t ai_utype_size; /* Size of the array */
+    struct akl_list *ai_errors; /* Collection of the errors (if any, default NULL) */
+    bool_t ai_interactive;
 };
 
 static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
@@ -248,12 +259,12 @@ typedef enum {
     tQUOTE,
 } token_t;
 
-struct akl_instance  *akl_new_file_interpreter(FILE *);
-struct akl_instance  *akl_new_string_interpreter(const char *);
-struct akl_io_device *akl_new_file_device(FILE *);
-struct akl_io_device *akl_new_string_device(const char *);
+struct akl_instance  *akl_new_file_interpreter(const char *, FILE *);
+struct akl_instance  *akl_new_string_interpreter(const char *, const char *);
+struct akl_io_device *akl_new_file_device(const char *, FILE *);
+struct akl_io_device *akl_new_string_device(const char *, const char *);
 struct akl_instance  *
-akl_reset_string_interpreter(struct akl_instance *in, const char *str);
+akl_reset_string_interpreter(struct akl_instance *in, const char *name, const char *str);
 
 token_t akl_lex(struct akl_io_device *);
 void    akl_lex_free(void);
@@ -280,6 +291,7 @@ struct akl_value      *akl_new_number_value(struct akl_instance *, double);
 struct akl_value      *akl_new_list_value(struct akl_instance *, struct akl_list *);
 struct akl_value      *akl_new_atom_value(struct akl_instance *, char *);
 struct akl_value      *akl_new_user_value(struct akl_instance *, unsigned int, void *);
+struct akl_lex_info   *akl_new_lex_info(struct akl_instance *, struct akl_io_device *);
 
 char *akl_get_atom_name_value(struct akl_value *);
 unsigned akl_get_utype_value(struct akl_value *);
@@ -298,7 +310,6 @@ struct akl_list_entry *
 akl_list_insert_head(struct akl_instance *, struct akl_list *, struct akl_value *);
 struct akl_value *akl_list_index(struct akl_list *, int);
 struct akl_list_entry *akl_list_find(struct akl_list *, struct akl_value *);
-struct akl_value *akl_entry_to_value(struct akl_list_entry *);
 struct akl_value *akl_duplicate_value(struct akl_instance *, struct akl_value *);
 struct akl_list *akl_list_duplicate(struct akl_instance *, struct akl_list *);
 
@@ -314,6 +325,14 @@ void akl_print_value(struct akl_value *);
 void akl_print_list(struct akl_list *);
 int akl_compare_values(struct akl_value *, struct akl_value *);
 int akl_get_typeid(struct akl_instance *, const char *);
+
+enum AKL_ALERT_TYPE {
+   AKL_ERROR, AKL_WARNING
+};
+
+void akl_add_error(struct akl_instance *, enum AKL_ALERT_TYPE, struct akl_lex_info *, const char *fmt, ...);
+void akl_clear_errors(struct akl_instance *);
+void akl_print_errors(struct akl_instance *);
 
 /* Create a new user type and register it for the interpreter. The returned
   integer will identify this new type. */
@@ -350,7 +369,7 @@ void akl_init_os(struct akl_instance *);
 #define AKL_ADD_BUILTIN(in, bname, name, desc) \
     akl_add_builtin((in), (name), bname##_builtin, (desc))
 
-#ifdef USE_COLORS
+#if  1
 #define GREEN  "\x1b[32m"
 #define YELLOW "\x1b[33m"
 #define GRAY   "\x1b[1;30m"
@@ -359,6 +378,7 @@ void akl_init_os(struct akl_instance *);
 #define PURPLE "\x1b[35m"
 #define BRIGHT_GREEN "\x1b[1;32m"
 #define START_COLOR(c) printf("%s", (c))
+#define END_COLOR_MARK "\x1b[0m"
 #define END_COLOR printf("\x1b[0m")
 #else
 #define GREEN  ""
@@ -371,6 +391,5 @@ void akl_init_os(struct akl_instance *);
 #define START_COLOR(c)
 #define END_COLOR
 #endif
-
 
 #endif // AKLISP_H
