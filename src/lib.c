@@ -456,6 +456,7 @@ AKL_CFUN_DEFINE(about, in, args)
                            , "List entries", "Total allocated bytes"
                            , NULL };
     int i;
+    struct akl_module *mod;
     printf("\nAkLisp version %d.%d-%s\n"
             "\tCopyleft (c) Akos Kovacs\n"
             "\tBuilt on %s %s\n"
@@ -475,6 +476,22 @@ AKL_CFUN_DEFINE(about, in, args)
             , AKL_USER_NAME, AKL_HOST_NAME
 #endif // AKL_USER_INFO
             );
+    if (in->ai_module_count != 0 && in->ai_modules != NULL) {
+        printf("\n%d loaded module%s:\n", in->ai_module_count
+            , (in->ai_module_count > 1)?"s":"");
+        for (i = 0; i < in->ai_module_count; i++) {
+            mod = in->ai_modules[i];
+            if (mod != NULL) {
+                if (mod->am_name && mod->am_path)
+                    printf("\tName: '%s'\n\tPath: '%s'\n", mod->am_name, mod->am_path);
+                if (mod->am_desc)
+                    printf("\tDescription: %s\n", mod->am_desc);
+                if (mod->am_author)
+                    printf("\tAuthor: %s\n", mod->am_author);
+                printf("\n");
+            }
+        }
+    }
     printf("\nGC statistics:\n");
     for (i = 0; i < AKL_NR_GC_STAT_ENT; i++) {
         printf("\t%s: %d\n", tnames[i], in->ai_gc_stat[i]);

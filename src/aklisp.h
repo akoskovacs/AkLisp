@@ -176,6 +176,30 @@ struct akl_utype {
     akl_destructor_t ut_de_fun; /* Destructor for the given type */
 };
 
+typedef int (*akl_mod_load_t)(struct akl_instance *);
+
+struct akl_module {
+    const char *am_path;
+    const char *am_name;
+    const char *am_desc; /* Text description of the module */
+    const char *am_author;
+    void *am_handle; /* dlopen's handle */
+    akl_mod_load_t am_load;
+    akl_mod_load_t am_unload;
+};
+#define AKL_LOAD_OK 0
+#define AKL_LOAD_FAIL 1
+/* The first three arguments cannot be NULL */
+#define AKL_MODULE_DEFINE(load, unload, name, desc, author) \
+struct akl_module __module_desc = { \
+    .am_name = name, \
+    .am_path = NULL, \
+    .am_author = author, \
+    .am_desc = desc, \
+    .am_load = load, \
+    .am_unload = unload \
+}
+
 struct akl_instance {
     struct akl_io_device *ai_device;
     RB_HEAD(ATOM_TREE, akl_atom) ai_atom_head;
@@ -184,6 +208,9 @@ struct akl_instance {
     struct akl_utype **ai_utypes; /* Available user-defined types */
     size_t ai_utype_count; /* Number of utypes */
     size_t ai_utype_size; /* Size of the array */
+    struct akl_module **ai_modules; /* Loaded modules */
+    size_t ai_module_count; /* Number of loaded modules */
+    size_t ai_module_size; /* Size of the ai_modules array */
     struct akl_list *ai_errors; /* Collection of the errors (if any, default NULL) */
     bool_t ai_interactive;
 };
@@ -196,8 +223,10 @@ static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
 RB_PROTOTYPE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
 void akl_add_global_atom(struct akl_instance *, struct akl_atom *);
+void akl_remove_global_atom(struct akl_instance *, struct akl_atom *);
 struct akl_atom *akl_add_builtin(struct akl_instance *, const char *, akl_cfun_t, const char *);
 struct akl_atom *akl_add_global_cfun(struct akl_instance *, const char *, akl_cfun_t, const char *);
+void akl_remove_function(struct akl_instance *, akl_cfun_t);
 struct akl_atom *akl_get_global_atom(struct akl_instance *in, const char *);
 void akl_do_on_all_atoms(struct akl_instance *, void (*fn)(struct akl_atom *));
 
@@ -368,6 +397,13 @@ void akl_init_os(struct akl_instance *);
 
 #define AKL_ADD_BUILTIN(in, bname, name, desc) \
     akl_add_builtin((in), (name), bname##_builtin, (desc))
+
+#define AKL_REMOVE_CFUN(in, fname) \
+    akl_remove_function((in), fname##_function)
+
+#define AKL_REMOVE_BUILTIN(in, bname) \
+    akl_remove_function((in), bname##_builtin)
+
 
 #if  1
 #define GREEN  "\x1b[32m"

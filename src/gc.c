@@ -137,9 +137,12 @@ struct akl_instance *akl_new_instance(void)
     AKL_GC_INIT_OBJ(&TRUE_VALUE, akl_gc_value_destruct);
     AKL_GC_INIT_OBJ(&NIL_LIST, akl_gc_list_destruct);
     memset(in->ai_gc_stat, 0, AKL_NR_GC_STAT_ENT * sizeof(unsigned int));
-    in->ai_utypes = (struct akl_utype **)calloc(4, sizeof(struct akl_utype *));
-    in->ai_utype_size  = 4;
-    in->ai_utype_count = 0;
+    in->ai_utype_size  = 5;
+    in->ai_module_size = 5;
+    in->ai_utypes = (struct akl_utype **)calloc(in->ai_utype_size, sizeof(struct akl_utype *));
+    in->ai_modules = (struct akl_module **)calloc(in->ai_module_size, sizeof(struct akl_module *));
+    in->ai_module_count = 0;
+    in->ai_utype_count  = 0;
     in->ai_program  = NULL;
     in->ai_errors   = NULL;
     return in;

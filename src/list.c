@@ -31,6 +31,20 @@ void akl_add_global_atom(struct akl_instance *in, struct akl_atom *atom)
     ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
 }
 
+void akl_remove_global_atom(struct akl_instance *in, struct akl_atom *atom)
+{
+    ATOM_TREE_RB_REMOVE(&in->ai_atom_head, atom);
+}
+
+void akl_remove_function(struct akl_instance *in, akl_cfun_t fn)
+{
+    struct akl_atom *atom;
+    RB_FOREACH(atom, ATOM_TREE, &in->ai_atom_head) {
+        if (atom->at_value && atom->at_value->va_value.cfunc == fn)
+            akl_remove_global_atom(in, atom);
+    }
+}
+
 struct akl_atom *
 akl_add_global_cfun(struct akl_instance *in, const char *name
         , akl_cfun_t fn, const char *desc)
