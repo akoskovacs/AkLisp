@@ -1,6 +1,6 @@
 CC= gcc
 RM= rm -rf
-CFLAGS= -shared -ldl -I "../src"
+CFLAGS= -shared -fPIC -ldl -I "../src"
 SRCS= $(wildcard *.c)
 OBJS= $(patsubst %.c,%.alm,$(SRCS))
 all: $(OBJS)
