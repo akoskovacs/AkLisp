@@ -130,11 +130,10 @@ AKL_CFUN_DEFINE(load, in, args)
    }
 
    dlerror(); /* Clear last errors (if any) */
-
    mod_desc = (struct akl_module *)dlsym(handle, "__module_desc");
    if (mod_desc == NULL || ((error = dlerror()) != NULL)) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: No way to get back the module descriptor: %s", error);
+           , "ERROR: load: No way to get back the module descriptor: %d", error);
        return &NIL_VALUE;
    }
 
@@ -161,9 +160,15 @@ AKL_CFUN_DEFINE(load, in, args)
 AKL_CFUN_DEFINE(unload, in, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
-    char *modname = AKL_GET_STRING_VALUE(a1);
+    char *modname;
     struct akl_module *mod = NULL;
     int i, errcode;
+    if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
+        modname = AKL_GET_STRING_VALUE(a1);
+    } else {
+        return &NIL_VALUE;
+    }
+
     for (i = 0; i < in->ai_module_size; i++) {
         mod = in->ai_modules[i];
         if (mod && (strcmp(mod->am_path, modname) == 0)
