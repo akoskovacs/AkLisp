@@ -31,6 +31,20 @@ void akl_add_global_atom(struct akl_instance *in, struct akl_atom *atom)
     ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
 }
 
+void akl_remove_global_atom(struct akl_instance *in, struct akl_atom *atom)
+{
+    ATOM_TREE_RB_REMOVE(&in->ai_atom_head, atom);
+}
+
+void akl_remove_function(struct akl_instance *in, akl_cfun_t fn)
+{
+    struct akl_atom *atom;
+    RB_FOREACH(atom, ATOM_TREE, &in->ai_atom_head) {
+        if (atom->at_value && atom->at_value->va_value.cfunc == fn)
+            akl_remove_global_atom(in, atom);
+    }
+}
+
 struct akl_atom *
 akl_add_global_cfun(struct akl_instance *in, const char *name
         , akl_cfun_t fn, const char *desc)
@@ -208,6 +222,9 @@ struct akl_value *akl_list_index(struct akl_list *list, int index)
     if (index < 0) {
         /* Yeah! Extremely inefficient! */
         return akl_list_index(list, list->li_elem_count + index);
+    } else if (index == 0) {
+        if (list->li_head && list->li_head->le_value)
+            val = list->li_head->le_value;
     } else {
         ent = list->li_head;
         while (index--) {
