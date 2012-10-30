@@ -171,8 +171,8 @@ AKL_CFUN_DEFINE(unload, in, args)
 
     for (i = 0; i < in->ai_module_size; i++) {
         mod = in->ai_modules[i];
-        if (mod && (strcmp(mod->am_path, modname) == 0)
-                || (strcmp(mod->am_name, modname) == 0)) {
+        if (mod && ((strcmp(mod->am_path, modname) == 0)
+                || (strcmp(mod->am_name, modname) == 0))) {
             errcode = mod->am_unload(in);
             if (errcode != AKL_LOAD_OK) {
                akl_add_error(in, AKL_ERROR, a1->va_lex_info
