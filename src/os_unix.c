@@ -103,63 +103,112 @@ AKL_CFUN_DEFINE(load, in, args)
    char *modname, *error;
    struct akl_value *a1 = AKL_FIRST_VALUE(args); 
    struct akl_module *mod_desc;
+   char mod_path[FILENAME_MAX];
    int i, errcode = 0;
 
    if (!AKL_CHECK_TYPE(a1, TYPE_STRING)) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: First argument must be a string");
+           , "ERROR: load: First argument must be a string.\n");
        return &NIL_VALUE;
    }
-   modname = realpath(AKL_GET_STRING_VALUE(a1), NULL);
+   /* Ok try to figure out where is this tiny module */
+   modname = AKL_GET_STRING_VALUE(a1);
+   strncpy(mod_path, AKL_MODULE_SEARCH_PATH, FILENAME_MAX-1);
+   /* For first, start with the standard module search path (mostly the
+     '/usr/share/AkLisp/modules/') */
+   strncat(mod_path, modname, FILENAME_MAX-sizeof(AKL_MODULE_SEARCH_PATH)-1);
+   if (access(mod_path, R_OK) == 0) { /* Got it! */
+       modname = mod_path;
+   } else {
+       /* Try with the .alm extension */
+       strncat(mod_path, ".alm", FILENAME_MAX-sizeof(AKL_MODULE_SEARCH_PATH)-5);
+       if (access(mod_path, R_OK) == 0) {
+           modname = mod_path;
+       } else {
+           /* No way! Assume that, the user gave a relative of an absolute path...*/
+           modname = realpath(modname, NULL); /* Get it's absolute path */
+           if (access(modname, R_OK) != 0) { /* No access, give up! */
+               akl_add_error(in, AKL_ERROR, a1->va_lex_info
+                   , "ERROR: load: Module '%s' is not found.\n"
+                   , AKL_GET_STRING_VALUE(a1));
+               return &NIL_VALUE;
+           }
+       }
+   }
 
+   /* Are there any of this module already loaded in? */
+   /* NOTE: Just the paths are examined here */
    for (i = 0; i < in->ai_module_count; i++) {
        mod_desc = in->ai_modules[i];
        if (mod_desc && (strcmp(modname, mod_desc->am_path) == 0)) {
            akl_add_error(in, AKL_ERROR, a1->va_lex_info
-               , "ERROR: load: Module '%s' is already loaded", mod_desc->am_name);
+               , "ERROR: load: Module '%s' is already loaded.\n", mod_desc->am_name);
            return &NIL_VALUE;
        }
    }
 
+   /* We are on our way, lazy load */
    handle = dlopen(modname, RTLD_LAZY);
-
    if (!handle) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: Cannot load '%s': %s", modname, dlerror());
+           , "ERROR: load: Cannot load '%s': %s\n", modname, dlerror());
        return &NIL_VALUE;
    }
 
    dlerror(); /* Clear last errors (if any) */
+   /* Get back the module descripor, called '__module_desc' */
    mod_desc = (struct akl_module *)dlsym(handle, "__module_desc");
    if (mod_desc == NULL || ((error = dlerror()) != NULL)) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: No way to get back the module descriptor: %d", error);
+           , "ERROR: load: No way to get back the module descriptor: %d.\n", error);
+       dlclose(handle);
        return &NIL_VALUE;
    }
 
+   /* Assign some value to the important fields */
    mod_desc->am_handle = handle;
    mod_desc->am_path = modname;
-   errcode = mod_desc->am_load(in);
-   if (errcode != AKL_LOAD_OK) {
+   if (mod_desc->am_load && mod_desc->am_unload && mod_desc->am_name) {
+       /* Start the loader... */
+       errcode = mod_desc->am_load(in);
+       if (errcode != AKL_LOAD_OK) {
+           akl_add_error(in, AKL_ERROR, a1->va_lex_info
+               , "ERROR: load: Module loader gave error code: %d.\n", errcode);
+           dlclose(handle);
+           return &NIL_VALUE;
+       }
+   } else {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: Module loader gave error code: %d", errcode);
+           , "ERROR: load: Module descriptor is invalid.\n");
+       dlclose(handle);
        return &NIL_VALUE;
    }
 
+   /* No free slot for the new module, make some room */
    if (in->ai_module_count >= in->ai_module_size) {
        in->ai_module_size += in->ai_module_size; 
        in->ai_modules = (struct akl_module **)realloc(in->ai_modules
            , (sizeof (struct akl_module))*in->ai_module_size);
    }
-
-   in->ai_modules[in->ai_module_count] = mod_desc;
+    
    in->ai_module_count++;
+
+   /* Are there any unloaded module, with a free slot */
+   for (i = 0; i < in->ai_module_count; i++) {
+       if (in->ai_modules[i] == NULL) {
+           in->ai_modules[i] = mod_desc;
+           return &TRUE_VALUE;
+       }
+   }
+   /* XXX: We already increased the module count */
+   in->ai_modules[in->ai_module_count-1] = mod_desc;
    return &TRUE_VALUE;
 }
 
 AKL_CFUN_DEFINE(unload, in, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    struct akl_value *a2;
     char *modname;
     struct akl_module *mod = NULL;
     int i, errcode;
@@ -171,12 +220,38 @@ AKL_CFUN_DEFINE(unload, in, args)
 
     for (i = 0; i < in->ai_module_size; i++) {
         mod = in->ai_modules[i];
+        /* We can only search by name */
         if (mod && ((strcmp(mod->am_path, modname) == 0)
                 || (strcmp(mod->am_name, modname) == 0))) {
-            errcode = mod->am_unload(in);
-            if (errcode != AKL_LOAD_OK) {
+            if (mod->am_unload) {
+                errcode = mod->am_unload(in);
+                if (errcode != AKL_LOAD_OK) {
+                   if (args->li_elem_count < 2) {
+                       akl_add_error(in, AKL_ERROR, a1->va_lex_info
+                       , "ERROR: unload: Module unloader gave error code: %d.\n", errcode);
+                       akl_add_error(in, AKL_WARNING, a1->va_lex_info
+                       , "Use :force symbol as the second argument to force unload.\n");
+                       return &NIL_VALUE;
+                   } else {
+                       a2 = AKL_SECOND_VALUE(args);
+                       if (AKL_CHECK_TYPE(a2, TYPE_ATOM) && AKL_IS_QUOTED(a2)) {
+                           if (strcmp(a2->va_value.atom->at_name, "FORCE") != 0) {
+                               akl_add_error(in, AKL_ERROR, a2->va_lex_info
+                               , "ERROR: unload: Unknown option.\n");
+                               return &NIL_VALUE;
+                           }
+                           /* Force unload */
+                       } else {
+                           akl_add_error(in, AKL_ERROR, a2->va_lex_info
+                           , "ERROR: unload: Unknown option.\n");
+                           return &NIL_VALUE;
+                       }
+                   }
+                }
+            } else {
                akl_add_error(in, AKL_ERROR, a1->va_lex_info
-                   , "ERROR: load: Module unloader gave error code: %d, force unload", errcode);
+                   , "ERROR: unload: Cannot call '%s' module's unload code"
+                   , mod->am_name);
                return &NIL_VALUE;
             }
             dlclose(mod->am_handle);
