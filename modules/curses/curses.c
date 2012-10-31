@@ -20,6 +20,7 @@ AKL_CFUN_DEFINE(curs_getch, in, args)
     }
     sym = akl_new_atom_value(in, strdup(sname));
     sym->is_quoted = TRUE;
+    AKL_GC_INC_REF(sym);
     return sym;
 }
 
@@ -80,21 +81,25 @@ AKL_CFUN_DEFINE(curs_getxy, in, args)
 AKL_CFUN_DEFINE(curs_init_scr, in, args)
 {
     initscr();
+    return &TRUE_VALUE;
 }
 
 AKL_CFUN_DEFINE(curs_endwin, in, args)
 {
     endwin();
+    return &TRUE_VALUE;
 }
 
 AKL_CFUN_DEFINE(curs_refresh, in, args)
 {
     refresh();
+    return &TRUE_VALUE;
 }
 
 AKL_CFUN_DEFINE(curs_noecho, in, args)
 {
     noecho();
+    return &TRUE_VALUE;
 }
 
 
