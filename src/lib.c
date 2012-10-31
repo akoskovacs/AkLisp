@@ -319,6 +319,30 @@ AKL_CFUN_DEFINE(cdr, in, args)
     return &NIL_VALUE;
 }
 
+AKL_CFUN_DEFINE(to_num, in, args)
+{
+    struct akl_value *ret = akl_to_number(in, AKL_FIRST_VALUE(args));
+    if (ret)
+        return ret;
+    return NULL;
+}
+
+AKL_CFUN_DEFINE(to_str, in, args)
+{
+    struct akl_value *ret = akl_to_string(in, AKL_FIRST_VALUE(args));
+    if (ret)
+        return ret;
+    return NULL;
+}
+
+AKL_CFUN_DEFINE(to_sym, in, args)
+{
+    struct akl_value *ret = akl_to_symbol(in, AKL_FIRST_VALUE(args));
+    if (ret)
+        return ret;
+    return NULL;
+}
+
 AKL_CFUN_DEFINE(len, in, args)
 {
     struct akl_value *a1 = AKL_ENTRY_VALUE(AKL_LIST_FIRST(args));
@@ -925,6 +949,9 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, last,  "LAST", "Get back the last element of a list");
         AKL_ADD_CFUN(in, cdr,  "REST", "Get the tail of a list");
         AKL_ADD_CFUN(in, cdr,  "TAIL", "Get the tail of a list");
+        AKL_ADD_CFUN(in, to_num,  "NUM", "Convert an arbitrary value to a number");
+        AKL_ADD_CFUN(in, to_str,  "STR", "Convert an arbitrary value to a string");
+        AKL_ADD_CFUN(in, to_sym,  "SYM", "Convert an arbitrary value to a symbol");
     }
 
     if (flags & AKL_LIB_DATA) {

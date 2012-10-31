@@ -322,6 +322,12 @@ struct akl_value      *akl_new_atom_value(struct akl_instance *, char *);
 struct akl_value      *akl_new_user_value(struct akl_instance *, unsigned int, void *);
 struct akl_lex_info   *akl_new_lex_info(struct akl_instance *, struct akl_io_device *);
 
+char                  *akl_num_to_str(struct akl_instance *, double);
+struct akl_value      *akl_to_number(struct akl_instance *, struct akl_value *);
+struct akl_value      *akl_to_string(struct akl_instance *, struct akl_value *);
+struct akl_value      *akl_to_atom(struct akl_instance *, struct akl_value *);
+struct akl_value      *akl_to_symbol(struct akl_instance *, struct akl_value *);
+
 char *akl_get_atom_name_value(struct akl_value *);
 unsigned akl_get_utype_value(struct akl_value *);
 void *akl_get_udata_value(struct akl_value *);
