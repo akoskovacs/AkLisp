@@ -143,7 +143,7 @@ AKL_CFUN_DEFINE(load, in, args)
    char *modname, *error;
    struct akl_value *a1 = AKL_FIRST_VALUE(args); 
    struct akl_module *mod_desc;
-   char mod_path[FILENAME_MAX];
+   char *mod_path;
    int i, errcode = 0;
 
    if (!AKL_CHECK_TYPE(a1, TYPE_STRING)) {
@@ -151,21 +151,24 @@ AKL_CFUN_DEFINE(load, in, args)
            , "ERROR: load: First argument must be a string.\n");
        return &NIL_VALUE;
    }
-   /* Ok try to figure out where is this tiny module */
+
    modname = AKL_GET_STRING_VALUE(a1);
-   strncpy(mod_path, AKL_MODULE_SEARCH_PATH, FILENAME_MAX-1);
-   /* For first, start with the standard module search path (mostly the
+   mod_path = (char *)akl_malloc(in
+       , sizeof(AKL_MODULE_SEARCH_PATH) + strlen(modname) + 5); /* must be enough */
+   strcpy(mod_path, AKL_MODULE_SEARCH_PATH);
+   strcat(mod_path, modname);
+   /* Ok try to figure out where is this tiny module */
+   /* Firstly, start with the standard module search path (mostly the
      '/usr/share/AkLisp/modules/') */
-   strncat(mod_path, modname, FILENAME_MAX-sizeof(AKL_MODULE_SEARCH_PATH)-1);
    if (access(mod_path, R_OK) == 0) { /* Got it! */
        modname = mod_path;
    } else {
        /* Try with the .alm extension */
-       strncat(mod_path, ".alm", FILENAME_MAX-sizeof(AKL_MODULE_SEARCH_PATH)-5);
+       strcat(mod_path, ".alm");
        if (access(mod_path, R_OK) == 0) {
            modname = mod_path;
        } else {
-           /* No way! Assume that, the user gave a relative of an absolute path...*/
+           /* No way! Assume that the user gave a relative or an absolute path...*/
            modname = realpath(modname, NULL); /* Get it's absolute path */
            if (access(modname, R_OK) != 0) { /* No access, give up! */
                akl_add_error(in, AKL_ERROR, a1->va_lex_info
