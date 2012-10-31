@@ -18,7 +18,7 @@ if (UNIX)
     if (READLINE_FOUND)
         add_definitions(-DHAVE_READLINE)
     endif()
-    add_custom_target(modules COMMAND make -f modules/Makefile DEPENDS ${SDIR}/aklisp.h)
+    add_custom_target(modules make -f modules/Makefile)
     add_definitions(-DAKL_MODULE_SEARCH_PATH="${CMAKE_INSTALL_PREFIX}/share/AkLisp/modules/" )
 endif()
 
