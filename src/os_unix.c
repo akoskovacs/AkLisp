@@ -103,6 +103,7 @@ AKL_CFUN_DEFINE(load, in, args)
    char *modname, *error;
    struct akl_value *a1 = AKL_FIRST_VALUE(args); 
    struct akl_module *mod_desc;
+   char mod_path[FILENAME_MAX];
    int i, errcode = 0;
 
    if (!AKL_CHECK_TYPE(a1, TYPE_STRING)) {
@@ -110,8 +111,33 @@ AKL_CFUN_DEFINE(load, in, args)
            , "ERROR: load: First argument must be a string");
        return &NIL_VALUE;
    }
-   modname = realpath(AKL_GET_STRING_VALUE(a1), NULL);
+   /* Ok try to figure out where is this tiny module */
+   modname = AKL_GET_STRING_VALUE(a1);
+   strncpy(mod_path, AKL_MODULE_SEARCH_PATH, FILENAME_MAX-1);
+   /* For first, start with the standard module search path (mostly the
+     '/usr/share/AkLisp/modules/') */
+   strncat(mod_path, modname, FILENAME_MAX-sizeof(AKL_MODULE_SEARCH_PATH)-1);
+   if (access(mod_path, R_OK) == 0) { /* Got it! */
+       modname = mod_path;
+   } else {
+       /* Try with the .alm extension */
+       strncat(mod_path, ".alm", FILENAME_MAX-sizeof(AKL_MODULE_SEARCH_PATH)-5);
+       if (access(mod_path, R_OK) == 0) {
+           modname = mod_path;
+       } else {
+           /* No way! Assume that, the user gave a relative of an absolute path...*/
+           modname = realpath(modname, NULL); /* Get it's absolute path */
+           if (access(modname, R_OK) != 0) { /* No access, give up! */
+               akl_add_error(in, AKL_ERROR, a1->va_lex_info
+                   , "ERROR: load: Module '%s' is not found, searched as '%s'"
+                   , AKL_GET_STRING_VALUE(a1), modname);
+               return &NIL_VALUE;
+           }
+       }
+   }
 
+   /* Are there any of this module already loaded in? */
+   /* NOTE: Just the paths are examined here */
    for (i = 0; i < in->ai_module_count; i++) {
        mod_desc = in->ai_modules[i];
        if (mod_desc && (strcmp(modname, mod_desc->am_path) == 0)) {
@@ -121,8 +147,8 @@ AKL_CFUN_DEFINE(load, in, args)
        }
    }
 
+   /* We are on our way, lazy load */
    handle = dlopen(modname, RTLD_LAZY);
-
    if (!handle) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
            , "ERROR: load: Cannot load '%s': %s", modname, dlerror());
@@ -130,30 +156,52 @@ AKL_CFUN_DEFINE(load, in, args)
    }
 
    dlerror(); /* Clear last errors (if any) */
+   /* Get back the module descripor, called '__module_desc' */
    mod_desc = (struct akl_module *)dlsym(handle, "__module_desc");
    if (mod_desc == NULL || ((error = dlerror()) != NULL)) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
            , "ERROR: load: No way to get back the module descriptor: %d", error);
+       dlclose(handle);
        return &NIL_VALUE;
    }
 
+   /* Assign some value to the important fields */
    mod_desc->am_handle = handle;
    mod_desc->am_path = modname;
-   errcode = mod_desc->am_load(in);
-   if (errcode != AKL_LOAD_OK) {
+   if (mod_desc->am_load) {
+       /* Start the loader... */
+       errcode = mod_desc->am_load(in);
+       if (errcode != AKL_LOAD_OK) {
+           akl_add_error(in, AKL_ERROR, a1->va_lex_info
+               , "ERROR: load: Module loader gave error code: %d", errcode);
+           dlclose(handle);
+           return &NIL_VALUE;
+       }
+   } else {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: Module loader gave error code: %d", errcode);
+           , "ERROR: load: Module descriptor is invalid");
+       dlclose(handle);
        return &NIL_VALUE;
    }
 
+   /* No free slot for the new module, make some room */
    if (in->ai_module_count >= in->ai_module_size) {
        in->ai_module_size += in->ai_module_size; 
        in->ai_modules = (struct akl_module **)realloc(in->ai_modules
            , (sizeof (struct akl_module))*in->ai_module_size);
    }
-
-   in->ai_modules[in->ai_module_count] = mod_desc;
+    
    in->ai_module_count++;
+
+   /* Are there any unloaded module, with a free slot */
+   for (i = 0; i < in->ai_module_count; i++) {
+       if (in->ai_modules[i] == NULL) {
+           in->ai_modules[i] = mod_desc;
+           return &TRUE_VALUE;
+       }
+   }
+   /* XXX: We already increased the module count */
+   in->ai_modules[in->ai_module_count-1] = mod_desc;
    return &TRUE_VALUE;
 }
 
@@ -171,6 +219,7 @@ AKL_CFUN_DEFINE(unload, in, args)
 
     for (i = 0; i < in->ai_module_size; i++) {
         mod = in->ai_modules[i];
+        /* We can only search by name */
         if (mod && ((strcmp(mod->am_path, modname) == 0)
                 || (strcmp(mod->am_name, modname) == 0))) {
             errcode = mod->am_unload(in);

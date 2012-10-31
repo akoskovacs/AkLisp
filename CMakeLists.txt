@@ -18,6 +18,8 @@ if (UNIX)
     if (READLINE_FOUND)
         add_definitions(-DHAVE_READLINE)
     endif()
+    add_custom_target(modules COMMAND make -f modules/Makefile DEPENDS ${SDIR}/aklisp.h)
+    add_definitions(-DAKL_MODULE_SEARCH_PATH="${CMAKE_INSTALL_PREFIX}/share/AkLisp/modules/" )
 endif()
 
 if (!UNIX)
@@ -72,4 +74,9 @@ INSTALL(TARGETS ${TARGET}_shared
         PERMISSIONS OWNER_READ GROUP_READ WORLD_READ)
 INSTALL(FILES ${SDIR}/aklisp.h
         DESTINATION include
+        PERMISSIONS OWNER_READ GROUP_READ WORLD_READ)
+
+file(GLOB MODULES modules/*.alm)
+INSTALL(FILES ${MODULES}
+        DESTINATION share/AkLisp/modules/
         PERMISSIONS OWNER_READ GROUP_READ WORLD_READ)
