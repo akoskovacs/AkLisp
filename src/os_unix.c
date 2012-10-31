@@ -97,6 +97,46 @@ AKL_CFUN_DEFINE(sleep, in, args)
     return &NIL_VALUE;
 }
 
+AKL_CFUN_DEFINE(getenv, in, args)
+{
+    struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    char *env;
+    if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
+        env = getenv(AKL_GET_STRING_VALUE(a1));
+        if (env)
+            return akl_new_string_value(in, env);
+    }
+    return &NIL_VALUE;
+}
+
+AKL_CFUN_DEFINE(setenv, in, args)
+{
+    struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    struct akl_value *a2 = AKL_SECOND_VALUE(args);
+    if (AKL_CHECK_TYPE(a1, TYPE_STRING)
+        && AKL_CHECK_TYPE(a2, TYPE_STRING)) {
+        if (!setenv(AKL_GET_STRING_VALUE(a1)
+                , AKL_GET_STRING_VALUE(a2), 1))
+            return &TRUE_VALUE;
+    }
+    return &NIL_VALUE;
+}
+
+extern char **environ;
+AKL_CFUN_DEFINE(env, in, args)
+{
+    struct akl_list *vars = akl_new_list(in);
+    struct akl_value *v;
+    char **var = environ;
+    while (*var) {
+       v = akl_new_string_value(in, *var); 
+       akl_list_append(in, vars, v);
+       var++;
+    }
+    vars->is_quoted = TRUE;
+    return akl_new_list_value(in, vars);
+}
+
 AKL_CFUN_DEFINE(load, in, args)
 {
    void *handle;
@@ -281,6 +321,9 @@ void akl_init_os(struct akl_instance *in)
 
   AKL_ADD_CFUN(in, getpid, "GETPID", "Get the process id");
   AKL_ADD_CFUN(in, sleep, "SLEEP", "Sleeping for a given time (in seconds)");
+  AKL_ADD_CFUN(in, getenv, "GETENV", "Get the value of an environment variable");
+  AKL_ADD_CFUN(in, setenv, "SETENV", "Set the value of an environment variable");
+  AKL_ADD_CFUN(in, env, "ENV", "Get all environment variable as a list");
   AKL_ADD_CFUN(in, load, "LOAD", "Load an AkLisp dynamic library");
   AKL_ADD_CFUN(in, unload, "UNLOAD", "Unload an AkLisp dynamic library");
 }
