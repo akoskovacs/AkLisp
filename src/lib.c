@@ -477,18 +477,18 @@ AKL_CFUN_DEFINE(about, in, args)
 #endif // AKL_USER_INFO
             );
     if (in->ai_module_count != 0 && in->ai_modules != NULL) {
-        printf("\n%d loaded module%s:\n", in->ai_module_count
+        printf("\n%d loaded module%s:", in->ai_module_count
             , (in->ai_module_count > 1)?"s":"");
         for (i = 0; i < in->ai_module_count; i++) {
             mod = in->ai_modules[i];
+            printf("\n");
             if (mod != NULL) {
                 if (mod->am_name && mod->am_path)
                     printf("\tName: '%s'\n\tPath: '%s'\n", mod->am_name, mod->am_path);
                 if (mod->am_desc)
-                    printf("\tDescription: %s\n", mod->am_desc);
+                    printf("\tDescription: '%s'\n", mod->am_desc);
                 if (mod->am_author)
-                    printf("\tAuthor: %s\n", mod->am_author);
-                printf("\n");
+                    printf("\tAuthor: '%s'\n", mod->am_author);
             }
         }
     }
