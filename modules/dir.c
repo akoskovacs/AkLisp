@@ -69,7 +69,7 @@ AKL_CFUN_DEFINE(dirlist, in, args)
         list = akl_new_list(in); 
         while ((ent = readdir(dir)) != NULL) {
             akl_list_append(in, list
-                , akl_new_string_value(in, ent->d_name));
+                , akl_new_string_value(in, strdup(ent->d_name)));
         }
         closedir(dir);
         return akl_new_list_value(in, list);
@@ -100,5 +100,5 @@ static int dir_unload(struct akl_instance *in)
     return AKL_LOAD_OK;
 }
 
-AKL_MODULE_DEFINE(dir_load, dir_unload, "directory"
+AKL_MODULE_DEFINE(dir_load, dir_unload, "dir"
     , "Directory managing functions", "Kovács Ákos");
