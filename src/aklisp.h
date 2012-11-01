@@ -106,7 +106,7 @@ struct akl_gc_object {
 #define AKL_GC_SET_STATIC(obj) (obj)->gc_obj.gc_is_static = TRUE
 /* Decrease the reference count for an object and free it
   if it's 'ref_count' is zero and if the object is not static. */
-#define AKL_GC_DEC_REF(in, obj) if (--(obj)->gc_obj.gc_ref_count == 0 \
+#define AKL_GC_DEC_REF(in, obj) if ((obj) && --(obj)->gc_obj.gc_ref_count == 0 \
                                 && (!(obj)->gc_obj.gc_is_static)) \
                                 AKL_GC_COLLECT_OBJ(in,obj)
 

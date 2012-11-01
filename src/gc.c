@@ -136,6 +136,9 @@ struct akl_instance *akl_new_instance(void)
     AKL_GC_INIT_OBJ(&NIL_VALUE, akl_gc_value_destruct);
     AKL_GC_INIT_OBJ(&TRUE_VALUE, akl_gc_value_destruct);
     AKL_GC_INIT_OBJ(&NIL_LIST, akl_gc_list_destruct);
+    NIL_VALUE.gc_obj.gc_is_static = TRUE;
+    TRUE_VALUE.gc_obj.gc_is_static = TRUE;
+    NIL_LIST.gc_obj.gc_is_static = TRUE;
     memset(in->ai_gc_stat, 0, AKL_NR_GC_STAT_ENT * sizeof(unsigned int));
     in->ai_utype_size  = 5;
     in->ai_module_size = 5;
