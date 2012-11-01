@@ -503,10 +503,10 @@ AKL_CFUN_DEFINE(about, in, args)
     if (in->ai_module_count != 0 && in->ai_modules != NULL) {
         printf("\n%d loaded module%s:", in->ai_module_count
             , (in->ai_module_count > 1)?"s":"");
-        for (i = 0; i < in->ai_module_count; i++) {
+        for (i = 0; i < in->ai_module_size; i++) {
             mod = in->ai_modules[i];
-            printf("\n");
             if (mod != NULL) {
+                printf("\n");
                 if (mod->am_name && mod->am_path)
                     printf("\tName: '%s'\n\tPath: '%s'\n", mod->am_name, mod->am_path);
                 if (mod->am_desc)

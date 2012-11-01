@@ -174,6 +174,7 @@ AKL_CFUN_DEFINE(load, in, args)
                akl_add_error(in, AKL_ERROR, a1->va_lex_info
                    , "ERROR: load: Module '%s' is not found.\n"
                    , AKL_GET_STRING_VALUE(a1));
+               FREE_FUNCTION((void *)mod_path);
                return &NIL_VALUE;
            }
        }
@@ -181,11 +182,13 @@ AKL_CFUN_DEFINE(load, in, args)
 
    /* Are there any of this module already loaded in? */
    /* NOTE: Just the paths are examined here */
-   for (i = 0; i < in->ai_module_count; i++) {
+   for (i = 0; i < in->ai_module_size; i++) {
        mod_desc = in->ai_modules[i];
+       /* TODO: Compare the basename()'s of the paths */
        if (mod_desc && (strcmp(modname, mod_desc->am_path) == 0)) {
            akl_add_error(in, AKL_ERROR, a1->va_lex_info
                , "ERROR: load: Module '%s' is already loaded.\n", mod_desc->am_name);
+           FREE_FUNCTION((void *)mod_path);
            return &NIL_VALUE;
        }
    }
@@ -195,6 +198,7 @@ AKL_CFUN_DEFINE(load, in, args)
    if (!handle) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
            , "ERROR: load: Cannot load '%s': %s\n", modname, dlerror());
+       FREE_FUNCTION((void *)mod_path);
        return &NIL_VALUE;
    }
 
@@ -204,7 +208,7 @@ AKL_CFUN_DEFINE(load, in, args)
    if (mod_desc == NULL || ((error = dlerror()) != NULL)) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
            , "ERROR: load: No way to get back the module descriptor: %d.\n", error);
-       dlclose(handle);
+       FREE_FUNCTION((void *)mod_path);
        return &NIL_VALUE;
    }
 
@@ -217,34 +221,34 @@ AKL_CFUN_DEFINE(load, in, args)
        if (errcode != AKL_LOAD_OK) {
            akl_add_error(in, AKL_ERROR, a1->va_lex_info
                , "ERROR: load: Module loader gave error code: %d.\n", errcode);
+           FREE_FUNCTION((void *)mod_path);
            dlclose(handle);
            return &NIL_VALUE;
        }
    } else {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
            , "ERROR: load: Module descriptor is invalid.\n");
+       FREE_FUNCTION((void *)mod_path);
        dlclose(handle);
        return &NIL_VALUE;
    }
 
    /* No free slot for the new module, make some room */
-   if (in->ai_module_count >= in->ai_module_size) {
+   if (in->ai_module_count >= in->ai_module_size-1) {
        in->ai_module_size += in->ai_module_size; 
        in->ai_modules = (struct akl_module **)realloc(in->ai_modules
-           , (sizeof (struct akl_module))*in->ai_module_size);
+           , (sizeof (struct akl_module *))*in->ai_module_size);
    }
     
    in->ai_module_count++;
 
    /* Are there any unloaded module, with a free slot */
-   for (i = 0; i < in->ai_module_count; i++) {
+   for (i = 0; i < in->ai_module_size; i++) {
        if (in->ai_modules[i] == NULL) {
            in->ai_modules[i] = mod_desc;
            return &TRUE_VALUE;
        }
    }
-   /* XXX: We already increased the module count */
-   in->ai_modules[in->ai_module_count-1] = mod_desc;
    return &TRUE_VALUE;
 }
 
@@ -264,8 +268,8 @@ AKL_CFUN_DEFINE(unload, in, args)
     for (i = 0; i < in->ai_module_size; i++) {
         mod = in->ai_modules[i];
         /* We can only search by name */
-        if (mod && ((strcmp(mod->am_path, modname) == 0)
-                || (strcmp(mod->am_name, modname) == 0))) {
+        if (mod && ((strcmp(mod->am_name, modname) == 0)
+                || (strcmp(mod->am_path, modname) == 0))) {
             if (mod->am_unload) {
                 errcode = mod->am_unload(in);
                 if (errcode != AKL_LOAD_OK) {
@@ -293,10 +297,11 @@ AKL_CFUN_DEFINE(unload, in, args)
                 }
             } else {
                akl_add_error(in, AKL_ERROR, a1->va_lex_info
-                   , "ERROR: unload: Cannot call '%s' module's unload code"
+                   , "ERROR: unload: Cannot call '%s' module's unload code\n"
                    , mod->am_name);
                return &NIL_VALUE;
             }
+            FREE_FUNCTION((void *)mod->am_path);
             dlclose(mod->am_handle);
             in->ai_modules[i] = NULL;
             in->ai_module_count--;
@@ -304,6 +309,9 @@ AKL_CFUN_DEFINE(unload, in, args)
         }
 
     }
+    akl_add_error(in, AKL_ERROR, a1->va_lex_info
+       , "ERROR: unload: '%s' module not found.\n"
+       , modname);
     return &NIL_VALUE;
 }
 
