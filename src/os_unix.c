@@ -129,7 +129,7 @@ AKL_CFUN_DEFINE(env, in, args)
     struct akl_value *v;
     char **var = environ;
     while (*var) {
-       v = akl_new_string_value(in, *var); 
+       v = akl_new_string_value(in, strdup(*var)); 
        akl_list_append(in, vars, v);
        var++;
     }
