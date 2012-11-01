@@ -38,8 +38,6 @@
 #define AKL_FREE(ptr) FREE_FUNCTION((void *)(ptr))
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
-#define AKL_CHECK_USER_TYPE(v1, type_id) (AKL_CHECK_TYPE(v1,TYPE_USERDATA) \
-                                    && (AKL_GET_USERDATA_VALUE(v1)->ud_id == type))
 #define AKL_GET_VALUE_MEMBER_PTR(val, type, member) \
                             ((AKL_CHECK_TYPE(val, type) \
                             ? (val)->va_value.member : NULL))
@@ -332,6 +330,7 @@ char *akl_get_atom_name_value(struct akl_value *);
 unsigned akl_get_utype_value(struct akl_value *);
 void *akl_get_udata_value(struct akl_value *);
 struct akl_userdata *akl_get_userdata_value(struct akl_value *);
+bool_t akl_check_user_type(struct akl_value *, unsigned int);
 
 void akl_free_atom(struct akl_instance *in, struct akl_atom *atom);
 void akl_free_value(struct akl_instance *in, struct akl_value *val);

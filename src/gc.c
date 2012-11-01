@@ -500,6 +500,14 @@ struct akl_userdata *akl_get_userdata_value(struct akl_value *value)
     return NULL;
 }
 
+bool_t akl_check_user_type(struct akl_value *v, unsigned int type)
+{
+    struct akl_userdata *d = akl_get_userdata_value(v);
+    if (d && d->ud_id == type)
+        return TRUE;
+    return FALSE;
+}
+
 unsigned int akl_get_utype_value(struct akl_value *value)
 {
     struct akl_userdata *data;
