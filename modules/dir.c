@@ -101,4 +101,4 @@ static int dir_unload(struct akl_instance *in)
 }
 
 AKL_MODULE_DEFINE(dir_load, dir_unload, "dir"
-    , "Directory managing functions", "Kovács Ákos");
+    , "Directory managing functions", "Kovacs Akos");
