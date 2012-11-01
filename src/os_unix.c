@@ -104,7 +104,7 @@ AKL_CFUN_DEFINE(getenv, in, args)
     if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
         env = getenv(AKL_GET_STRING_VALUE(a1));
         if (env)
-            return akl_new_string_value(in, env);
+            return akl_new_string_value(in, strdup(env));
     }
     return &NIL_VALUE;
 }
