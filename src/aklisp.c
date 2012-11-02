@@ -158,7 +158,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
         AKL_GC_INC_REF(ret);
         if (fatm->at_value->va_type != TYPE_BUILTIN) {
             AKL_GC_DEC_REF(in, list);
-            if (list->li_elem_count > 1)
+            if (list->li_elem_count > 1 && args != &NIL_LIST)
                 AKL_FREE(args);
         }
     }

@@ -268,9 +268,9 @@ extern struct akl_list {
 /* If, the elem pointer will be modified (i.e: free()'d) you
   must use this macro */
 #define AKL_LIST_FOREACH_SAFE(elem, list, tmp)  \
-    for ((tmp) = (elem) = AKL_LIST_FIRST(list) \
-       ; (tmp)                                  \
-       ; (tmp) = (elem) = AKL_LIST_NEXT(tmp))
+    for ((elem) = AKL_LIST_FIRST(list)          \
+       ; (elem) && ((tmp) = AKL_LIST_NEXT(elem))  \
+       ; (elem) = (tmp))
 
 #define AKL_ENTRY_VALUE(elem) ((elem)->le_value)
 

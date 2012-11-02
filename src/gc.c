@@ -139,6 +139,7 @@ struct akl_instance *akl_new_instance(void)
     NIL_VALUE.gc_obj.gc_is_static = TRUE;
     TRUE_VALUE.gc_obj.gc_is_static = TRUE;
     NIL_LIST.gc_obj.gc_is_static = TRUE;
+    in->ai_device = NULL;
     memset(in->ai_gc_stat, 0, AKL_NR_GC_STAT_ENT * sizeof(unsigned int));
     in->ai_utype_size  = 5;
     in->ai_module_size = 5;
@@ -202,7 +203,7 @@ void akl_free_list_entry(struct akl_instance *in, struct akl_list_entry *ent)
 {
     if (ent == NULL)
         return;
-
+    
     AKL_GC_DEC_REF(in, AKL_ENTRY_VALUE(ent));
     in && in->ai_gc_stat[AKL_GC_STAT_LIST_ENTRY]--;
     AKL_FREE(ent);
