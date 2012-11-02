@@ -219,6 +219,10 @@ void akl_add_error(struct akl_instance *in, enum AKL_ALERT_TYPE type
               duplicate this variable _on every singe call_, so It would be pretty cool
               to eliminate this! */
             akl_list_append(in, l, akl_new_string_value(in, strdup(info->li_name)));
+        } else {
+            akl_list_append(in, l, akl_new_number_value(in, 0));
+            akl_list_append(in, l, akl_new_number_value(in, 0));
+            akl_list_append(in, l, akl_new_string_value(in, strdup("(unknown)")));
         }
         akl_list_append(in, l, akl_new_string_value(in, msg));
         akl_list_append(in, in->ai_errors, akl_new_list_value(in, l));

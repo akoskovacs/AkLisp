@@ -38,8 +38,6 @@
 #define AKL_FREE(ptr) FREE_FUNCTION((void *)(ptr))
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
-#define AKL_CHECK_USER_TYPE(v1, type_id) (AKL_CHECK_TYPE(v1,TYPE_USERDATA) \
-                                    && (AKL_GET_USERDATA_VALUE(v1)->ud_id == type))
 #define AKL_GET_VALUE_MEMBER_PTR(val, type, member) \
                             ((AKL_CHECK_TYPE(val, type) \
                             ? (val)->va_value.member : NULL))
@@ -106,7 +104,7 @@ struct akl_gc_object {
 #define AKL_GC_SET_STATIC(obj) (obj)->gc_obj.gc_is_static = TRUE
 /* Decrease the reference count for an object and free it
   if it's 'ref_count' is zero and if the object is not static. */
-#define AKL_GC_DEC_REF(in, obj) if (--(obj)->gc_obj.gc_ref_count == 0 \
+#define AKL_GC_DEC_REF(in, obj) if ((obj) && --(obj)->gc_obj.gc_ref_count == 0 \
                                 && (!(obj)->gc_obj.gc_is_static)) \
                                 AKL_GC_COLLECT_OBJ(in,obj)
 
@@ -322,10 +320,17 @@ struct akl_value      *akl_new_atom_value(struct akl_instance *, char *);
 struct akl_value      *akl_new_user_value(struct akl_instance *, unsigned int, void *);
 struct akl_lex_info   *akl_new_lex_info(struct akl_instance *, struct akl_io_device *);
 
+char                  *akl_num_to_str(struct akl_instance *, double);
+struct akl_value      *akl_to_number(struct akl_instance *, struct akl_value *);
+struct akl_value      *akl_to_string(struct akl_instance *, struct akl_value *);
+struct akl_value      *akl_to_atom(struct akl_instance *, struct akl_value *);
+struct akl_value      *akl_to_symbol(struct akl_instance *, struct akl_value *);
+
 char *akl_get_atom_name_value(struct akl_value *);
 unsigned akl_get_utype_value(struct akl_value *);
 void *akl_get_udata_value(struct akl_value *);
 struct akl_userdata *akl_get_userdata_value(struct akl_value *);
+bool_t akl_check_user_type(struct akl_value *, unsigned int);
 
 void akl_free_atom(struct akl_instance *in, struct akl_atom *atom);
 void akl_free_value(struct akl_instance *in, struct akl_value *val);

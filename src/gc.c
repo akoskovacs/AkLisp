@@ -136,6 +136,9 @@ struct akl_instance *akl_new_instance(void)
     AKL_GC_INIT_OBJ(&NIL_VALUE, akl_gc_value_destruct);
     AKL_GC_INIT_OBJ(&TRUE_VALUE, akl_gc_value_destruct);
     AKL_GC_INIT_OBJ(&NIL_LIST, akl_gc_list_destruct);
+    NIL_VALUE.gc_obj.gc_is_static = TRUE;
+    TRUE_VALUE.gc_obj.gc_is_static = TRUE;
+    NIL_LIST.gc_obj.gc_is_static = TRUE;
     memset(in->ai_gc_stat, 0, AKL_NR_GC_STAT_ENT * sizeof(unsigned int));
     in->ai_utype_size  = 5;
     in->ai_module_size = 5;
@@ -213,6 +216,128 @@ struct akl_value *akl_new_value(struct akl_instance *in)
     val->is_quoted = FALSE;
     val->va_lex_info = NULL;
     return val;
+}
+
+/* TODO: These conversion functions are in the wrong place, move them! */
+/* NOTE: These functions give back a NULL pointer, if the conversion
+  cannot be completed */
+struct akl_value *akl_to_number(struct akl_instance *in, struct akl_value *v)
+{
+    char *str = NULL;
+    if (v) {
+        switch (v->va_type) {
+            case TYPE_STRING:
+            str = AKL_GET_STRING_VALUE(v);
+            break;
+
+            case TYPE_ATOM:
+            if (v->va_value.atom != NULL)
+                str = v->va_value.atom->at_name;
+            break;
+
+            case TYPE_NIL:
+            str = "0";
+            break;
+
+            case TYPE_TRUE:
+            str = "1";
+            break;
+
+            case TYPE_NUMBER:
+            return v;
+
+            default:
+            break;
+        }
+        if (str)
+            return akl_new_number_value(in, atof(str));
+    }
+    return NULL;
+}
+
+char *akl_num_to_str(struct akl_instance *in, double number)
+{
+    int strsize = 30;
+    char *str = (char *)akl_malloc(in, strsize);
+    while (snprintf(str, strsize, "%g", number) >= strsize) {
+        strsize += strsize/2;
+        str = realloc(str, strsize);
+    }
+    return str;
+}
+
+struct akl_value *akl_to_string(struct akl_instance *in, struct akl_value *v)
+{
+    const char *str;
+    if (v) {
+        switch (v->va_type) {
+            case TYPE_NUMBER:
+            str = akl_num_to_str(in, AKL_GET_NUMBER_VALUE(v));
+            break;
+
+            case TYPE_ATOM:
+            if (v->va_value.atom != NULL)
+                str = v->va_value.atom->at_name;
+            break;
+
+            case TYPE_NIL:
+            str = "NIL";
+            break;
+
+            case TYPE_TRUE:
+            str = "T";
+            break;
+
+            case TYPE_STRING:
+            return v;
+
+            default:
+            break;
+        }
+        if (str)
+            return akl_new_string_value(in, strdup(str));
+    }
+    return NULL;
+}
+
+struct akl_value *akl_to_symbol(struct akl_instance *in, struct akl_value *v)
+{
+    struct akl_value *sym;
+    char *name = NULL;
+    if (v) {
+        switch (v->va_type) {
+            case TYPE_NUMBER:
+            name = akl_num_to_str(in, AKL_GET_NUMBER_VALUE(v));
+            break;
+
+            case TYPE_STRING:
+            /* TODO: Eliminate the strup()s */
+            name = strdup(AKL_GET_STRING_VALUE(v));
+            break;
+
+            case TYPE_NIL:
+            name = strdup("NIL");
+            break;
+
+            case TYPE_TRUE:
+            name = strdup("T");
+            break;
+
+            case TYPE_ATOM:
+            if (v->va_value.atom != NULL)
+                name = strdup(v->va_value.atom->at_name);
+            break;
+
+            default:
+            break;
+        }
+        if (name) {
+            sym = akl_new_atom_value(in, name);
+            sym->is_quoted = TRUE;
+            return sym;
+        }
+    }
+    return NULL;
 }
 
 void akl_free_value(struct akl_instance *in, struct akl_value *val)
@@ -373,6 +498,14 @@ struct akl_userdata *akl_get_userdata_value(struct akl_value *value)
        return data;
     }
     return NULL;
+}
+
+bool_t akl_check_user_type(struct akl_value *v, unsigned int type)
+{
+    struct akl_userdata *d = akl_get_userdata_value(v);
+    if (d && d->ud_id == type)
+        return TRUE;
+    return FALSE;
 }
 
 unsigned int akl_get_utype_value(struct akl_value *value)
