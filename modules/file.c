@@ -57,11 +57,13 @@ AKL_CFUN_DEFINE(file_getline, in, args)
 {
     struct akl_value *fval = AKL_FIRST_VALUE(args);
     size_t line_s = 0;
+    ssize_t n;
     char *line = NULL;
     FILE *fp;
     if (akl_check_user_type(fval, file_utype)) {
         fp = (FILE *)akl_get_udata_value(fval);
-        if (fp && getline(&line, &line_s, fp) != -1) {
+        if (fp && (n = getline(&line, &line_s, fp)) != -1) {
+            line[n-1] = '\0';
             return akl_new_string_value(in, line);
         }
     }
