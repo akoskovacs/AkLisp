@@ -62,6 +62,7 @@ AKL_CFUN_DEFINE(dirlist, in, args)
     struct akl_list *list;    
     DIR *dir;
     struct dirent *ent;
+    struct akl_value *ret;
     if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
         dir = opendir(AKL_GET_STRING_VALUE(a1));
         if (!dir)
@@ -72,7 +73,10 @@ AKL_CFUN_DEFINE(dirlist, in, args)
                 , akl_new_string_value(in, ent->d_name));
         }
         closedir(dir);
-        return akl_new_list_value(in, list);
+        ret = akl_new_list_value(in, list);
+        list->is_quoted = TRUE;
+        ret->is_quoted = TRUE;
+        return ret;
     } else {
         akl_add_error(in, AKL_ERROR, a1->va_lex_info
             , "ERROR: mkdir: First argument should be a string");
