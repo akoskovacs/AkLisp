@@ -104,7 +104,7 @@ akl_cfun_t akl_get_global_cfun(struct akl_instance *in, const char *name)
 }
 
 struct akl_list_entry *
-akl_list_append(struct akl_instance *in, struct akl_list *list, struct akl_value *val)
+akl_list_append(struct akl_instance *in, struct akl_list *list, void *val)
 {
     struct akl_list_entry *le;
     assert(list != NULL);
@@ -121,13 +121,21 @@ akl_list_append(struct akl_instance *in, struct akl_list *list, struct akl_value
 
     list->li_last = le;
     list->li_elem_count++;
-    list->is_nil = 0;
-    AKL_GC_INC_REF(val);
+    list->is_nil = FALSE;
     return le; 
 }
 
 struct akl_list_entry *
-akl_list_insert_head(struct akl_instance *in, struct akl_list *list, struct akl_value *val)
+akl_list_append_value(struct akl_instance *in, struct akl_list *list, struct akl_value *val)
+{
+    struct akl_list_entry *le;
+    le = akl_list_append(in, list, (void *)val);
+    AKL_GC_INC_REF(val);
+    return le;
+}
+
+struct akl_list_entry *
+akl_list_insert_head(struct akl_instance *in, struct akl_list *list, void *val)
 {
     struct akl_list_entry *le;
     struct akl_list_entry *head;
@@ -141,6 +149,14 @@ akl_list_insert_head(struct akl_instance *in, struct akl_list *list, struct akl_
     }
     list->li_head = le;
     list->li_elem_count++;
+    return le;
+}
+
+struct akl_list_entry *
+akl_list_insert_value_head(struct akl_instance *in, struct akl_list *list, struct akl_value *val)
+{
+    struct akl_list_entry *le;
+    le = akl_list_insert_head(in, list, (void *)val);
     AKL_GC_INC_REF(val);
     return le;
 }
@@ -196,7 +212,7 @@ struct akl_list *akl_list_duplicate(struct akl_instance *in, struct akl_list *li
     struct akl_value *nval;
     AKL_LIST_FOREACH(ent, list) {
         nval = akl_duplicate_value(in, AKL_ENTRY_VALUE(ent));
-        akl_list_append(in, nlist, nval);
+        akl_list_append_value(in, nlist, nval);
     }
     return nlist;
 }
@@ -212,27 +228,34 @@ struct akl_list_entry *akl_list_find(struct akl_list *list, struct akl_value *va
     }
     return NULL;
 }
-
-struct akl_value *akl_list_index(struct akl_list *list, int index)
+void *akl_list_index(struct akl_list *list, int index)
 {
-    struct akl_value *val = &NIL_VALUE;
+    void *ptr = NULL;
     struct akl_list_entry *ent;
     if (list == NULL || list->li_head == NULL || AKL_IS_NIL(list))
-        return val;
+        return ptr;
     if (index < 0) {
         /* Yeah! Extremely inefficient! */
-        return akl_list_index(list, list->li_elem_count + index);
+        return akl_list_index_value(list, list->li_elem_count + index);
     } else if (index == 0) {
         if (list->li_head && list->li_head->le_value)
-            val = list->li_head->le_value;
+            ptr = list->li_head->le_value;
     } else {
         ent = list->li_head;
         while (index--) {
             if ((ent = AKL_LIST_NEXT(ent)) == NULL)
-                return &NIL_VALUE;
+                return NULL;
         }
-        val = AKL_ENTRY_VALUE(ent);
+        ptr = ent->le_value;
     }
+    return ptr;
+}
+
+struct akl_value *akl_list_index_value(struct akl_list *list, int index)
+{
+    struct akl_value *val = &NIL_VALUE;
+    if ((val = (struct akl_value *)akl_list_index(list, index)) == NULL)
+        return &NIL_VALUE;
     return val;
 }
 

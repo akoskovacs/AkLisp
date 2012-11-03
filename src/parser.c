@@ -91,7 +91,7 @@ struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *d
             lval = AKL_GET_LIST_VALUE(value);
             lval->li_parent = list;
         }
-        akl_list_append(in, list, value);
+        akl_list_append_value(in, list, value);
     }
     return list;
 }
@@ -103,7 +103,7 @@ struct akl_list *akl_parse_io(struct akl_instance *in)
     assert(dev);
     in->ai_program = akl_new_list(in);
     while ((value = akl_parse_value(in, dev)))
-        akl_list_append(in, in->ai_program, value);
+        akl_list_append_value(in, in->ai_program, value);
 
     return in->ai_program;
 }

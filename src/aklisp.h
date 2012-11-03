@@ -230,7 +230,7 @@ struct akl_atom *akl_get_global_atom(struct akl_instance *in, const char *);
 void akl_do_on_all_atoms(struct akl_instance *, void (*fn)(struct akl_atom *));
 
 struct akl_list_entry {
-    struct akl_value *le_value;
+    void *le_value;
     struct akl_list_entry *le_next;
 };
 
@@ -252,9 +252,9 @@ extern struct akl_list {
 #define AKL_LIST_LAST(list) ((list)->li_last)
 #define AKL_LIST_NEXT(ent) ((ent)->le_next)
 #define AKL_LIST_SECOND(list) (AKL_LIST_NEXT(AKL_LIST_FIRST(list)))
-#define AKL_FIRST_VALUE(list) akl_list_index(list, 0)
-#define AKL_SECOND_VALUE(list) akl_list_index(list, 1)
-#define AKL_THIRD_VALUE(list) akl_list_index(list, 2)
+#define AKL_FIRST_VALUE(list) akl_list_index_value(list, 0)
+#define AKL_SECOND_VALUE(list) akl_list_index_value(list, 1)
+#define AKL_THIRD_VALUE(list) akl_list_index_value(list, 2)
 #define AKL_LIST_FOREACH(elem, list)  \
     for ((elem) = AKL_LIST_FIRST(list)\
        ; (elem)                        \
@@ -273,7 +273,7 @@ extern struct akl_list {
        ; (elem) && ((tmp) = AKL_LIST_NEXT(elem))  \
        ; (elem) = (tmp))
 
-#define AKL_ENTRY_VALUE(elem) ((elem)->le_value)
+#define AKL_ENTRY_VALUE(elem) (struct akl_value *)((elem)->le_value)
 
 typedef enum {
     tEOF,
@@ -341,10 +341,16 @@ void akl_free_list(struct akl_instance *in, struct akl_list *list);
 void akl_free_instance(struct akl_instance *in);
 
 struct akl_list_entry *
-akl_list_append(struct akl_instance *, struct akl_list *, struct akl_value *);
+akl_list_append(struct akl_instance *, struct akl_list *, void *);
 struct akl_list_entry *
-akl_list_insert_head(struct akl_instance *, struct akl_list *, struct akl_value *);
-struct akl_value *akl_list_index(struct akl_list *, int);
+akl_list_append_value(struct akl_instance *, struct akl_list *, struct akl_value *);
+
+struct akl_list_entry *
+akl_list_insert_head(struct akl_instance *, struct akl_list *, void *);
+struct akl_list_entry *
+akl_list_insert_value_head(struct akl_instance *, struct akl_list *, struct akl_value *);
+
+struct akl_value *akl_list_index_value(struct akl_list *, int);
 struct akl_list_entry *akl_list_find(struct akl_list *, struct akl_value *);
 struct akl_value *akl_duplicate_value(struct akl_instance *, struct akl_value *);
 struct akl_list *akl_list_duplicate(struct akl_instance *, struct akl_list *);

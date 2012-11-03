@@ -209,8 +209,8 @@ AKL_BUILTIN_DEFINE(and, in, args)
 
     AKL_LIST_FOREACH(ent, args) {
         arg = AKL_ENTRY_VALUE(ent);
-        ent->le_value = akl_eval_value(in, arg);
-        if (AKL_IS_NIL(ent->le_value)) 
+        ent->le_value = (struct akl_value *)akl_eval_value(in, arg);
+        if (AKL_IS_NIL(AKL_ENTRY_VALUE(ent)))
             return &NIL_VALUE;
     }
     return AKL_ENTRY_VALUE(AKL_LIST_LAST(args));
@@ -226,7 +226,7 @@ AKL_BUILTIN_DEFINE(or, in, args)
     AKL_LIST_FOREACH(ent, args) {
         arg = AKL_ENTRY_VALUE(ent);
         ent->le_value = akl_eval_value(in, arg);
-        if (!AKL_IS_NIL(ent->le_value)) 
+        if (!AKL_IS_NIL(AKL_ENTRY_VALUE(ent)))
             return ent->le_value;
     }
     return &NIL_VALUE;
@@ -476,11 +476,11 @@ AKL_CFUN_DEFINE(version, in, args __unused)
     for (i = 0; ver[i]; i++) {
         ver[i] = toupper(ver[i]);
     }
-    akl_list_append(in, version, akl_new_number_value(in, VER_MAJOR));
-    akl_list_append(in, version, akl_new_number_value(in, VER_MINOR));
+    akl_list_append_value(in, version, akl_new_number_value(in, VER_MAJOR));
+    akl_list_append_value(in, version, akl_new_number_value(in, VER_MINOR));
     addit = akl_new_atom_value(in, ver);
     addit->is_quoted = TRUE;
-    akl_list_append(in, version, addit);
+    akl_list_append_value(in, version, addit);
     version->is_quoted = 1;
     return akl_new_list_value(in, version);
 }
@@ -564,14 +564,14 @@ AKL_CFUN_DEFINE(range, in, args)
         rs = AKL_GET_NUMBER_VALUE(sarg);
         if (rf < rs) {
             for (i = rf; i <= rs; i += rt) {
-                akl_list_append(in, range, akl_new_number_value(in, i));
+                akl_list_append_value(in, range, akl_new_number_value(in, i));
             }
         } else if (rf > rs) {
             for (i = rf; i >= rs; i -= rt) {
-                akl_list_append(in, range, akl_new_number_value(in, i));
+                akl_list_append_value(in, range, akl_new_number_value(in, i));
             }
         } else {
-            akl_list_append(in, range, akl_new_number_value(in, rf));
+            akl_list_append_value(in, range, akl_new_number_value(in, rf));
         }
     } else {
         return &NIL_VALUE;
@@ -592,7 +592,7 @@ AKL_CFUN_DEFINE(index, in, args)
     }
     if (a2 && !AKL_IS_NIL(a2) && a2->va_type == TYPE_LIST) {
         list = AKL_GET_LIST_VALUE(a2);
-        return akl_list_index(list, ind);
+        return akl_list_index_value(list, ind);
     }
     return &NIL_VALUE;
 }
@@ -867,7 +867,7 @@ AKL_CFUN_DEFINE(cons, in, args)
     if (a1 == NULL || a2 == NULL || a2->va_type != TYPE_LIST)
         return &NIL_VALUE;
    
-    akl_list_insert_head(in, AKL_GET_LIST_VALUE(a2), a1);
+    akl_list_insert_value_head(in, AKL_GET_LIST_VALUE(a2), a1);
     return a2;
 }
 
@@ -933,9 +933,9 @@ AKL_CFUN_DEFINE(time, in, args)
 {
     struct akl_list *tlist;
     tlist = akl_new_list(in);
-    akl_list_append(in, tlist, time_hour_function(in, args));
-    akl_list_append(in, tlist, time_min_function(in, args));
-    akl_list_append(in, tlist, time_sec_function(in, args));
+    akl_list_append_value(in, tlist, time_hour_function(in, args));
+    akl_list_append_value(in, tlist, time_min_function(in, args));
+    akl_list_append_value(in, tlist, time_sec_function(in, args));
     return akl_new_list_value(in, tlist);
 }
 

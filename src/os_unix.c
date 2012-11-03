@@ -130,7 +130,7 @@ AKL_CFUN_DEFINE(env, in, args)
     char **var = environ;
     while (*var) {
        v = akl_new_string_value(in, strdup(*var)); 
-       akl_list_append(in, vars, v);
+       akl_list_append_value(in, vars, v);
        var++;
     }
     vars->is_quoted = TRUE;

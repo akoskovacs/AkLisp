@@ -230,21 +230,21 @@ void akl_add_error(struct akl_instance *in, enum AKL_ALERT_TYPE type
             in->ai_errors = akl_new_list(in);
         }
         l = akl_new_list(in);
-        akl_list_append(in, l, akl_new_number_value(in, type));
+        akl_list_append_value(in, l, akl_new_number_value(in, type));
         if (info) {
-            akl_list_append(in, l, akl_new_number_value(in, info->li_line));
-            akl_list_append(in, l, akl_new_number_value(in, info->li_count));
+            akl_list_append_value(in, l, akl_new_number_value(in, info->li_line));
+            akl_list_append_value(in, l, akl_new_number_value(in, info->li_count));
             /* TODO: Because of the way that AkLisp handles string values, we must
               duplicate this variable _on every singe call_, so It would be pretty cool
               to eliminate this! */
-            akl_list_append(in, l, akl_new_string_value(in, strdup(info->li_name)));
+            akl_list_append_value(in, l, akl_new_string_value(in, strdup(info->li_name)));
         } else {
-            akl_list_append(in, l, akl_new_number_value(in, 0));
-            akl_list_append(in, l, akl_new_number_value(in, 0));
-            akl_list_append(in, l, akl_new_string_value(in, strdup("(unknown)")));
+            akl_list_append_value(in, l, akl_new_number_value(in, 0));
+            akl_list_append_value(in, l, akl_new_number_value(in, 0));
+            akl_list_append_value(in, l, akl_new_string_value(in, strdup("(unknown)")));
         }
-        akl_list_append(in, l, akl_new_string_value(in, msg));
-        akl_list_append(in, in->ai_errors, akl_new_list_value(in, l));
+        akl_list_append_value(in, l, akl_new_string_value(in, msg));
+        akl_list_append_value(in, in->ai_errors, akl_new_list_value(in, l));
     }
 }
 
@@ -275,11 +275,11 @@ void akl_print_errors(struct akl_instance *in)
             val = AKL_ENTRY_VALUE(ent);
             if (AKL_CHECK_TYPE(val, TYPE_LIST) && val->va_value.list) {
                 l = AKL_GET_LIST_VALUE(val);
-                type = AKL_GET_NUMBER_VALUE(akl_list_index(l, 0));
-                line = AKL_GET_NUMBER_VALUE(akl_list_index(l, 1));
-                count = AKL_GET_NUMBER_VALUE(akl_list_index(l, 2));
-                name = AKL_GET_STRING_VALUE(akl_list_index(l, 3));
-                msg = AKL_GET_STRING_VALUE(akl_list_index(l, 4));
+                type = AKL_GET_NUMBER_VALUE(akl_list_index_value(l, 0));
+                line = AKL_GET_NUMBER_VALUE(akl_list_index_value(l, 1));
+                count = AKL_GET_NUMBER_VALUE(akl_list_index_value(l, 2));
+                name = AKL_GET_STRING_VALUE(akl_list_index_value(l, 3));
+                msg = AKL_GET_STRING_VALUE(akl_list_index_value(l, 4));
                 fprintf(stderr,  GREEN "%s:%d" END_COLOR_MARK ": %s%s" END_COLOR_MARK
                         , name, line, (type == AKL_ERROR) ? RED : YELLOW, msg);
             }
