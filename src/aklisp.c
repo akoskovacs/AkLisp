@@ -22,6 +22,20 @@
  ************************************************************************/
 #include "aklisp.h"
 
+static struct akl_atom *recent_value;
+
+static void update_recent_value(struct akl_instance *in, struct akl_value *val)
+{
+    if (!recent_value) {
+        recent_value = akl_new_atom(in, "$?");
+        recent_value->at_desc = "Previously returned value";
+        akl_add_global_atom(in, recent_value);
+    }
+    /* Update $? */
+    recent_value->at_value = val;
+}
+
+
 static int compare_numbers(int n1, int n2)
 {
     if (n1 == n2)
@@ -73,6 +87,7 @@ struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
     struct akl_atom *aval;
     char *fname;
     if (val == NULL || AKL_IS_QUOTED(val)) {
+        update_recent_value(in, val);
         return val;
     }
 
@@ -84,6 +99,7 @@ struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
         fname = aval->at_name;
         aval = akl_get_global_atom(in, fname);
         if (aval != NULL && aval->at_value != NULL) {
+           update_recent_value(in, aval->at_value);
            return aval->at_value;
         } else {
             akl_add_error(in, AKL_ERROR, val->va_lex_info, "ERROR: No value for \'%s\' atom!\n", fname);
@@ -94,6 +110,7 @@ struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
         return akl_eval_list(in, AKL_GET_LIST_VALUE(val));
 
         default:
+        update_recent_value(in, val);
         return val;
     }
     return &NIL_VALUE;
@@ -114,6 +131,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
     if (AKL_IS_QUOTED(list)) {
         ret = akl_new_list_value(in, list);
         ret->is_quoted = TRUE;
+        update_recent_value(in, ret);
         return ret;
     }
     
@@ -162,6 +180,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
                 AKL_FREE(args);
         }
     }
+    update_recent_value(in, ret);
     return ret;
 }
 
