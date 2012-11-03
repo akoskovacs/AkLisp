@@ -259,7 +259,7 @@ struct akl_value *akl_list_index_value(struct akl_list *list, int index)
     return val;
 }
 
-bool_t akl_list_remove(struct akl_instance *in, struct akl_list *list
+bool_t akl_list_remove_value(struct akl_instance *in, struct akl_list *list
                        , struct akl_value *val)
 {
     struct akl_list_entry *ent;

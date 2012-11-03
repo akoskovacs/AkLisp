@@ -187,6 +187,7 @@ token_t akl_lex(struct akl_io_device *dev)
            return tEOF;
         } else if (ch == '\n') {
            dev->iod_line_count++;
+           dev->iod_char_count = 0;
         } else if (ch == '+' || ch == '-') {
             if (op != 0) {
                 if (op == '+')
@@ -246,13 +247,14 @@ token_t akl_lex(struct akl_io_device *dev)
 
 char *akl_lex_get_string(void)
 {
-    return strdup(buffer);   
+    char *str = strdup(buffer);
+    buffer[0] = '\0';
+    return str;
 }
 
 char *akl_lex_get_atom(void)
 {
-    char *str = strdup(buffer);
-    return str;
+    return akl_lex_get_string();
 }
 
 double akl_lex_get_number(void)

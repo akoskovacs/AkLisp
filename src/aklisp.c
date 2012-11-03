@@ -200,6 +200,7 @@ void akl_add_error(struct akl_instance *in, enum AKL_ALERT_TYPE type
 {
     va_list ap;
     struct akl_list *l;
+    struct akl_error *err;
     size_t fmt_size = strlen(fmt);
     /* should be enough */
     size_t new_size = fmt_size + (fmt_size/2);
@@ -229,31 +230,25 @@ void akl_add_error(struct akl_instance *in, enum AKL_ALERT_TYPE type
         if (in->ai_errors == NULL) {
             in->ai_errors = akl_new_list(in);
         }
-        l = akl_new_list(in);
-        akl_list_append_value(in, l, akl_new_number_value(in, type));
-        if (info) {
-            akl_list_append_value(in, l, akl_new_number_value(in, info->li_line));
-            akl_list_append_value(in, l, akl_new_number_value(in, info->li_count));
-            /* TODO: Because of the way that AkLisp handles string values, we must
-              duplicate this variable _on every singe call_, so It would be pretty cool
-              to eliminate this! */
-            akl_list_append_value(in, l, akl_new_string_value(in, strdup(info->li_name)));
-        } else {
-            akl_list_append_value(in, l, akl_new_number_value(in, 0));
-            akl_list_append_value(in, l, akl_new_number_value(in, 0));
-            akl_list_append_value(in, l, akl_new_string_value(in, strdup("(unknown)")));
-        }
-        akl_list_append_value(in, l, akl_new_string_value(in, msg));
-        akl_list_append_value(in, in->ai_errors, akl_new_list_value(in, l));
+        err = AKL_MALLOC(in, struct akl_error);
+        AKL_GC_INC_REF(info);
+        err->err_info = info;
+        err->err_type = type;
+        err->err_msg = msg;
+        akl_list_append(in, in->ai_errors, (void *)err);
     }
 }
 
 void akl_clear_errors(struct akl_instance *in)
 {
     struct akl_list_entry *ent, *tmp;
+    struct akl_error *err;
     if (in && in->ai_errors) {
         AKL_LIST_FOREACH_SAFE(ent, in->ai_errors, tmp) {
-           akl_free_list_entry(in, ent);
+           err = (struct akl_error *)ent->le_value;
+           AKL_FREE((void *)err->err_msg);
+           AKL_GC_DEC_REF(in, err->err_info);
+           AKL_FREE((void *)err);
         }
         in->ai_errors->li_elem_count = 0;
         in->ai_errors->li_head = NULL;
@@ -263,25 +258,25 @@ void akl_clear_errors(struct akl_instance *in)
 
 void akl_print_errors(struct akl_instance *in)
 {
-    struct akl_list *l;
+    struct akl_error *err;
     struct akl_list_entry *ent;
-    struct akl_value *val;
-    enum AKL_ALERT_TYPE type;
-    const char *msg, *name;
-    int line, count;
+    const char *name = "(unknown)";
     int errors = 0;
+    int line, count;
+    line = count = 0;
+
     if (in && in->ai_errors) {
         AKL_LIST_FOREACH(ent, in->ai_errors) {
-            val = AKL_ENTRY_VALUE(ent);
-            if (AKL_CHECK_TYPE(val, TYPE_LIST) && val->va_value.list) {
-                l = AKL_GET_LIST_VALUE(val);
-                type = AKL_GET_NUMBER_VALUE(akl_list_index_value(l, 0));
-                line = AKL_GET_NUMBER_VALUE(akl_list_index_value(l, 1));
-                count = AKL_GET_NUMBER_VALUE(akl_list_index_value(l, 2));
-                name = AKL_GET_STRING_VALUE(akl_list_index_value(l, 3));
-                msg = AKL_GET_STRING_VALUE(akl_list_index_value(l, 4));
-                fprintf(stderr,  GREEN "%s:%d" END_COLOR_MARK ": %s%s" END_COLOR_MARK
-                        , name, line, (type == AKL_ERROR) ? RED : YELLOW, msg);
+            err = (struct akl_error *)ent->le_value;
+            if (err) {
+                if (err->err_info) {
+                    count = err->err_info->li_count;
+                    line = err->err_info->li_line;
+                    name = err->err_info->li_name;
+                }
+
+                fprintf(stderr,  GREEN "%s:%d:%d" END_COLOR_MARK ": %s%s" END_COLOR_MARK
+                        , name, line, count, (err->err_type == AKL_ERROR) ? RED : YELLOW, err->err_msg);
             }
             errors++;
         }

@@ -75,6 +75,15 @@ void akl_gc_list_destruct(struct akl_instance *in, void *obj)
         akl_free_list(in, list);
 }
 
+void akl_gc_lex_info_desctruct(struct akl_instance *in, void *obj)
+{
+    struct akl_lex_info *info = (struct akl_lex_info *)obj;
+    if (info) {
+        AKL_FREE(info->li_name);
+        AKL_FREE(info);
+    }
+}
+
 void akl_gc_atom_destruct(struct akl_instance *in, void *obj)
 {
     akl_free_atom(in, (struct akl_atom *)obj);
@@ -193,9 +202,12 @@ struct akl_list_entry *akl_new_list_entry(struct akl_instance *in)
 struct akl_lex_info *akl_new_lex_info(struct akl_instance *in, struct akl_io_device *dev)
 {
     struct akl_lex_info *info = AKL_MALLOC(in, struct akl_lex_info);
-    info->li_line = dev->iod_line_count;
-    info->li_count = dev->iod_char_count;
-    info->li_name = dev->iod_name;
+    AKL_GC_INIT_OBJ(info, akl_gc_lex_info_desctruct);
+    if (dev) {
+        info->li_line = dev->iod_line_count;
+        info->li_count = dev->iod_char_count;
+        info->li_name = dev->iod_name;
+    }
     return info;
 }
 
@@ -398,6 +410,8 @@ void akl_free_value(struct akl_instance *in, struct akl_value *val)
           to decrease the reference count. */
         return;
     }
+    if (val->va_lex_info)
+        AKL_GC_DEC_REF(in, val);
     AKL_FREE(val);
 }
 

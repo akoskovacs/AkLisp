@@ -116,6 +116,7 @@ struct akl_userdata {
 };
 
 struct akl_lex_info {
+    AKL_GC_DEFINE_OBJ;
     const char *li_name;
     unsigned int li_line; /* Line count */
     unsigned int li_count; /* Column count */
@@ -370,6 +371,12 @@ int akl_get_typeid(struct akl_instance *, const char *);
 
 enum AKL_ALERT_TYPE {
    AKL_ERROR, AKL_WARNING
+};
+
+struct akl_error {
+    struct akl_lex_info *err_info;
+    enum AKL_ALERT_TYPE err_type;
+    const char *err_msg;
 };
 
 void akl_add_error(struct akl_instance *, enum AKL_ALERT_TYPE, struct akl_lex_info *, const char *fmt, ...);
