@@ -86,7 +86,7 @@ static int file_unload(struct akl_instance *in)
     AKL_REMOVE_CFUN(in, file_open);
     AKL_REMOVE_CFUN(in, file_close);
     AKL_REMOVE_CFUN(in, file_print);
-    AKL_REMOVE_CFUN(in, file_print);
+    AKL_REMOVE_CFUN(in, file_getline);
     return AKL_LOAD_OK;
 }
 
