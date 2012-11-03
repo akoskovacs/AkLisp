@@ -264,7 +264,7 @@ AKL_CFUN_DEFINE(exit, in __unused, args)
 
 AKL_CFUN_DEFINE(print, in, args)
 {
-    akl_print_list(args);
+    akl_print_list(in, args);
     return akl_new_list_value(in, args);
 }
 
@@ -324,6 +324,18 @@ AKL_CFUN_DEFINE(to_num, in, args)
     struct akl_value *ret = akl_to_number(in, AKL_FIRST_VALUE(args));
     if (ret)
         return ret;
+    return NULL;
+}
+
+AKL_CFUN_DEFINE(to_int, in, args)
+{
+    struct akl_value *ret = akl_to_number(in, AKL_FIRST_VALUE(args));
+    int n;
+    if (ret) {
+        n = AKL_GET_NUMBER_VALUE(ret);
+        ret->va_value.number = n;
+        return ret;
+    }
     return NULL;
 }
 
@@ -950,6 +962,7 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, cdr,  "REST", "Get the tail of a list");
         AKL_ADD_CFUN(in, cdr,  "TAIL", "Get the tail of a list");
         AKL_ADD_CFUN(in, to_num,  "NUM", "Convert an arbitrary value to a number");
+        AKL_ADD_CFUN(in, to_int,  "INT", "Convert an arbitrary value to an integer");
         AKL_ADD_CFUN(in, to_str,  "STR", "Convert an arbitrary value to a string");
         AKL_ADD_CFUN(in, to_sym,  "SYM", "Convert an arbitrary value to a symbol");
     }

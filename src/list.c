@@ -283,7 +283,7 @@ struct akl_list *akl_cdr(struct akl_instance *in, struct akl_list *l)
     return nhead;
 }
 
-void akl_print_value(struct akl_value *val)
+void akl_print_value(struct akl_instance *in, struct akl_value *val)
 {
     if (val == NULL || AKL_IS_NIL(val)) {
         START_COLOR(GRAY);
@@ -306,7 +306,7 @@ void akl_print_value(struct akl_value *val)
         break;
 
         case TYPE_LIST:
-        akl_print_list(AKL_GET_LIST_VALUE(val));
+        akl_print_list(in, AKL_GET_LIST_VALUE(val));
         break;
 
         case TYPE_ATOM:
@@ -328,7 +328,11 @@ void akl_print_value(struct akl_value *val)
 
         case TYPE_USERDATA:
         START_COLOR(YELLOW);
-        printf("<%s>", "USERDATA");
+        struct akl_module *mod = akl_get_module_descriptor(in, val);
+        if (mod)
+            printf("<USERDATA: %s>", mod->am_name);
+        else
+            printf("<USERDATA>", mod->am_name);
         END_COLOR;
         break;
 
@@ -339,7 +343,7 @@ void akl_print_value(struct akl_value *val)
     }
 }
 
-void akl_print_list(struct akl_list *list)
+void akl_print_list(struct akl_instance *in, struct akl_list *list)
 {
     struct akl_list_entry *ent;
     
@@ -356,7 +360,7 @@ void akl_print_list(struct akl_list *list)
         printf("\'");
     printf("(");
     AKL_LIST_FOREACH(ent, list) {
-        akl_print_value(AKL_ENTRY_VALUE(ent));
+        akl_print_value(in, AKL_ENTRY_VALUE(ent));
         if (ent->le_next != NULL)
             printf(" ");
     }

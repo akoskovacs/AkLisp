@@ -136,10 +136,10 @@ static void interactive_mode(void)
             akl_reset_string_interpreter(in, "stdin", line);
             in->ai_device->iod_line_count = lnum;
             value = akl_parse_value(in, in->ai_device);
-            akl_print_value(value);
+            akl_print_value(in, value);
             /*akl_list_append(in, inst->ai_program, il);*/
             printf("\n => ");
-            akl_print_value(akl_eval_value(in, value));
+            akl_print_value(in, akl_eval_value(in, value));
             akl_print_errors(in);
             akl_clear_errors(in);
             AKL_GC_DEC_REF(in, value);
@@ -152,7 +152,6 @@ static void interactive_mode(void)
 int main(int argc, const char *argv[])
 {
     FILE *fp;
-    struct akl_list *list;
     if (argc > 1) {
         fp = fopen(argv[1], "r");
         if (fp == NULL) {

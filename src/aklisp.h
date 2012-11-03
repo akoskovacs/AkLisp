@@ -70,6 +70,7 @@ enum akl_type {
 typedef enum { FALSE, TRUE } bool_t;
 typedef enum { DEVICE_FILE, DEVICE_STRING } device_type_t;
 typedef struct akl_value*(*akl_cfun_t)(struct akl_instance *, struct akl_list *);
+typedef unsigned int akl_utype_t;
 
 #ifndef __unused
 #define __unused __attribute__((unused))
@@ -170,7 +171,7 @@ enum { AKL_GC_STAT_ATOM,
 
 struct akl_utype {
     const char *ut_name;
-    unsigned int ut_id;
+    akl_utype_t ut_id;
     akl_destructor_t ut_de_fun; /* Destructor for the given type */
 };
 
@@ -317,7 +318,7 @@ struct akl_value      *akl_new_string_value(struct akl_instance *, char *);
 struct akl_value      *akl_new_number_value(struct akl_instance *, double);
 struct akl_value      *akl_new_list_value(struct akl_instance *, struct akl_list *);
 struct akl_value      *akl_new_atom_value(struct akl_instance *, char *);
-struct akl_value      *akl_new_user_value(struct akl_instance *, unsigned int, void *);
+struct akl_value      *akl_new_user_value(struct akl_instance *, akl_utype_t, void *);
 struct akl_lex_info   *akl_new_lex_info(struct akl_instance *, struct akl_io_device *);
 
 char                  *akl_num_to_str(struct akl_instance *, double);
@@ -327,10 +328,11 @@ struct akl_value      *akl_to_atom(struct akl_instance *, struct akl_value *);
 struct akl_value      *akl_to_symbol(struct akl_instance *, struct akl_value *);
 
 char *akl_get_atom_name_value(struct akl_value *);
-unsigned akl_get_utype_value(struct akl_value *);
+akl_utype_t akl_get_utype_value(struct akl_value *);
 void *akl_get_udata_value(struct akl_value *);
 struct akl_userdata *akl_get_userdata_value(struct akl_value *);
-bool_t akl_check_user_type(struct akl_value *, unsigned int);
+bool_t akl_check_user_type(struct akl_value *, akl_utype_t);
+struct akl_module *akl_get_module_descriptor(struct akl_instance *, struct akl_value *);
 
 void akl_free_atom(struct akl_instance *in, struct akl_atom *atom);
 void akl_free_value(struct akl_instance *in, struct akl_value *val);
@@ -355,8 +357,8 @@ struct akl_value *akl_eval_value(struct akl_instance *, struct akl_value *);
 struct akl_value *akl_eval_list(struct akl_instance *, struct akl_list *);
 void akl_eval_program(struct akl_instance *);
 
-void akl_print_value(struct akl_value *);
-void akl_print_list(struct akl_list *);
+void akl_print_value(struct akl_instance *, struct akl_value *);
+void akl_print_list(struct akl_instance *, struct akl_list *);
 int akl_compare_values(struct akl_value *, struct akl_value *);
 int akl_get_typeid(struct akl_instance *, const char *);
 

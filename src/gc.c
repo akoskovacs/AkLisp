@@ -501,12 +501,22 @@ struct akl_userdata *akl_get_userdata_value(struct akl_value *value)
     return NULL;
 }
 
-bool_t akl_check_user_type(struct akl_value *v, unsigned int type)
+bool_t akl_check_user_type(struct akl_value *v, akl_utype_t type)
 {
     struct akl_userdata *d = akl_get_userdata_value(v);
     if (d && d->ud_id == type)
         return TRUE;
     return FALSE;
+}
+
+struct akl_module *akl_get_module_descriptor(struct akl_instance *in, struct akl_value *v)
+{
+    struct akl_userdata *data;
+    if (in && AKL_CHECK_TYPE(v, TYPE_USERDATA)) {
+       data = akl_get_userdata_value(v);
+       return in->ai_modules[data->ud_id];
+    }
+    return NULL;
 }
 
 unsigned int akl_get_utype_value(struct akl_value *value)
