@@ -2,6 +2,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <glob.h>
 
 AKL_CFUN_DEFINE(mkdir, in, args)
 {
@@ -79,7 +80,30 @@ AKL_CFUN_DEFINE(dirlist, in, args)
         return ret;
     } else {
         akl_add_error(in, AKL_ERROR, a1->va_lex_info
-            , "ERROR: mkdir: First argument should be a string");
+            , "ERROR: mkdir: First argument must be a string");
+    }
+    return &NIL_VALUE;
+}
+
+AKL_CFUN_DEFINE(glob, in, args)
+{
+    struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    struct akl_list *list;
+    char **gdir;
+    glob_t dirs;
+    if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
+        if (glob(AKL_GET_STRING_VALUE(a1), 0, NULL, &dirs) == 0) {
+            list = akl_new_list(in);
+            gdir = dirs.gl_pathv;
+            while (*gdir) {
+                akl_list_append(in, list, akl_new_string_value(in, *gdir));
+                gdir++;
+            }
+            return akl_new_list_value(in, list);
+        }
+    } else {
+        akl_add_error(in, AKL_ERROR, a1->va_lex_info
+            , "ERROR: glob: First argument must be a string");
     }
     return &NIL_VALUE;
 }
@@ -91,6 +115,7 @@ static int dir_load(struct akl_instance *in)
     AKL_ADD_CFUN(in, remove, "REMOVE", "Delete files");
     AKL_ADD_CFUN(in, rmdir, "RMDIR", "Remove directories");
     AKL_ADD_CFUN(in, dirlist, "DIRLIST", "List all directory entries as a list");
+    AKL_ADD_CFUN(in, glob, "GLOB", "Searches for all pathnames, matching a given pattern ");
     return AKL_LOAD_OK;
 }
 
@@ -101,6 +126,7 @@ static int dir_unload(struct akl_instance *in)
     AKL_REMOVE_CFUN(in, remove);
     AKL_REMOVE_CFUN(in, rmdir);
     AKL_REMOVE_CFUN(in, dirlist);
+    AKL_REMOVE_CFUN(in, glob);
     return AKL_LOAD_OK;
 }
 

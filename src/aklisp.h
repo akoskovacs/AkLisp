@@ -410,7 +410,7 @@ void akl_init_os(struct akl_instance *);
     akl_remove_function((in), bname##_builtin)
 
 
-#if  1
+#if USE_COLORS
 #define GREEN  "\x1b[32m"
 #define YELLOW "\x1b[33m"
 #define GRAY   "\x1b[1;30m"
