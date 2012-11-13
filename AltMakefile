@@ -13,7 +13,7 @@ DEFINES := -DVER_MAJOR=0 -DVER_MINOR=1 -DVER_ADDITIONAL=\"alpha\" -DUSE_COLORS -
 TARGET := aklisp
 all:
 	$(CP) $(ALTCONF) $(CONF)	
-	$(CC) $(CFLAGS) $(SOURCES) $(DEFINES) -lreadline -o $(TARGET) -ldl
+	$(CC) $(CFLAGS) $(SOURCES) $(DEFINES) -o $(TARGET) -ldl -rdynamic -lreadline 
 
 .PHONY: clean clean-cmake
 clean:
