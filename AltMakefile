@@ -6,6 +6,8 @@ CP = cp
 ALTCONF = config.h.alt
 CONF = conf.h
 CFLAGS = -ggdb # Default is debug build
+CD = cd
+MAKE = make
 SOURCES := ./src/main.c ./src/aklisp.c ./src/lexer.c ./src/parser.c ./src/lib.c ./src/os_unix.c ./src/gc.c ./src/list.c
 DEFINES := -DVER_MAJOR=0 -DVER_MINOR=1 -DVER_ADDITIONAL=\"alpha\" -DUSE_COLORS -DHAVE_READLINE -include "conf.h"
 TARGET := aklisp
@@ -19,3 +21,7 @@ clean:
 
 clean-cmake:
 	$(RM) CMakeFiles/ CMakeCache.txt cmake_install.txt
+
+modules: modules/*.alm
+	$(CD) modules/
+	$(MAKE)
