@@ -513,7 +513,7 @@ AKL_CFUN_DEFINE(about, in, args)
 #endif // AKL_USER_INFO
             );
     if (in->ai_module_count != 0 && in->ai_modules != NULL) {
-        printf("\n%d loaded module%s:", in->ai_module_count
+        printf("\n%u loaded module%s:", (unsigned)in->ai_module_count
             , (in->ai_module_count > 1)?"s":"");
         for (i = 0; i < in->ai_module_size; i++) {
             mod = in->ai_modules[i];
