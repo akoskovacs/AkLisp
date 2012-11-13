@@ -47,7 +47,7 @@ AKL_CFUN_DEFINE(file_print, in, args)
     FILE *fp;
     if (akl_check_user_type(fval, file_utype)) {
         fp = (FILE *)akl_get_udata_value(fval);
-        if (fp && fprintf(fp, AKL_GET_STRING_VALUE(msg)) != -1)
+        if (fp && fprintf(fp, "%s", AKL_GET_STRING_VALUE(msg)) != -1)
             return &TRUE_VALUE;
     }
     return &NIL_VALUE;
