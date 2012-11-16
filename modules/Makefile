@@ -2,13 +2,14 @@
 # the project's root path
 CC= gcc
 RM= rm -rf
-CFLAGS= -shared -fPIC -ldl -I "./src"
-SRCS= $(wildcard modules/*.c)
+CFLAGS= -shared -fPIC -ldl -I "../src"
+SRCS= $(wildcard *.c)
 OBJS= $(patsubst %.c,%.alm,$(SRCS))
 all: $(OBJS)
 
 %.alm: %.c
-	$(CC) $(CFLAGS) $< -o $@
+	@echo "CC $<"
+	@$(CC) $(CFLAGS) $< -o $@
 
 clean:
 	$(RM) $(OBJS)

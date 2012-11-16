@@ -5,23 +5,31 @@ RM = rm -rf
 CP = cp
 ALTCONF = config.h.alt
 CONF = conf.h
-CFLAGS = -ggdb # Default is debug build
-CD = cd
 MAKE = make
-SOURCES := ./src/main.c ./src/aklisp.c ./src/lexer.c ./src/parser.c ./src/lib.c ./src/os_unix.c ./src/gc.c ./src/list.c
-DEFINES := -DVER_MAJOR=0 -DVER_MINOR=1 -DVER_ADDITIONAL=\"alpha\" -DUSE_COLORS -DHAVE_READLINE -include "conf.h"
-TARGET := aklisp
-all:
+all: aklisp mods
+
+aklisp: 
+	@echo "Building AkLisp..."
 	$(CP) $(ALTCONF) $(CONF)	
-	$(CC) $(CFLAGS) $(SOURCES) $(DEFINES) -o $(TARGET) -ldl -rdynamic -lreadline 
+	cd src ; $(MAKE)
+
+mods:
+	@echo "Building modules..."
+	cd modules ; $(MAKE)
+
+help:
+	@echo "AkLisp build help:"
+	@echo "make             - build aklisp and the modules"
+	@echo "make aklisp      - just build aklisp"
+	@echo "make mods        - just build the modules"
+	@echo "make clean       - delete object files"
+	@echo "make clean-cmake - delete junk CMake files"
 
 .PHONY: clean clean-cmake
 clean:
 	$(RM) $(TARGET)
+	cd src ; $(MAKE) clean
+	cd modules ; $(MAKE) clean
 
 clean-cmake:
 	$(RM) CMakeFiles/ CMakeCache.txt cmake_install.txt
-
-modules: modules/*.alm
-	$(CD) modules/
-	$(MAKE)
