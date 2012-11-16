@@ -586,7 +586,7 @@ AKL_CFUN_DEFINE(index, in, args)
     struct akl_list *list;
     struct akl_value *a1, *a2;
     char *str, *rstr;
-    a1 = AKL_FIRST_VALUE(args);
+    a1 = AKL_FIRST_VALUE(args); /* The index itself */
     a2 = AKL_SECOND_VALUE(args);
     if (AKL_CHECK_TYPE(a1, TYPE_NUMBER) && !AKL_IS_NIL(a1)) {
         ind = AKL_GET_NUMBER_VALUE(a1);
@@ -605,6 +605,37 @@ AKL_CFUN_DEFINE(index, in, args)
     }
 
     return &NIL_VALUE;
+}
+
+AKL_CFUN_DEFINE(split, in, args)
+{
+    struct akl_value *a1, *a2, *strent;
+    char *str, *sub, *delim = " ";
+    unsigned int i, li;
+    struct akl_list *ret;
+    a1 = AKL_FIRST_VALUE(args);
+    a2 = AKL_SECOND_VALUE(args); /* delimiter */
+
+    if (AKL_CHECK_TYPE(a2, TYPE_STRING))
+        delim = AKL_GET_STRING_VALUE(a2);
+
+    if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
+        str = AKL_GET_STRING_VALUE(a1);
+        ret = akl_new_list(in);
+        ret->is_quoted = TRUE;
+        while ((sub = strtok(str, delim)) != NULL) {
+            if (str != NULL) /* On the second call str must be NULL */
+                str = NULL;
+            strent = akl_new_string_value(in, sub);
+            akl_list_append_value(in, ret, strent);
+        }
+        return akl_new_list_value(in, ret);
+    } else {
+        akl_add_error(in, AKL_ERROR, a1->va_lex_info
+              , "ERROR: split: The first argument must be a string.");
+    }
+    return &NIL_VALUE;
+
 }
 
 static struct akl_value *cmp_two_args(struct akl_instance *in __unused,
@@ -982,6 +1013,7 @@ void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, cons,  "CONS", "Insert the first argument to the second list argument");
         AKL_ADD_CFUN(in, len,   "LENGTH", "The length of a given value");
         AKL_ADD_CFUN(in, index, "INDEX", "Index of list");
+        AKL_ADD_CFUN(in, split, "SPLIT", "Split a string into a number of substrings, bounded by an optional delimiter (default is a space)");
         AKL_ADD_CFUN(in, typeof,"TYPEOF", "Get the type of the value");
         AKL_ADD_BUILTIN(in, desc ,"DESC", "Get the description (AKA documentation) of the variable");
     }
