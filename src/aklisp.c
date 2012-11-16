@@ -134,7 +134,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
         update_recent_value(in, ret);
         return ret;
     }
-    
+
     a1 = AKL_FIRST_VALUE(list);
     if (AKL_CHECK_TYPE(a1, TYPE_ATOM)) {
         fatm = akl_get_global_atom(in, akl_get_atom_name_value(a1));
@@ -148,8 +148,8 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
         }
         cfun = fatm->at_value->va_value.cfunc;
     } else {
-        ret = akl_eval_list(in, AKL_GET_LIST_VALUE(a1));
-        list->li_head->le_value = ret;
+        akl_add_error(in, AKL_ERROR, a1->va_lex_info, "ERROR: eval: The first element must be a function!\n");
+        return &NIL_VALUE;
     }
 
     /* If the first atom is BUILTIN, i.e: it has full controll over
@@ -231,7 +231,8 @@ void akl_add_error(struct akl_instance *in, enum AKL_ALERT_TYPE type
             in->ai_errors = akl_new_list(in);
         }
         err = AKL_MALLOC(in, struct akl_error);
-        AKL_GC_INC_REF(info);
+        if (info)
+            AKL_GC_INC_REF(info);
         err->err_info = info;
         err->err_type = type;
         err->err_msg = msg;
