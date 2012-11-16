@@ -585,15 +585,25 @@ AKL_CFUN_DEFINE(index, in, args)
     int ind;
     struct akl_list *list;
     struct akl_value *a1, *a2;
+    char *str, *rstr;
     a1 = AKL_FIRST_VALUE(args);
     a2 = AKL_SECOND_VALUE(args);
-    if (a1 && !AKL_IS_NIL(a1) && a1->va_type == TYPE_NUMBER) {
+    if (AKL_CHECK_TYPE(a1, TYPE_NUMBER) && !AKL_IS_NIL(a1)) {
         ind = AKL_GET_NUMBER_VALUE(a1);
     }
-    if (a2 && !AKL_IS_NIL(a2) && a2->va_type == TYPE_LIST) {
+    if (AKL_CHECK_TYPE(a2, TYPE_LIST) && !AKL_IS_NIL(a2)) {
         list = AKL_GET_LIST_VALUE(a2);
         return akl_list_index_value(list, ind);
+    } else if (AKL_CHECK_TYPE(a2, TYPE_STRING) && !AKL_IS_NIL(a2)) {
+        str = AKL_GET_STRING_VALUE(a2);
+        if (str && strlen(str) > ind) {
+            rstr = (char *)akl_malloc(in, 2);
+            rstr[0] = str[ind];
+            rstr[1] = '\0';
+            return akl_new_string_value(in, rstr);
+        }
     }
+
     return &NIL_VALUE;
 }
 
