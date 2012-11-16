@@ -620,14 +620,13 @@ AKL_CFUN_DEFINE(split, in, args)
         delim = AKL_GET_STRING_VALUE(a2);
 
     if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
-        str = AKL_GET_STRING_VALUE(a1);
+        str = strdup(AKL_GET_STRING_VALUE(a1));
         ret = akl_new_list(in);
         ret->is_quoted = TRUE;
         while ((sub = strtok(str, delim)) != NULL) {
-            if (str != NULL) /* On the second call str must be NULL */
-                str = NULL;
             strent = akl_new_string_value(in, sub);
             akl_list_append_value(in, ret, strent);
+            str = NULL;
         }
         return akl_new_list_value(in, ret);
     } else {
