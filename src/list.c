@@ -24,19 +24,19 @@
 
 RB_GENERATE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
-void akl_add_global_atom(struct akl_instance *in, struct akl_atom *atom)
+void akl_add_global_atom(struct akl_state *in, struct akl_atom *atom)
 {
     AKL_GC_INC_REF(atom);
     AKL_GC_SET_STATIC(atom);
     ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
 }
 
-void akl_remove_global_atom(struct akl_instance *in, struct akl_atom *atom)
+void akl_remove_global_atom(struct akl_state *in, struct akl_atom *atom)
 {
     ATOM_TREE_RB_REMOVE(&in->ai_atom_head, atom);
 }
 
-void akl_remove_function(struct akl_instance *in, akl_cfun_t fn)
+void akl_remove_function(struct akl_state *in, akl_cfun_t fn)
 {
     struct akl_atom *atom;
     RB_FOREACH(atom, ATOM_TREE, &in->ai_atom_head) {
@@ -46,7 +46,7 @@ void akl_remove_function(struct akl_instance *in, akl_cfun_t fn)
 }
 
 struct akl_atom *
-akl_add_global_cfun(struct akl_instance *in, const char *name
+akl_add_global_cfun(struct akl_state *in, const char *name
         , akl_cfun_t fn, const char *desc)
 {
     assert(name);
@@ -62,7 +62,7 @@ akl_add_global_cfun(struct akl_instance *in, const char *name
 }
 
 struct akl_atom *
-akl_add_builtin(struct akl_instance *in, const char *name
+akl_add_builtin(struct akl_state *in, const char *name
         , akl_cfun_t fn, const char *desc)
 {
     assert(name);
@@ -73,7 +73,7 @@ akl_add_builtin(struct akl_instance *in, const char *name
 }
 
 struct akl_atom *
-akl_get_global_atom(struct akl_instance *in, const char *name)
+akl_get_global_atom(struct akl_state *in, const char *name)
 {
     struct akl_atom *atm, *res;
     if (name == NULL)
@@ -85,7 +85,7 @@ akl_get_global_atom(struct akl_instance *in, const char *name)
     return res;
 }
 
-void akl_do_on_all_atoms(struct akl_instance *in, void (*fn) (struct akl_atom *))
+void akl_do_on_all_atoms(struct akl_state *in, void (*fn) (struct akl_atom *))
 {
     struct akl_atom *atm;
     RB_FOREACH(atm, ATOM_TREE, &in->ai_atom_head) {
@@ -93,7 +93,7 @@ void akl_do_on_all_atoms(struct akl_instance *in, void (*fn) (struct akl_atom *)
     }
 }
 
-akl_cfun_t akl_get_global_cfun(struct akl_instance *in, const char *name)
+akl_cfun_t akl_get_global_cfun(struct akl_state *in, const char *name)
 {
     struct akl_atom *atm = akl_get_global_atom(in, name);
     if (atm != NULL && name != NULL && atm->at_value != NULL) {
@@ -104,7 +104,7 @@ akl_cfun_t akl_get_global_cfun(struct akl_instance *in, const char *name)
 }
 
 struct akl_list_entry *
-akl_list_append(struct akl_instance *in, struct akl_list *list, void *val)
+akl_list_append(struct akl_state *in, struct akl_list *list, void *val)
 {
     struct akl_list_entry *le;
     assert(list != NULL);
@@ -126,7 +126,7 @@ akl_list_append(struct akl_instance *in, struct akl_list *list, void *val)
 }
 
 struct akl_list_entry *
-akl_list_append_value(struct akl_instance *in, struct akl_list *list, struct akl_value *val)
+akl_list_append_value(struct akl_state *in, struct akl_list *list, struct akl_value *val)
 {
     struct akl_list_entry *le;
     le = akl_list_append(in, list, (void *)val);
@@ -135,7 +135,7 @@ akl_list_append_value(struct akl_instance *in, struct akl_list *list, struct akl
 }
 
 struct akl_list_entry *
-akl_list_insert_head(struct akl_instance *in, struct akl_list *list, void *val)
+akl_list_insert_head(struct akl_state *in, struct akl_list *list, void *val)
 {
     struct akl_list_entry *le;
     struct akl_list_entry *head;
@@ -153,7 +153,7 @@ akl_list_insert_head(struct akl_instance *in, struct akl_list *list, void *val)
 }
 
 struct akl_list_entry *
-akl_list_insert_value_head(struct akl_instance *in, struct akl_list *list, struct akl_value *val)
+akl_list_insert_value_head(struct akl_state *in, struct akl_list *list, struct akl_value *val)
 {
     struct akl_list_entry *le;
     le = akl_list_insert_head(in, list, (void *)val);
@@ -161,7 +161,7 @@ akl_list_insert_value_head(struct akl_instance *in, struct akl_list *list, struc
     return le;
 }
 
-struct akl_value *akl_duplicate_value(struct akl_instance *in, struct akl_value *oval)
+struct akl_value *akl_duplicate_value(struct akl_state *in, struct akl_value *oval)
 {
     struct akl_value *nval;
     struct akl_atom *natom, *oatom;
@@ -205,7 +205,7 @@ struct akl_value *akl_duplicate_value(struct akl_instance *in, struct akl_value 
     return NULL;
 }
 
-struct akl_list *akl_list_duplicate(struct akl_instance *in, struct akl_list *list)
+struct akl_list *akl_list_duplicate(struct akl_state *in, struct akl_list *list)
 {
     struct akl_list *nlist = akl_new_list(in);
     struct akl_list_entry *ent;
@@ -259,7 +259,7 @@ struct akl_value *akl_list_index_value(struct akl_list *list, int index)
     return val;
 }
 
-bool_t akl_list_remove_value(struct akl_instance *in, struct akl_list *list
+bool_t akl_list_remove_value(struct akl_state *in, struct akl_list *list
                        , struct akl_value *val)
 {
     struct akl_list_entry *ent;
@@ -287,7 +287,7 @@ struct akl_value *akl_car(struct akl_list *l)
     return AKL_FIRST_VALUE(l);
 }
 
-struct akl_list *akl_cdr(struct akl_instance *in, struct akl_list *l)
+struct akl_list *akl_cdr(struct akl_state *in, struct akl_list *l)
 {
     struct akl_list *nhead;
     assert(l);
@@ -306,7 +306,7 @@ struct akl_list *akl_cdr(struct akl_instance *in, struct akl_list *l)
     return nhead;
 }
 
-void akl_print_value(struct akl_instance *in, struct akl_value *val)
+void akl_print_value(struct akl_state *in, struct akl_value *val)
 {
     if (val == NULL || AKL_IS_NIL(val)) {
         START_COLOR(GRAY);
@@ -366,7 +366,7 @@ void akl_print_value(struct akl_instance *in, struct akl_value *val)
     }
 }
 
-void akl_print_list(struct akl_instance *in, struct akl_list *list)
+void akl_print_list(struct akl_state *in, struct akl_list *list)
 {
     struct akl_list_entry *ent;
     

@@ -25,7 +25,7 @@
 #include <string.h>
 
 #define PROMPT_MAX 10
-static struct akl_instance *in = NULL;
+static struct akl_state *in = NULL;
 
 #ifdef HAVE_READLINE
 #include <readline/readline.h>
@@ -119,7 +119,7 @@ static void interactive_mode(void)
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
     printf("Copyleft (C) 2012 Akos Kovacs\n\n");
-    in = akl_new_instance();
+    in = akl_new_state();
     in->ai_interactive = TRUE;
     akl_init_lib(in, AKL_LIB_ALL);
     init_readline();
@@ -168,6 +168,6 @@ int main(int argc, const char *argv[])
     akl_parse_io(in);
     akl_eval_program(in);
     akl_print_errors(in);
-    akl_free_instance(in);
+    akl_free_state(in);
     return 0;
 }

@@ -2,9 +2,9 @@
 #include <aklisp.h>
 
 /* Our current type id */
-static unsigned int file_utype;
+static akl_utype_t file_utype;
 
-static void file_utype_desctruct(struct akl_instance *in, void *obj)
+static void file_utype_desctruct(struct akl_state *in, void *obj)
 {
     if (obj != NULL)
         fclose((FILE *)obj);
@@ -70,7 +70,7 @@ AKL_CFUN_DEFINE(file_getline, in, args)
     return &NIL_VALUE;
 }
 
-static int file_load(struct akl_instance *in)
+static int file_load(struct akl_state *in)
 {
     file_utype = akl_register_type(in, "FILE", file_utype_desctruct);
     AKL_ADD_CFUN(in, file_open, "OPEN", "Open a file for a given operation (read, write)");
@@ -80,7 +80,7 @@ static int file_load(struct akl_instance *in)
     return AKL_LOAD_OK;
 }
 
-static int file_unload(struct akl_instance *in)
+static int file_unload(struct akl_state *in)
 {
     akl_deregister_type(in, file_utype);
     AKL_REMOVE_CFUN(in, file_open);

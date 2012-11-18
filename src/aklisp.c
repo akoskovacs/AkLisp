@@ -24,7 +24,7 @@
 
 static struct akl_atom *recent_value;
 
-static void update_recent_value(struct akl_instance *in, struct akl_value *val)
+static void update_recent_value(struct akl_state *in, struct akl_value *val)
 {
     if (!recent_value) {
         recent_value = akl_new_atom(in, "$?");
@@ -82,7 +82,7 @@ int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
     return -1;
 }
 
-struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
+struct akl_value *akl_eval_value(struct akl_state *in, struct akl_value *val)
 {
     struct akl_atom *aval;
     char *fname;
@@ -116,7 +116,7 @@ struct akl_value *akl_eval_value(struct akl_instance *in, struct akl_value *val)
     return &NIL_VALUE;
 }
 
-struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
+struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
 {
     akl_cfun_t cfun;
     struct akl_list *args;
@@ -184,7 +184,7 @@ struct akl_value *akl_eval_list(struct akl_instance *in, struct akl_list *list)
     return ret;
 }
 
-void akl_eval_program(struct akl_instance *in)
+void akl_eval_program(struct akl_state *in)
 {
     struct akl_list *list = in->ai_program;
     struct akl_list_entry *ent;
@@ -195,7 +195,7 @@ void akl_eval_program(struct akl_instance *in)
     }
 }
 
-void akl_add_error(struct akl_instance *in, enum AKL_ALERT_TYPE type
+void akl_add_error(struct akl_state *in, enum AKL_ALERT_TYPE type
                    , struct akl_lex_info *info, const char *fmt, ...)
 {
     va_list ap;
@@ -240,7 +240,7 @@ void akl_add_error(struct akl_instance *in, enum AKL_ALERT_TYPE type
     }
 }
 
-void akl_clear_errors(struct akl_instance *in)
+void akl_clear_errors(struct akl_state *in)
 {
     struct akl_list_entry *ent, *tmp;
     struct akl_error *err;
@@ -257,7 +257,7 @@ void akl_clear_errors(struct akl_instance *in)
     }
 }
 
-void akl_print_errors(struct akl_instance *in)
+void akl_print_errors(struct akl_state *in)
 {
     struct akl_error *err;
     struct akl_list_entry *ent;

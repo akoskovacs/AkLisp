@@ -315,7 +315,7 @@ AKL_CFUN_DEFINE(unload, in, args)
     return &NIL_VALUE;
 }
 
-void akl_init_os(struct akl_instance *in)
+void akl_init_os(struct akl_state *in)
 {
 #if HAVE_UCONTEXT_H && HAVE_EXECINFO_H
  /* Install our signal handler */

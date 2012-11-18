@@ -103,7 +103,7 @@ AKL_CFUN_DEFINE(curs_noecho, in, args)
 }
 
 
-static int load_curses_mod(struct akl_instance *in)
+static int load_curses_mod(struct akl_state *in)
 {
     AKL_ADD_CFUN(in, curs_init_scr, "INITSCR", "Initialize terminal screen");
     AKL_ADD_CFUN(in, curs_endwin, "ENDWIN", "End curses mode");
@@ -116,7 +116,7 @@ static int load_curses_mod(struct akl_instance *in)
     return AKL_LOAD_OK;
 }
 
-static int unload_curses_mod(struct akl_instance *in)
+static int unload_curses_mod(struct akl_state *in)
 {
     AKL_REMOVE_CFUN(in, curs_init_scr);
     AKL_REMOVE_CFUN(in, curs_endwin);

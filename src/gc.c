@@ -46,7 +46,7 @@ struct akl_list NIL_LIST = {
     .li_local_count = 0,
 };
 
-void *akl_malloc(struct akl_instance *in, size_t size)
+void *akl_malloc(struct akl_state *in, size_t size)
 {
     void *ptr;
     ptr = MALLOC_FUNCTION(size);
@@ -60,7 +60,7 @@ void *akl_malloc(struct akl_instance *in, size_t size)
     }
 }
 
-void akl_gc_value_destruct(struct akl_instance *in, void *obj)
+void akl_gc_value_destruct(struct akl_state *in, void *obj)
 {
     struct akl_value *val = (struct akl_value *)obj;
     /* We can simply compare just the pointers */
@@ -68,14 +68,14 @@ void akl_gc_value_destruct(struct akl_instance *in, void *obj)
         akl_free_value(in, val);
 }
 
-void akl_gc_list_destruct(struct akl_instance *in, void *obj)
+void akl_gc_list_destruct(struct akl_state *in, void *obj)
 {
     struct akl_list *list = (struct akl_list *)obj;
     if (list != &NIL_LIST)
         akl_free_list(in, list);
 }
 
-void akl_gc_lex_info_desctruct(struct akl_instance *in, void *obj)
+void akl_gc_lex_info_desctruct(struct akl_state *in, void *obj)
 {
     struct akl_lex_info *info = (struct akl_lex_info *)obj;
     if (info) {
@@ -84,29 +84,29 @@ void akl_gc_lex_info_desctruct(struct akl_instance *in, void *obj)
     }
 }
 
-void akl_gc_atom_destruct(struct akl_instance *in, void *obj)
+void akl_gc_atom_destruct(struct akl_state *in, void *obj)
 {
     akl_free_atom(in, (struct akl_atom *)obj);
 }
 
-struct akl_instance * 
+struct akl_state * 
 akl_new_file_interpreter(const char *file_name, FILE *fp)
 {
-    struct akl_instance *in = akl_new_instance();
+    struct akl_state *in = akl_new_state();
     in->ai_device = akl_new_file_device(file_name, fp);
     return in;
 }
 
-struct akl_instance *
+struct akl_state *
 akl_new_string_interpreter(const char *name, const char *str)
 {
-    struct akl_instance *in = akl_new_instance();
+    struct akl_state *in = akl_new_state();
     in->ai_device = akl_new_string_device(name, str);
     return in;
 }
 
-struct akl_instance *
-akl_reset_string_interpreter(struct akl_instance *in, const char *name, const char *str)
+struct akl_state *
+akl_reset_string_interpreter(struct akl_state *in, const char *name, const char *str)
 {
    if (in == NULL) {
        return akl_new_string_interpreter(name, str);
@@ -123,7 +123,7 @@ akl_reset_string_interpreter(struct akl_instance *in, const char *name, const ch
    }
 }
 
-void akl_free_instance(struct akl_instance *in)
+void akl_free_state(struct akl_state *in)
 {
     struct akl_atom *t1, *t2;
 #if 0
@@ -138,9 +138,9 @@ void akl_free_instance(struct akl_instance *in)
     akl_free_list(in, in->ai_errors);
 }
 
-struct akl_instance *akl_new_instance(void)
+struct akl_state *akl_new_state(void)
 {
-    struct akl_instance *in = AKL_MALLOC(NULL, struct akl_instance);
+    struct akl_state *in = AKL_MALLOC(NULL, struct akl_state);
     RB_INIT(&in->ai_atom_head);
     AKL_GC_INIT_OBJ(&NIL_VALUE, akl_gc_value_destruct);
     AKL_GC_INIT_OBJ(&TRUE_VALUE, akl_gc_value_destruct);
@@ -161,7 +161,7 @@ struct akl_instance *akl_new_instance(void)
     return in;
 }
 
-struct akl_list *akl_new_list(struct akl_instance *in)
+struct akl_list *akl_new_list(struct akl_state *in)
 {
     struct akl_list *lh = AKL_MALLOC(in, struct akl_list);
     AKL_GC_INIT_OBJ(lh, akl_gc_list_destruct);
@@ -178,7 +178,7 @@ struct akl_list *akl_new_list(struct akl_instance *in)
     return lh;
 }
 
-struct akl_atom *akl_new_atom(struct akl_instance *in, char *name)
+struct akl_atom *akl_new_atom(struct akl_state *in, char *name)
 {
     struct akl_atom *atom = AKL_MALLOC(in, struct akl_atom);
     AKL_GC_INIT_OBJ(atom, akl_gc_atom_destruct);
@@ -190,7 +190,7 @@ struct akl_atom *akl_new_atom(struct akl_instance *in, char *name)
     return atom;
 }
 
-struct akl_list_entry *akl_new_list_entry(struct akl_instance *in)
+struct akl_list_entry *akl_new_list_entry(struct akl_state *in)
 {
     struct akl_list_entry *ent = AKL_MALLOC(in, struct akl_list_entry);
     ent->le_value = NULL;
@@ -199,7 +199,7 @@ struct akl_list_entry *akl_new_list_entry(struct akl_instance *in)
     return ent;
 }
 
-struct akl_lex_info *akl_new_lex_info(struct akl_instance *in, struct akl_io_device *dev)
+struct akl_lex_info *akl_new_lex_info(struct akl_state *in, struct akl_io_device *dev)
 {
     struct akl_lex_info *info = AKL_MALLOC(in, struct akl_lex_info);
     AKL_GC_INIT_OBJ(info, akl_gc_lex_info_desctruct);
@@ -211,7 +211,7 @@ struct akl_lex_info *akl_new_lex_info(struct akl_instance *in, struct akl_io_dev
     return info;
 }
 
-void akl_free_list_entry(struct akl_instance *in, struct akl_list_entry *ent)
+void akl_free_list_entry(struct akl_state *in, struct akl_list_entry *ent)
 {
     if (ent == NULL)
         return;
@@ -221,7 +221,7 @@ void akl_free_list_entry(struct akl_instance *in, struct akl_list_entry *ent)
     AKL_FREE(ent);
 }
 
-struct akl_value *akl_new_value(struct akl_instance *in)
+struct akl_value *akl_new_value(struct akl_state *in)
 {
     struct akl_value *val = AKL_MALLOC(in, struct akl_value);
     AKL_GC_INIT_OBJ(val, akl_gc_value_destruct);
@@ -234,7 +234,7 @@ struct akl_value *akl_new_value(struct akl_instance *in)
 /* TODO: These conversion functions are in the wrong place, move them! */
 /* NOTE: These functions give back a NULL pointer, if the conversion
   cannot be completed */
-struct akl_value *akl_to_number(struct akl_instance *in, struct akl_value *v)
+struct akl_value *akl_to_number(struct akl_state *in, struct akl_value *v)
 {
     char *str = NULL;
     if (v) {
@@ -268,7 +268,7 @@ struct akl_value *akl_to_number(struct akl_instance *in, struct akl_value *v)
     return NULL;
 }
 
-char *akl_num_to_str(struct akl_instance *in, double number)
+char *akl_num_to_str(struct akl_state *in, double number)
 {
     int strsize = 30;
     char *str = (char *)akl_malloc(in, strsize);
@@ -279,7 +279,7 @@ char *akl_num_to_str(struct akl_instance *in, double number)
     return str;
 }
 
-struct akl_value *akl_to_string(struct akl_instance *in, struct akl_value *v)
+struct akl_value *akl_to_string(struct akl_state *in, struct akl_value *v)
 {
     const char *str;
     if (v) {
@@ -313,7 +313,7 @@ struct akl_value *akl_to_string(struct akl_instance *in, struct akl_value *v)
     return NULL;
 }
 
-struct akl_value *akl_to_symbol(struct akl_instance *in, struct akl_value *v)
+struct akl_value *akl_to_symbol(struct akl_state *in, struct akl_value *v)
 {
     struct akl_value *sym;
     char *name = NULL;
@@ -353,7 +353,7 @@ struct akl_value *akl_to_symbol(struct akl_instance *in, struct akl_value *v)
     return NULL;
 }
 
-void akl_free_value(struct akl_instance *in, struct akl_value *val)
+void akl_free_value(struct akl_state *in, struct akl_value *val)
 {
     int type;
     struct akl_userdata *data;
@@ -415,7 +415,7 @@ void akl_free_value(struct akl_instance *in, struct akl_value *val)
     AKL_FREE(val);
 }
 
-struct akl_value *akl_new_string_value(struct akl_instance *in, char *str)
+struct akl_value *akl_new_string_value(struct akl_state *in, char *str)
 {
     struct akl_value *val = akl_new_value(in);
     val->va_type = TYPE_STRING;
@@ -425,7 +425,7 @@ struct akl_value *akl_new_string_value(struct akl_instance *in, char *str)
     return val;
 }
 
-struct akl_value *akl_new_number_value(struct akl_instance *in, double num)
+struct akl_value *akl_new_number_value(struct akl_state *in, double num)
 {
     struct akl_value *val = akl_new_value(in);
     val->va_type = TYPE_NUMBER;
@@ -434,7 +434,7 @@ struct akl_value *akl_new_number_value(struct akl_instance *in, double num)
     return val;
 }
 
-struct akl_value *akl_new_list_value(struct akl_instance *in, struct akl_list *lh)
+struct akl_value *akl_new_list_value(struct akl_state *in, struct akl_list *lh)
 {
     struct akl_value *val = akl_new_value(in);
     assert(lh != NULL);
@@ -444,7 +444,7 @@ struct akl_value *akl_new_list_value(struct akl_instance *in, struct akl_list *l
     return val;
 }
 
-struct akl_value *akl_new_user_value(struct akl_instance *in, unsigned int type, void *data)
+struct akl_value *akl_new_user_value(struct akl_state *in, unsigned int type, void *data)
 {
     struct akl_userdata *udata;
     struct akl_value    *value;
@@ -459,7 +459,7 @@ struct akl_value *akl_new_user_value(struct akl_instance *in, unsigned int type,
     return value;
 }
 
-void akl_free_list(struct akl_instance *in, struct akl_list *list)
+void akl_free_list(struct akl_state *in, struct akl_list *list)
 {
     struct akl_list_entry *ent, *tmp;
     if (list == NULL)
@@ -473,7 +473,7 @@ void akl_free_list(struct akl_instance *in, struct akl_list *list)
 }
 
 struct akl_value *
-akl_new_atom_value(struct akl_instance *in, char *name)
+akl_new_atom_value(struct akl_state *in, char *name)
 {
     struct akl_value *val = akl_new_value(in);
     assert(name != NULL);
@@ -484,7 +484,7 @@ akl_new_atom_value(struct akl_instance *in, char *name)
     return val;
 }
 
-void akl_free_atom(struct akl_instance *in, struct akl_atom *atom)
+void akl_free_atom(struct akl_state *in, struct akl_atom *atom)
 {
     if (atom == NULL)
         return;
@@ -523,7 +523,7 @@ bool_t akl_check_user_type(struct akl_value *v, akl_utype_t type)
     return FALSE;
 }
 
-struct akl_module *akl_get_module_descriptor(struct akl_instance *in, struct akl_value *v)
+struct akl_module *akl_get_module_descriptor(struct akl_state *in, struct akl_value *v)
 {
     struct akl_userdata *data;
     if (in && AKL_CHECK_TYPE(v, TYPE_USERDATA)) {
@@ -579,7 +579,7 @@ akl_new_string_device(const char *name, const char *str)
 }
 
 unsigned int 
-akl_register_type(struct akl_instance *in, const char *name, akl_destructor_t de_fun)
+akl_register_type(struct akl_state *in, const char *name, akl_destructor_t de_fun)
 {
     struct akl_utype *type = AKL_MALLOC(in, struct akl_utype);
     unsigned nid = in->ai_utype_count;
@@ -617,7 +617,7 @@ akl_register_type(struct akl_instance *in, const char *name, akl_destructor_t de
     return nid;
 }
 
-void akl_deregister_type(struct akl_instance *in, unsigned int type)
+void akl_deregister_type(struct akl_state *in, unsigned int type)
 {
     AKL_FREE(in->ai_utypes[type]);
     in->ai_utypes[type] = NULL;
@@ -627,7 +627,7 @@ void akl_deregister_type(struct akl_instance *in, unsigned int type)
 #define CHECK_UTYPE(utype, tname) (utype && utype->ut_name \
                     &&(strcasecmp(utype->ut_name, tname) == 0))
 
-int akl_get_typeid(struct akl_instance *in, const char *tname)
+int akl_get_typeid(struct akl_state *in, const char *tname)
 {
     /* Cache it */
     static struct akl_utype *utype = NULL;

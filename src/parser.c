@@ -22,7 +22,7 @@
  ************************************************************************/
 #include "aklisp.h"
 
-struct akl_value *akl_parse_value(struct akl_instance *in, struct akl_io_device *dev)
+struct akl_value *akl_parse_value(struct akl_state *in, struct akl_io_device *dev)
 {
     bool_t is_quoted = FALSE;
     struct akl_list *l;
@@ -80,7 +80,7 @@ struct akl_value *akl_parse_value(struct akl_instance *in, struct akl_io_device 
     return NULL;
 }
 
-struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *dev)
+struct akl_list *akl_parse_list(struct akl_state *in, struct akl_io_device *dev)
 {
     struct akl_value *value = NULL;
     struct akl_list *list, *lval, *last_list = NULL;
@@ -96,7 +96,7 @@ struct akl_list *akl_parse_list(struct akl_instance *in, struct akl_io_device *d
     return list;
 }
 
-struct akl_list *akl_parse_io(struct akl_instance *in)
+struct akl_list *akl_parse_io(struct akl_state *in)
 {
     struct akl_io_device *dev = in->ai_device;
     struct akl_value *value = NULL;

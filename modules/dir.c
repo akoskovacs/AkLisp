@@ -26,7 +26,7 @@ AKL_CFUN_DEFINE(mkdir, in, args)
     return &TRUE_VALUE;
 }
 
-static struct akl_value *rm_function(struct akl_instance *in
+static struct akl_value *rm_function(struct akl_state *in
             , struct akl_list *args, int (*rmfun)(const char *))
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
@@ -108,7 +108,7 @@ AKL_CFUN_DEFINE(glob, in, args)
     return &NIL_VALUE;
 }
 
-static int dir_load(struct akl_instance *in)
+static int dir_load(struct akl_state *in)
 {
     AKL_ADD_CFUN(in, mkdir, "MKDIR", "Create directories, with the given rights");
     AKL_ADD_CFUN(in, unlink, "UNLINK", "Unlink files");
@@ -119,7 +119,7 @@ static int dir_load(struct akl_instance *in)
     return AKL_LOAD_OK;
 }
 
-static int dir_unload(struct akl_instance *in)
+static int dir_unload(struct akl_state *in)
 {
     AKL_REMOVE_CFUN(in, mkdir);
     AKL_REMOVE_CFUN(in, unlink);

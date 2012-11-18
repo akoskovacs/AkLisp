@@ -637,7 +637,7 @@ AKL_CFUN_DEFINE(split, in, args)
 
 }
 
-static struct akl_value *cmp_two_args(struct akl_instance *in __unused,
+static struct akl_value *cmp_two_args(struct akl_state *in __unused,
                                 struct akl_list *args, int cmp_op)
 {
     struct akl_value *a1, *a2;
@@ -690,7 +690,7 @@ AKL_CFUN_DEFINE(greater_eqp, in, args)
 
 /* Evaulate the first expression (mostly a list with a logical function),
     if that is not NIL, return with the evaulated second argument. */
-static struct akl_value *eval_if_true(struct akl_instance *in
+static struct akl_value *eval_if_true(struct akl_state *in
                                             , struct akl_list *l)
 {
     struct akl_value *a1;
@@ -988,7 +988,7 @@ AKL_CFUN_DEFINE(progn, in, args)
         return &NIL_VALUE;
 }
 
-void akl_init_lib(struct akl_instance *in, enum AKL_INIT_FLAGS flags)
+void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
 {
     if (flags & AKL_LIB_BASIC) {
         AKL_ADD_BUILTIN(in, quote, "QUOTE", "Quote listame like as \'");
