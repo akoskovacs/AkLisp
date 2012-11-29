@@ -6,6 +6,11 @@ set(VER_ADDITIONAL "alpha")
 
 set(SDIR "./src/")
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
+#if (CMAKE_BUILD_TYPE EQUAL DEBUG)
+#    message("Debug build")
+#    add_definitions(-DAKL_DEBUG)
+#endif(CMAKE_BUILD_TYPE EQUAL DEBUG)
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DAKL_DEBUG")
 
 if (UNIX)
     set(PLATSRC os_unix.c)
