@@ -145,6 +145,7 @@ struct akl_atom {
     struct akl_value *at_value;
     char *at_name;
     char *at_desc; /* Documentation (mostly functions) */
+    bool_t at_is_const : 1;  /* Is a constant atom? */
 };
 
 /* To properly handle both file and string sources, we
@@ -222,7 +223,7 @@ static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
 
 RB_PROTOTYPE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
-void akl_add_global_atom(struct akl_state *, struct akl_atom *);
+struct akl_atom *akl_add_global_atom(struct akl_state *, struct akl_atom *);
 void akl_remove_global_atom(struct akl_state *, struct akl_atom *);
 struct akl_atom *akl_add_builtin(struct akl_state *, const char *, akl_cfun_t, const char *);
 struct akl_atom *akl_add_global_cfun(struct akl_state *, const char *, akl_cfun_t, const char *);

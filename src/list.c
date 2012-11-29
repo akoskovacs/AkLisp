@@ -24,11 +24,10 @@
 
 RB_GENERATE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
-void akl_add_global_atom(struct akl_state *in, struct akl_atom *atom)
+struct akl_atom *akl_add_global_atom(struct akl_state *in, struct akl_atom *atom)
 {
-    AKL_GC_INC_REF(atom);
     AKL_GC_SET_STATIC(atom);
-    ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
+    return ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
 }
 
 void akl_remove_global_atom(struct akl_state *in, struct akl_atom *atom)
@@ -58,6 +57,7 @@ akl_add_global_cfun(struct akl_state *in, const char *name
     atom->at_value->va_type = TYPE_CFUN;
     atom->at_value->va_value.cfunc = fn;
     akl_add_global_atom(in, atom);
+    AKL_GC_INC_REF(atom);
     return atom;
 }
 
@@ -69,6 +69,7 @@ akl_add_builtin(struct akl_state *in, const char *name
     assert(fn);
     struct akl_atom *atom = akl_add_global_cfun(in, name, fn, desc);
     atom->at_value->va_type = TYPE_BUILTIN;
+    AKL_GC_INC_REF(atom);
     return atom;
 }
 

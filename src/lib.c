@@ -373,17 +373,19 @@ AKL_CFUN_DEFINE(len, in, args)
     return &NIL_VALUE;
 }
 
-AKL_BUILTIN_DEFINE(setq, in, args)
+static struct akl_value *
+akl_set_value(struct akl_state *s, struct akl_list *args, bool_t is_const)
 {
-    struct akl_atom *atom;
+    struct akl_atom *atom, *a;
     struct akl_value *value, *desc, *av;
     av = AKL_FIRST_VALUE(args);
     atom = AKL_GET_ATOM_VALUE(av);
     if (atom == NULL) {
-        akl_add_error(in, AKL_ERROR, av->va_lex_info, "ERROR: setq: First argument is not an atom!\n");
+        akl_add_error(s, AKL_ERROR, av->va_lex_info
+            , "ERROR: setq: First argument is not an atom!\n");
         return &NIL_VALUE;
     }
-    value = akl_eval_value(in, AKL_SECOND_VALUE(args));
+    value = akl_eval_value(s, AKL_SECOND_VALUE(args));
     if (args->li_elem_count > 1) {
         desc = AKL_THIRD_VALUE(args);
         if (AKL_CHECK_TYPE(desc, TYPE_STRING)) {
@@ -391,8 +393,37 @@ AKL_BUILTIN_DEFINE(setq, in, args)
         }
     }
     atom->at_value = value;
-    akl_add_global_atom(in, atom);
+    atom->at_is_const = is_const;
+    a = akl_add_global_atom(s, atom);
+    /* If the atom is already exist, but not a constant */
+    if (a && !a->at_is_const) {
+        AKL_GC_DEC_REF(s, a->at_value);
+        AKL_FREE(a->at_desc);
+        a->at_value = atom->at_value;
+        a->at_desc = atom->at_desc;
+        AKL_FREE(atom->at_name);
+        AKL_FREE(atom);
+    } else if (a && a->at_is_const) {
+        /* It's a constant, cannot write */
+        akl_add_error(s, AKL_ERROR, av->va_lex_info
+            , "ERROR: set: Cannot bound to constant atom\n");
+        AKL_GC_DEC_REF(s, av);
+        return &NIL_VALUE;
+    } else {
+        AKL_GC_INC_REF(atom);
+    }
+
     return value;
+}
+
+AKL_BUILTIN_DEFINE(setq, in, args)
+{
+    return akl_set_value(in, args, FALSE);
+}
+
+AKL_BUILTIN_DEFINE(setc, in, args)
+{
+    return akl_set_value(in, args, TRUE);
 }
 
 AKL_BUILTIN_DEFINE(incf, in, args)
@@ -988,11 +1019,24 @@ AKL_CFUN_DEFINE(progn, in, args)
         return &NIL_VALUE;
 }
 
+#ifdef AKL_DEBUG
+AKL_CFUN_DEFINE(ref_count, in, args)
+{
+    struct akl_value *val = AKL_FIRST_VALUE(args);
+    return akl_new_number_value(in, val->gc_obj.gc_ref_count);
+}
+
+AKL_CFUN_DEFINE(dump_state, in, args)
+{
+}
+#endif // AKL_DEBUG
+
 void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
 {
     if (flags & AKL_LIB_BASIC) {
         AKL_ADD_BUILTIN(in, quote, "QUOTE", "Quote listame like as \'");
         AKL_ADD_BUILTIN(in, setq,  "SET!", "Bound (set) a variable to a value");
+        AKL_ADD_BUILTIN(in, setc,  "SET-CONST!", "Bound (set) a value to a constant variable (it will be read-only)");
         AKL_ADD_CFUN(in, progn,"PROGN", "Return with the last value");
         AKL_ADD_CFUN(in, list, "LIST", "Create list");
         AKL_ADD_CFUN(in, car,  "CAR", "Get the head of a list");
@@ -1092,6 +1136,10 @@ void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, time_sec,  "TIME-SEC", "Get the current secundum");
         AKL_ADD_CFUN(in, time, "TIME", "Get the current time as a list of (hour minute secundum)");
     }
+
+#ifdef AKL_DEBUG
+    AKL_ADD_CFUN(in, ref_count, "REF-COUNT-OF", "The current reference value of the argument");
+#endif
 
     if (flags & AKL_LIB_OS) {
         akl_init_os(in);
