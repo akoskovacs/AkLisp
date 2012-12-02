@@ -29,7 +29,10 @@ static void update_recent_value(struct akl_state *in, struct akl_value *val)
     if (!recent_value) {
         recent_value = akl_new_atom(in, "$?");
         recent_value->at_desc = "Previously returned value";
+        recent_value->at_is_const = TRUE;
         akl_add_global_atom(in, recent_value);
+        AKL_GC_INC_REF(recent_value);
+        AKL_GC_SET_STATIC(recent_value);
     }
     /* Update $? */
     recent_value->at_value = val;
