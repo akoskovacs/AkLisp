@@ -1,38 +1,52 @@
 # AkLisp
-[![Build Status](https://secure.travis-ci.org/akoskovacs/AkLisp.png)][travis]
+![Build Status](https://secure.travis-ci.org/akoskovacs/AkLisp.png)
 
 AkLisp is a tiny, hobby Lisp dialect. It is embeddable, user-friendly and relatively fast.
 
 ## About Lisp/Scheme
-[Lisp](http://en.wikipedia.org/wiki/Lisp_(programming_language)) is a family of computer programming languages, with a long history and a distincitve parenthesized *Polish notation*.
+> [Lisp](http://en.wikipedia.org/wiki/Lisp_(programming_language\)) is a family of computer programming languages, with a long history and a distincitve parenthesized *Polish notation*.
 
 Every expression is written in the form of nested lists. In Lisp-style languages, the elements of the list is surrounded by parantheses, where the first element is the function and the other elements are the arguments of the function. The list elements are separated by whitespaces. Consider the following example in C:
 ```c
 int a = (10 + 2) * 2;
 ```
-Which is written like this:
+Which is written in Lisp as:
 ```lisp
 (set! a (* 2 (+ 10 2)))
 ```
-Both are set the **a** variable to 24
+Both set the *a* variable to 24
+
+Every list is automatically evaluated if they are not quoted. To quote a list, just write a \' before the list, like:
+```lisp
+'(+ 1 2 3) ; Will be threated as data
+```
+Every list is implemented as a singly linked list in the interpreter. You can devide lists to a head and tail. The head is the first element. And the tail is a list of the subsequent elements.
+```lisp
+(head '(:one 2 3 :four))            ; => :one, the first element
+(tail '(:one 2 3 :four))            ; => '(2 3 :four), the subsequent elements
+; Therefore the second element can be easy gathered with:
+(head (tail '(:one 2 3 :four)))     ; => 2, the second element
+```
 
 ## Building from source
-These instructions only applies to *nix systems. *Windows builds are not supported at this time.*
+These instructions only applies to unix-style systems. **Windows builds are not supported at this time.**
 ### Getting the code
  * with git: `git clone git://github.com/akoskovacs/AkLisp.git`
  * or download the gzipped [package](https://github.com/akoskovacs/AkLisp/archive/master.tar.gz) and unpack it.
 
 ### Compilation
 Before you can compile the program, you must satisfy the build dependencies. AkLisp have three main dependencies:
- * *dl*: The dynamic linking loader library (should be installed by the default)
+ * *dl*: The dynamic linking loader library (should be installed by default)
  * *readline*: GNU ReadLine library (Install with `sudo apt-get install libreadline5-dev libreadline5` on Debian/Ubuntu)
  * *GNU toolset*: GCC, and make (Install with `sudo apt-get install build-essential` on Debian/Ubuntu)
 
 There are two ways to compile AkLisp from source.
 #### Without CMake
 This way is preferred, when you only want to use the aklisp binary (no library will be builded).
-`make`
-**This command will build the aklisp binary and the modules in the modules/ directory.**
+```
+$ make
+```
+*This command will build the aklisp binary and the modules in the modules/ directory.*
 
 #### With CMake
 For this, you must install the cmake package.
@@ -41,7 +55,7 @@ $ sudo apt-get install cmake     # on Debian/Ubuntu
 $ cmake .
 $ make
 ```
-**This will also build the aklisp binary libaklisp_static.a (static software library) libaklisp_shared.so (shared library).**
+*This will also build the aklisp binary libaklisp_static.a (static software library) libaklisp_shared.so (shared library).*
 
 ## Intresting things to try
 ### Interactive shell
