@@ -1,5 +1,5 @@
-# This program just writes an arbitrary line to an arbitrary file
-# Only works when the file module installed on your system
+; This program just writes an arbitrary line to an arbitrary file
+; Only works when the file module installed on your system
 (LOAD "file")
 (DISPLAY "Please give the filename: ")
 (SET! fname (GETLINE stdin))
