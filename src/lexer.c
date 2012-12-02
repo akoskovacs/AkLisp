@@ -222,6 +222,10 @@ token_t akl_lex(struct akl_io_device *dev)
             copy_string(dev); 
             return tSTRING;
         } else if (ch == '(') {
+            ch = akl_io_getc(dev);
+            if (ch == ')')
+                return tNIL;
+            akl_io_ungetc(ch, dev);
             return tLBRACE;
         } else if (ch == ')') {
             return tRBRACE;
