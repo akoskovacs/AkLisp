@@ -143,10 +143,19 @@ struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
                           , akl_get_atom_name_value(a1));
             return &NIL_VALUE;
         }
-        if (AKL_CHECK_TYPE(fatm->at_value, TYPE_LIST)) {
+        switch (fatm->at_value->va_type) {  
+            case TYPE_LIST:
             return akl_eval_list(in, AKL_GET_LIST_VALUE(fatm->at_value));
+
+            case TYPE_BUILTIN: case TYPE_CFUN:
+                cfun = fatm->at_value->va_value.cfunc;
+            break;
+
+            default:
+                akl_add_error(in, AKL_ERROR, a1->va_lex_info
+                , "ERROR: eval: The first element must be a function!\n");
+            return &NIL_VALUE;
         }
-        cfun = fatm->at_value->va_value.cfunc;
     } else {
         akl_add_error(in, AKL_ERROR, a1->va_lex_info, "ERROR: eval: The first element must be a function!\n");
         return &NIL_VALUE;
