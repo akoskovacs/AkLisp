@@ -232,26 +232,6 @@ AKL_BUILTIN_DEFINE(or, in, args)
     return &NIL_VALUE;
 }
 
-AKL_BUILTIN_DEFINE(while, in, args)
-{
-    struct akl_value *a1, *a2, *a3, *ret;
-    struct akl_list_entry *ent;
-    if (args && args->li_elem_count < 2)
-        return &NIL_VALUE;
-
-    a1 = AKL_FIRST_VALUE(args);
-    a2 = AKL_SECOND_VALUE(args);
-    a3 = AKL_THIRD_VALUE(args);
-    ret = &NIL_VALUE;
-    while (1) {
-        if (AKL_IS_NIL(akl_eval_value(in, a1)))
-            break;
-        ret = akl_eval_value(in, a2);
-        akl_eval_value(in, a3);
-    }
-    return ret;
-}
-
 AKL_CFUN_DEFINE(exit, in __unused, args)
 {
     printf("Bye!\n");
@@ -1066,7 +1046,6 @@ void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
         , "If the first argument true, returns with the second, otherwise returns with the third");
         AKL_ADD_BUILTIN(in, cond, "COND"
         , "Similiar to if, but works with arbitrary number of conditions (called clauses)");
-        AKL_ADD_BUILTIN(in, while, "WHILE", "Conditionally repeat an S-expression");
         AKL_ADD_BUILTIN(in, case, "CASE", "Conditional select");
     }
 
