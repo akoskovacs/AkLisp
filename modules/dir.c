@@ -88,6 +88,7 @@ AKL_CFUN_DEFINE(dirlist, in, args)
 AKL_CFUN_DEFINE(glob, in, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    struct akl_value *lv;
     struct akl_list *list;
     char **gdir;
     glob_t dirs;
@@ -99,7 +100,10 @@ AKL_CFUN_DEFINE(glob, in, args)
                 akl_list_append(in, list, akl_new_string_value(in, *gdir));
                 gdir++;
             }
-            return akl_new_list_value(in, list);
+            lv = akl_new_list_value(in, list);
+            list->is_quoted = TRUE;
+            lv->is_quoted = TRUE;
+            return lv;
         }
     } else {
         akl_add_error(in, AKL_ERROR, a1->va_lex_info
