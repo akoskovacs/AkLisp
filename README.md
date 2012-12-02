@@ -42,7 +42,7 @@ Before you can compile the program, you must satisfy the build dependencies. AkL
 
 There are two ways to compile AkLisp from source.
 #### Without CMake
-This way is preferred, when you only want to use the aklisp binary (no library will be builded).
+This way is preferred when you only want to use the aklisp binary (no library will be builded).
 ```
 $ make
 ```
@@ -59,6 +59,7 @@ $ make
 
 ## Intresting things to try
 ### Interactive shell
+When no arguments are given the executable will start an interactive shell. This is the most convenient way to try the interpreter. If the executable linked with the ReadLine library, you can also use tab-completition between the parentheses.
 ```lisp
 $ ./aklisp
 Interactive AkLisp version 0.1-alpha
@@ -84,6 +85,11 @@ Copyleft (C) 2012 Akos Kovacs
  => '("CMakeCache.txt" "CMakeLists.txt" "install_manifest.txt")
 [3]> 
 ```
+
+## Known issues
+  * Functions cannot be defined by the users
+  * Interpreatiton works just-in-time *\(no, not JIT\)* no bytecode emission or optimization is performed
+  * Bugs, bugs, bugs...
 
 ## License
 AkLisp is licensed under the permissive MIT license.
