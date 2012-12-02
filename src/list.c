@@ -356,7 +356,7 @@ void akl_print_value(struct akl_state *in, struct akl_value *val)
         if (mod)
             printf("<USERDATA: %s>", mod->am_name);
         else
-            printf("<USERDATA>", mod->am_name);
+            printf("<USERDATA>");
         END_COLOR;
         break;
 
