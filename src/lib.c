@@ -234,7 +234,8 @@ AKL_BUILTIN_DEFINE(or, in, args)
 
 AKL_CFUN_DEFINE(exit, in __unused, args)
 {
-    printf("Bye!\n");
+    if (in->ai_interactive)
+        printf("Bye!\n");
     if (AKL_IS_NIL(args)) {
         exit(0);
     } else {
