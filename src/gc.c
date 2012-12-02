@@ -79,7 +79,6 @@ void akl_gc_lex_info_desctruct(struct akl_state *in, void *obj)
 {
     struct akl_lex_info *info = (struct akl_lex_info *)obj;
     if (info) {
-        AKL_FREE(info->li_name);
         AKL_FREE(info);
     }
 }
