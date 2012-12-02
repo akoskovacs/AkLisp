@@ -354,6 +354,26 @@ AKL_CFUN_DEFINE(len, in, args)
     return &NIL_VALUE;
 }
 
+AKL_BUILTIN_DEFINE(constp, in, args)
+{
+    struct akl_value *a1 = AKL_FIRST_VALUE(args);
+    struct akl_atom  *atom;
+    if (a1) {
+        switch (a1->va_type) {
+            case TYPE_ATOM:
+            atom = akl_get_global_atom(in, akl_get_atom_name_value(a1));
+            return (atom && atom->at_is_const == TRUE) ? &TRUE_VALUE : &NIL_VALUE;
+
+            case TYPE_LIST: case TYPE_USERDATA: 
+            return &NIL_VALUE;
+
+            default:
+            return &TRUE_VALUE;
+        }
+    }
+    return &NIL_VALUE;
+}
+
 static struct akl_value *
 akl_set_value(struct akl_state *s, struct akl_list *args, bool_t is_const)
 {
@@ -1067,6 +1087,7 @@ void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, oddp, "EVEN?", "Predicate which, returns with true when it\'s argument is even");
         AKL_ADD_CFUN(in, negp, "NEGATIVE?", "Predicate which, returns with true when it\'s argument is positive");
         AKL_ADD_CFUN(in, posp, "POSITIVE?", "Predicate which, returns with true when it\'s argument is negative");
+        AKL_ADD_BUILTIN(in, constp, "CONST?", "Predicate which, returns with true when it\'s argument is a constant");
     }
 
     if (flags & AKL_LIB_NUMBERIC) {
