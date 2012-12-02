@@ -215,7 +215,10 @@ token_t akl_lex(struct akl_io_device *dev)
                 continue;
             }
         } else if (ch == '"') {
-            /* No akl_io_ungetc() */
+            ch = akl_io_getc(dev);
+            if (ch == '"')
+                return tNIL;
+            akl_io_ungetc(ch, dev);
             copy_string(dev); 
             return tSTRING;
         } else if (ch == '(') {
