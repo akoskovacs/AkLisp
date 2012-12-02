@@ -41,6 +41,7 @@ set(SOURCES
     ${SDIR}lexer.c)
 
 option(USE_COLORS "Use standard terminal colors" ON)
+option(LINK_SHARED "Link the interpreter with the shared library" OFF)
 if (USE_COLORS)
     add_definitions(-DUSE_COLORS)
 endif()
@@ -65,7 +66,14 @@ add_definitions(-DAKL_PROCESSOR="${CMAKE_SYSTEM_PROCESSOR}")
 set_target_properties(${TARGET}_static PROPERTIES VERSION ${VER_MAJOR}.${VER_MINOR}.0 SOVERSION 1)
 set_target_properties(${TARGET}_shared PROPERTIES VERSION ${VER_MAJOR}.${VER_MINOR}.0 SOVERSION 1)
 add_executable(${TARGET} ${SDIR}/main.c)
-target_link_libraries(${TARGET} ${TARGET}_static ${READLINE_LIBRARY} ${DL_LIBRARY})
+
+if (LINK_SHARED)
+    set(AKL_SHLIB ${TARGET}_shared)
+else()
+    set(AKL_SHLIB ${TARGET}_static)
+endif()
+
+target_link_libraries(${TARGET} ${AKL_SHLIB} ${READLINE_LIBRARY} ${DL_LIBRARY})
 set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME aklisp)
 INSTALL(TARGETS ${TARGET}
         RUNTIME
