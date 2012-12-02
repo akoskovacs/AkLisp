@@ -59,6 +59,7 @@ struct akl_value *akl_parse_value(struct akl_state *in, struct akl_io_device *de
             l->is_quoted = is_quoted;
             is_quoted = FALSE;
             value = akl_new_list_value(in, l);
+            value->va_lex_info = akl_new_lex_info(in, dev);
             return value;
 
             case tQUOTE:
@@ -66,9 +67,11 @@ struct akl_value *akl_parse_value(struct akl_state *in, struct akl_io_device *de
             continue;
 
             case tNIL:
+            NIL_VALUE.va_lex_info = akl_new_lex_info(in, dev);
             return &NIL_VALUE;
 
             case tTRUE:
+            TRUE_VALUE.va_lex_info = akl_new_lex_info(in, dev);
             return &TRUE_VALUE;
 
             default:

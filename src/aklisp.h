@@ -158,8 +158,9 @@ struct akl_io_device {
     } iod_source;
     const char *iod_name; /* Name of the input device (for ex.: name of the file) */
     size_t iod_pos; /*  Only used for DEVICE_STRING */
-    unsigned iod_char_count;
-    unsigned iod_line_count;
+    unsigned int iod_char_count;
+    unsigned int iod_line_count;
+    unsigned int iod_column;
 };
 
 #define AKL_NR_GC_STAT_ENT 6

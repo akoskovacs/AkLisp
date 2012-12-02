@@ -28,6 +28,7 @@ struct akl_value TRUE_VALUE = {
     .va_value.number = 1,
     .is_quoted = TRUE,
     .is_nil = FALSE,
+    .va_lex_info = NULL,
 };
 
 struct akl_value NIL_VALUE = {
@@ -35,6 +36,7 @@ struct akl_value NIL_VALUE = {
     .va_value.number = 0,
     .is_quoted = TRUE,
     .is_nil = TRUE,
+    .va_lex_info = NULL,
 };
 
 struct akl_list NIL_LIST = {
@@ -64,8 +66,14 @@ void akl_gc_value_destruct(struct akl_state *in, void *obj)
 {
     struct akl_value *val = (struct akl_value *)obj;
     /* We can simply compare just the pointers */
-    if (val != &NIL_VALUE && val != &TRUE_VALUE)
+    if (val != &NIL_VALUE && val != &TRUE_VALUE) {
         akl_free_value(in, val);
+    } else { /* True and nil values also have lex infos */
+        if (val->va_lex_info) {
+            AKL_FREE(val->va_lex_info);
+            val->va_lex_info = NULL;
+        }
+    }
 }
 
 void akl_gc_list_destruct(struct akl_state *in, void *obj)
@@ -204,7 +212,8 @@ struct akl_lex_info *akl_new_lex_info(struct akl_state *in, struct akl_io_device
     AKL_GC_INIT_OBJ(info, akl_gc_lex_info_desctruct);
     if (dev) {
         info->li_line = dev->iod_line_count;
-        info->li_count = dev->iod_char_count;
+        /* The column, where the token start */
+        info->li_count = dev->iod_column;
         info->li_name = dev->iod_name;
     }
     return info;

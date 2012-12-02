@@ -64,6 +64,7 @@ int akl_io_getc(struct akl_io_device *dev)
     if (dev == NULL)
         return EOF;
 
+    dev->iod_char_count++;
     switch (dev->iod_type) {
         case DEVICE_FILE:
         last_char = fgetc(dev->iod_source.file);
@@ -74,7 +75,6 @@ int akl_io_getc(struct akl_io_device *dev)
         dev->iod_pos++;
         break;
     }
-    dev->iod_char_count++;
     return last_char;
 }
 
@@ -82,6 +82,8 @@ int akl_io_ungetc(int ch, struct akl_io_device *dev)
 {
     if (dev == NULL)
         return EOF;
+
+    dev->iod_char_count--;
     switch (dev->iod_type) {
         case DEVICE_FILE:
         return ungetc(ch, dev->iod_source.file);
@@ -90,7 +92,6 @@ int akl_io_ungetc(int ch, struct akl_io_device *dev)
         dev->iod_pos--;
         return dev->iod_source.string[dev->iod_pos];
     }
-    dev->iod_char_count--;
     return 0;
 }
 
@@ -134,6 +135,7 @@ size_t copy_string(struct akl_io_device *dev)
     int ch;
     size_t i = 0;
     assert(dev);
+    
     while ((ch = akl_io_getc(dev))) {
         if (ch != '\"') {
             put_buffer(i++, ch);
@@ -150,8 +152,8 @@ size_t copy_atom(struct akl_io_device *dev)
 {
     int ch;
     size_t i = 0;
-
     assert(dev);
+
     while ((ch = akl_io_getc(dev))) {
         if (ch != ' ' && ch != ')' && ch != '\n') {
             put_buffer(i++, toupper(ch)); /* Good old times... */
@@ -204,6 +206,7 @@ token_t akl_lex(struct akl_io_device *dev)
             op = 0;
             return tNUMBER;
         } else if (ch == ' ' || ch == '\n') {
+            dev->iod_column = dev->iod_char_count+1;
             if (op != 0) {
                 if (op == '+')
                     strcpy(buffer, "+");
@@ -222,6 +225,7 @@ token_t akl_lex(struct akl_io_device *dev)
             copy_string(dev); 
             return tSTRING;
         } else if (ch == '(') {
+            dev->iod_column = dev->iod_char_count+1;
             ch = akl_io_getc(dev);
             if (ch == ')')
                 return tNIL;
