@@ -57,7 +57,7 @@ $ make
 ```
 *This will also build the aklisp binary libaklisp_static.a (static software library) libaklisp_shared.so (shared library).*
 
-## Intresting things to try
+## Interesting things to try
 ### Interactive shell
 When no arguments are given the executable will start an interactive shell. This is the most convenient way to try the interpreter. If the executable linked with the ReadLine library, you can also use tab-completition between the parentheses.
 ```lisp
