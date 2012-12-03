@@ -1,5 +1,4 @@
-# AkLisp
-[![Build Status](https://secure.travis-ci.org/akoskovacs/AkLisp.png)](http://travis-ci.org/akoskovacs/AkLisp)
+# AkLisp [![Build Status](https://secure.travis-ci.org/akoskovacs/AkLisp.png)](http://travis-ci.org/akoskovacs/AkLisp)
 AkLisp is a tiny, hobby Lisp dialect. It is embeddable, user-friendly and relatively fast.
 
 ## About Lisp/Scheme
