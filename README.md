@@ -85,8 +85,8 @@ Copyleft (C) 2012 Akos Kovacs
 ```
 
 ## Known issues
-  * Functions cannot be defined by the users
-  * Interpreatiton works just-in-time *\(no, not JIT\)* no bytecode emission or optimization is performed
+  * No way to define functions [bug #2](https://github.com/akoskovacs/AkLisp/issues/2)
+  * Interpretatiton works just-in-time *\(no, not JIT\)* no bytecode emission or optimization is performed [bug #5](https://github.com/akoskovacs/AkLisp/issues/5)
   * Bugs, bugs, bugs...
 
 ## License
