@@ -15,12 +15,12 @@ TARGET := ../aklisp
 
 all: $(OBJECTS)
 	@echo "LINK aklisp"
-	@$(CC) $(OBJECTS) -ldl -lreadline -o $(TARGET)
+	@$(CC) $(OBJECTS) -rdynamic -ldl -lreadline -o $(TARGET)
 
 %.o: %.c
 	@echo "CC $<"
-	@$(CC) $(CFLAGS) $(DEFINES) $< -c -rdynamic
+	@$(CC) $(CFLAGS) $(DEFINES) $< -c 
 
-.PHONY: clean clean-cmake
+PHONY: clean clean-cmake
 clean:
 	$(RM) $(TARGET) $(OBJECTS)
