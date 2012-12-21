@@ -25,6 +25,9 @@ Every list is implemented as a singly linked list in the interpreter. You can de
 ; Therefore the second element can be easy gathered with:
 (head (tail '(:one 2 3 :four)))     ; => 2, the second element
 ```
+## Binary packages
+### Debian/Ubuntu
+You can get the Debian package from [here](https://dl.dropbox.com/u/10389667/AkLisp-0.1-alpha-Linux.deb)
 
 ## Building from source
 These instructions only applies to unix-style systems. **Windows builds are not supported at this time.**
