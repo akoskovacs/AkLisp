@@ -1,0 +1,10 @@
+prefix=/usr
+exec_prefix=${prefix}
+includedir=${prefix}/include
+libdir=${exec_prefix}/lib
+
+Name: aklisp-module
+Description: A tiny Lisp-style language (module builder)
+Version: 0.1.0
+Cflags: -I${includedir}/ -shared -fPIC
+Libs: -L${libdir} -ldl
