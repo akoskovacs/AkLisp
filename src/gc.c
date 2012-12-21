@@ -39,15 +39,6 @@ struct akl_value NIL_VALUE = {
     .va_lex_info = NULL,
 };
 
-struct akl_list NIL_LIST = {
-    .li_head = NULL,
-    .li_last = NULL,
-    .li_elem_count = 0,
-    .is_nil = TRUE,
-    .li_locals = NULL,
-    .li_local_count = 0,
-};
-
 void *akl_malloc(struct akl_state *in, size_t size)
 {
     void *ptr;
@@ -79,7 +70,7 @@ void akl_gc_value_destruct(struct akl_state *in, void *obj)
 void akl_gc_list_destruct(struct akl_state *in, void *obj)
 {
     struct akl_list *list = (struct akl_list *)obj;
-    if (list != &NIL_LIST)
+    if (list != NULL)
         akl_free_list(in, list);
 }
 
@@ -151,10 +142,8 @@ struct akl_state *akl_new_state(void)
     RB_INIT(&in->ai_atom_head);
     AKL_GC_INIT_OBJ(&NIL_VALUE, akl_gc_value_destruct);
     AKL_GC_INIT_OBJ(&TRUE_VALUE, akl_gc_value_destruct);
-    AKL_GC_INIT_OBJ(&NIL_LIST, akl_gc_list_destruct);
     NIL_VALUE.gc_obj.gc_is_static = TRUE;
     TRUE_VALUE.gc_obj.gc_is_static = TRUE;
-    NIL_LIST.gc_obj.gc_is_static = TRUE;
     in->ai_device = NULL;
     memset(in->ai_gc_stat, 0, AKL_NR_GC_STAT_ENT * sizeof(unsigned int));
     in->ai_utype_size  = 5;

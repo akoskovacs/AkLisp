@@ -293,7 +293,7 @@ struct akl_list *akl_cdr(struct akl_state *in, struct akl_list *l)
     struct akl_list *nhead;
     assert(l);
     if (AKL_IS_NIL(l))
-        return &NIL_LIST;
+        return NULL;
 
     nhead = akl_new_list(in);
     nhead->li_elem_count = l->li_elem_count - 1;

@@ -76,7 +76,7 @@ typedef unsigned int akl_utype_t;
 #define __unused __attribute__((unused))
 #endif // __unused
 
-#define AKL_IS_NIL(type) ((type)->is_nil)
+#define AKL_IS_NIL(type) ((type) == NULL || (type)->is_nil)
 #define AKL_IS_QUOTED(type) ((type)->is_quoted)
 #define AKL_IS_TRUE(type) (!AKL_IS_NIL(type))
 
@@ -237,7 +237,7 @@ struct akl_list_entry {
     struct akl_list_entry *le_next;
 };
 
-extern struct akl_list {
+struct akl_list {
     AKL_GC_DEFINE_OBJ;
     struct akl_list_entry *li_head;
     struct akl_list_entry *li_last; /* Last element (not the tail) */
@@ -249,7 +249,7 @@ extern struct akl_list {
 /* Yep element count == 0 can simply mean NIL, but
   then we cannot use the AKL_IS_NIL() macro :-( */
     bool_t is_nil : 1;
-} NIL_LIST;
+};
 
 #define AKL_LIST_FIRST(list) ((list)->li_head)
 #define AKL_LIST_LAST(list) ((list)->li_last)

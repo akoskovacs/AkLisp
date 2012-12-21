@@ -180,15 +180,14 @@ struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
         if (list->li_elem_count > 1)
             args = akl_cdr(in, list);
         else 
-            args = &NIL_LIST;
+            args = NULL;
 
-        assert(args);
         assert(cfun);
         ret = cfun(in, args);
         AKL_GC_INC_REF(ret);
         if (fatm->at_value->va_type != TYPE_BUILTIN) {
             AKL_GC_DEC_REF(in, list);
-            if (list->li_elem_count > 1 && args != &NIL_LIST)
+            if (list->li_elem_count > 1 && args != NULL)
                 AKL_FREE(args);
         }
     }
