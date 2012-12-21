@@ -30,7 +30,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdarg.h>
-#include "tree.h"
+#include "akl_tree.h"
 
 #define MALLOC_FUNCTION malloc
 #define FREE_FUNCTION free
