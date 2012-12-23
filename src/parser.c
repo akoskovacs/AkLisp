@@ -99,14 +99,22 @@ struct akl_list *akl_parse_list(struct akl_state *in, struct akl_io_device *dev)
     return list;
 }
 
-struct akl_list *akl_parse_io(struct akl_state *in)
+struct akl_list *akl_parse_io(struct akl_state *s, struct akl_io_device *dev)
 {
-    struct akl_io_device *dev = in->ai_device;
     struct akl_value *value = NULL;
+    struct akl_list *list;
     assert(dev);
-    in->ai_program = akl_new_list(in);
-    while ((value = akl_parse_value(in, dev)))
-        akl_list_append_value(in, in->ai_program, value);
+    list = akl_new_list(s);
+    while ((value = akl_parse_value(s, dev)))
+        akl_list_append_value(s, list, value);
 
-    return in->ai_program;
+    return list;
+}
+
+struct akl_list *akl_parse(struct akl_state *s)
+{
+    if (s) {
+        return s->ai_program = akl_parse_io(s, s->ai_device);
+    }
+    return NULL;
 }

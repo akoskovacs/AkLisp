@@ -308,7 +308,8 @@ struct akl_list  *akl_parse_list(struct akl_state *, struct akl_io_device *);
 struct akl_value *akl_parse_value(struct akl_state *, struct akl_io_device *);
 struct akl_list  *akl_parse_file(struct akl_state *, FILE *);
 struct akl_list  *akl_parse_string(struct akl_state *, const char *);
-struct akl_list  *akl_parse_io(struct akl_state *);
+struct akl_list  *akl_parse_io(struct akl_state *, struct akl_io_device *);
+struct akl_list  *akl_parse(struct akl_state *);
 struct akl_value *akl_car(struct akl_list *);
 struct akl_list  *akl_cdr(struct akl_state *, struct akl_list *);
 

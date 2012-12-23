@@ -249,6 +249,30 @@ AKL_CFUN_DEFINE(print, in, args)
     return akl_new_list_value(in, args);
 }
 
+AKL_CFUN_DEFINE(eval, s, args)
+{
+    struct akl_value *last, *a1 = AKL_FIRST_VALUE(args);
+    struct akl_list *l = NULL;
+    struct akl_io_device *dev;
+    struct akl_list_entry *ent;
+    if (AKL_CHECK_TYPE(a1, TYPE_LIST)) {
+        l = AKL_GET_LIST_VALUE(a1);
+    } else if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
+        const char *str = AKL_GET_STRING_VALUE(a1);
+        dev = akl_new_string_device("string", str);
+        l = akl_parse_io(s, dev);
+        AKL_LIST_FOREACH(ent, l) {
+            last = akl_eval_value(s, AKL_ENTRY_VALUE(ent));
+        }
+        return last;
+        AKL_FREE(dev);
+    } else {
+        return a1;
+    }
+    l->is_quoted = FALSE;
+    return akl_eval_list(s, l);
+}
+
 AKL_CFUN_DEFINE(display, in, args)
 {
     struct akl_list_entry *ent;
@@ -1018,6 +1042,7 @@ void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, to_int,  "INT", "Convert an arbitrary value to an integer");
         AKL_ADD_CFUN(in, to_str,  "STR", "Convert an arbitrary value to a string");
         AKL_ADD_CFUN(in, to_sym,  "SYM", "Convert an arbitrary value to a symbol");
+        AKL_ADD_CFUN(in, eval,  "EVAL", "Evaluate an S-expression (can be string)");
     }
 
     if (flags & AKL_LIB_DATA) {
