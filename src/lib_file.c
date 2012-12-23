@@ -258,9 +258,9 @@ AKL_CFUN_DEFINE(file_seek, in, args)
     struct akl_atom *sym;
     int pos;
     int whence;
-    char *set[] = { "SEEK_SET", "SEEK-SET", "SET", "BEGIN", NULL };
-    char *cur[] = {"SEEK_CUR", "SEEK-CUR", "CUR", "CURR", "CURRENT", NULL };
-    char *end[] = {"SEEK_END", "SEEK-END", "END",  NULL };
+    const char *set[] = { "SEEK_SET", "SEEK-SET", "SET", "BEGIN", NULL };
+    const char *cur[] = { "SEEK_CUR", "SEEK-CUR", "CUR", "CURR", "CURRENT", NULL };
+    const char *end[] = { "SEEK_END", "SEEK-END", "END",  NULL };
 
     a2 = AKL_SECOND_VALUE(args);
     a3 = AKL_THIRD_VALUE(args);
