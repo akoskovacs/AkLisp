@@ -307,6 +307,20 @@ struct akl_list *akl_cdr(struct akl_state *in, struct akl_list *l)
     return nhead;
 }
 
+/* Is this atom name can be found in the strs? */
+bool_t akl_is_equal_with(struct akl_atom *atom, const char **strs)
+{
+   const char *aname = (atom != NULL) ? atom->at_name : NULL;
+   if (aname && strs) {
+       while (*strs) {
+           if (strcmp(aname, *strs) == 0)
+               return TRUE;
+           strs++;
+       }
+   }
+   return FALSE;
+}
+
 void akl_print_value(struct akl_state *in, struct akl_value *val)
 {
     if (val == NULL || AKL_IS_NIL(val)) {

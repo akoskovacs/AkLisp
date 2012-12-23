@@ -9,7 +9,7 @@ CONF = conf.h
 CFLAGS = -ggdb # Default is debug build
 CD = cd
 MAKE = make
-OBJECTS := main.o aklisp.o lib.o lexer.o parser.o os_unix.o gc.o list.o
+OBJECTS := main.o aklisp.o lib.o lexer.o parser.o os_unix.o gc.o list.o lib_file.o
 DEFINES := -DVER_MAJOR=0 -DVER_MINOR=1 -DVER_ADDITIONAL=\"alpha\" -DUSE_COLORS -DHAVE_READLINE -include "../conf.h"
 TARGET := ../aklisp
 

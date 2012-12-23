@@ -231,6 +231,7 @@ struct akl_atom *akl_add_global_cfun(struct akl_state *, const char *, akl_cfun_
 void akl_remove_function(struct akl_state *, akl_cfun_t);
 struct akl_atom *akl_get_global_atom(struct akl_state *in, const char *);
 void akl_do_on_all_atoms(struct akl_state *, void (*fn)(struct akl_atom *));
+bool_t akl_is_equal_with(struct akl_atom *, const char **);
 
 struct akl_list_entry {
     void *le_value;
@@ -400,13 +401,15 @@ enum AKL_INIT_FLAGS {
     AKL_LIB_TIME = 0x040,
     AKL_LIB_OS = 0x080,
     AKL_LIB_LOGICAL = 0x100,
+    AKL_LIB_FILE = 0x200,
     AKL_LIB_ALL = AKL_LIB_BASIC|AKL_LIB_NUMBERIC
         |AKL_LIB_CONDITIONAL|AKL_LIB_PREDICATE|AKL_LIB_DATA
-        |AKL_LIB_SYSTEM|AKL_LIB_TIME|AKL_LIB_OS|AKL_LIB_LOGICAL
+        |AKL_LIB_SYSTEM|AKL_LIB_TIME|AKL_LIB_OS|AKL_LIB_LOGICAL|AKL_LIB_FILE
 };
 
 void akl_init_lib(struct akl_state *, enum AKL_INIT_FLAGS);
 void akl_init_os(struct akl_state *);
+void akl_init_file(struct akl_state *);
 
 #define AKL_CFUN_DEFINE(fname, iname, aname) \
     static struct akl_value * fname##_function(struct akl_state * iname, struct akl_list * aname)

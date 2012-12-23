@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 set(VER_MAJOR 0)
 set(VER_MINOR 1)
 set(VER_ADDITIONAL "alpha")
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 set(SDIR "./src/")
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
@@ -39,6 +40,7 @@ set(SOURCES
     ${SDIR}gc.c
     ${SDIR}parser.c
     ${SDIR}list.c
+    ${SDIR}lib_file.c
     ${SDIR}lexer.c)
 
 option(USE_COLORS "Use standard terminal colors" ON)

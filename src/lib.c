@@ -942,38 +942,6 @@ AKL_CFUN_DEFINE(cons, in, args)
     akl_list_insert_value_head(in, AKL_GET_LIST_VALUE(a2), a1);
     return a2;
 }
-
-AKL_CFUN_DEFINE(read_number, in, args)
-{
-    double num = 0;
-    scanf("%lf", &num);
-    return akl_new_number_value(in, num);
-}
-#ifdef _GNUC_
-AKL_CFUN_DEFINE(read_string, in, args __unused)
-{
-    char *str = NULL;
-    scanf("%a%s", &str);
-    if (str != NULL)
-        return akl_new_string_value(in, str);
-}
-#else // _GNUC_
-AKL_CFUN_DEFINE(read_string, in, args __unused)
-{
-    char *str = (char *)akl_malloc(in, 256);
-    scanf("%s", str);
-    if (str != NULL)
-        return akl_new_string_value(in, str);
-    return &NIL_VALUE;
-}
-#endif // _GNUC_
-
-AKL_CFUN_DEFINE(newline, in __unused, args __unused)
-{
-    printf("\n");
-    return &NIL_VALUE;
-}
-
 static struct tm *akl_time(void)
 {
     time_t curr;
@@ -1118,10 +1086,6 @@ void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
     }
         
     if (flags & AKL_LIB_SYSTEM) {
-        AKL_ADD_CFUN(in, read_number, "READ-NUMBER", "Read a number from the standard input");
-        AKL_ADD_CFUN(in, read_string, "READ-WORD", "Read a word from the standard input");
-        AKL_ADD_CFUN(in, newline, "NEWLINE", "Just put out a newline character to the standard output");
-        AKL_ADD_CFUN(in, print,   "PRINT", "Print different values to the screen in Lisp-style");
         AKL_ADD_CFUN(in, display, "DISPLAY", "Print numbers or strings to the screen");
         AKL_ADD_CFUN(in, help,    "HELP", "Print the builtin functions");
         AKL_ADD_CFUN(in, about,   "ABOUT", "About the environment");
@@ -1136,6 +1100,10 @@ void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
         AKL_ADD_CFUN(in, time_min,  "TIME-MIN", "Get the current minute");
         AKL_ADD_CFUN(in, time_sec,  "TIME-SEC", "Get the current secundum");
         AKL_ADD_CFUN(in, time, "TIME", "Get the current time as a list of (hour minute secundum)");
+    }
+
+    if (flags & AKL_LIB_FILE) {
+        akl_init_file(in);
     }
 
 #ifdef AKL_DEBUG
