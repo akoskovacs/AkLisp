@@ -165,7 +165,7 @@ int main(int argc, const char *argv[])
         return 0;
     }
     akl_init_lib(in, AKL_LIB_ALL);
-    akl_parse_io(in);
+    akl_parse(in);
     akl_eval_program(in);
     akl_print_errors(in);
     akl_free_state(in);

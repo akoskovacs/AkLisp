@@ -137,7 +137,15 @@ size_t copy_string(struct akl_io_device *dev)
     assert(dev);
     
     while ((ch = akl_io_getc(dev))) {
-        if (ch != '\"') {
+        if (ch == '\\') { // \" escaping
+            ch = akl_io_getc(dev);
+            if (ch == '"') {
+                put_buffer(i++, ch);
+            } else {
+                put_buffer(i++, '\\');
+                put_buffer(i++, ch);
+            }
+        } else if (ch != '\"') {
             put_buffer(i++, ch);
         } else {
             break;
