@@ -148,7 +148,7 @@ AKL_CFUN_DEFINE(file_printf, s, args)
                 if (ent) {
                     val = AKL_ENTRY_VALUE(ent);
                     val = akl_to_number(s, val);
-                    fprintf(fp, "g", AKL_GET_NUMBER_VALUE(val));
+                    fprintf(fp, "%g", AKL_GET_NUMBER_VALUE(val));
                 } else {
                     akl_add_error(s, AKL_WARNING, a1->va_lex_info, ferror, *fmt);
                 }
@@ -158,7 +158,7 @@ AKL_CFUN_DEFINE(file_printf, s, args)
                 if (ent) {
                     val = AKL_ENTRY_VALUE(ent);
                     val = akl_to_string(s, val);
-                    fprintf(fp, "s", AKL_GET_STRING_VALUE(val));
+                    fprintf(fp, "%s", AKL_GET_STRING_VALUE(val));
                 } else {
                     akl_add_error(s, AKL_WARNING, a1->va_lex_info, ferror, *fmt);
                 }
