@@ -30,8 +30,9 @@ static struct akl_atom *akl_stdin, *akl_stdout, *akl_stderr;
 
 static void file_utype_desctruct(struct akl_state *in, void *obj)
 {
-    if (obj != NULL && obj != stdin && obj != stdout && obj != stderr)
+    if (obj != NULL && obj != stdin && obj != stdout && obj != stderr) {
         fclose((FILE *)obj);
+    }
 }
 
 /*
@@ -111,9 +112,10 @@ AKL_CFUN_DEFINE(file_printf, s, args)
         fmt = AKL_GET_STRING_VALUE(a1);
         fp = stdout;
     } else {
-        akl_add_error(s, AKL_ERROR
-          , a1->va_lex_info, "ERROR: PRINTF: First argument must be "
-                                 "a string or a file descriptor.\n");
+        AKL_LIST_FOREACH(ent, args) {
+            akl_print_value(s, AKL_ENTRY_VALUE(ent));
+        }
+        return &TRUE_VALUE;
     }
     if (!fmt) {
         akl_add_error(s, AKL_ERROR

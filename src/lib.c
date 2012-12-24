@@ -243,12 +243,6 @@ AKL_CFUN_DEFINE(exit, in __unused, args)
     }
 }
 
-AKL_CFUN_DEFINE(print, in, args)
-{
-    akl_print_list(in, args);
-    return akl_new_list_value(in, args);
-}
-
 AKL_CFUN_DEFINE(eval, s, args)
 {
     struct akl_value *last, *a1 = AKL_FIRST_VALUE(args);
