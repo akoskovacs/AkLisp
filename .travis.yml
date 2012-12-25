@@ -1,5 +1,6 @@
 language: c
 script: cmake
+install: libgc-dev libgc1c2
 compiler:
     - clang
     - gcc
