@@ -26,7 +26,6 @@ RB_GENERATE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
 struct akl_atom *akl_add_global_atom(struct akl_state *in, struct akl_atom *atom)
 {
-    AKL_GC_SET_STATIC(atom);
     return ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
 }
 
@@ -57,7 +56,6 @@ akl_add_global_cfun(struct akl_state *in, const char *name
     atom->at_value->va_type = TYPE_CFUN;
     atom->at_value->va_value.cfunc = fn;
     akl_add_global_atom(in, atom);
-    AKL_GC_INC_REF(atom);
     return atom;
 }
 
@@ -69,7 +67,6 @@ akl_add_builtin(struct akl_state *in, const char *name
     assert(fn);
     struct akl_atom *atom = akl_add_global_cfun(in, name, fn, desc);
     atom->at_value->va_type = TYPE_BUILTIN;
-    AKL_GC_INC_REF(atom);
     return atom;
 }
 
@@ -80,9 +77,8 @@ akl_get_global_atom(struct akl_state *in, const char *name)
     if (name == NULL)
         return NULL;
 
-    atm = akl_new_atom(in, strdup(name));
+    atm = akl_new_atom(in, STRDUP_FUNCTION(name));
     res = ATOM_TREE_RB_FIND(&in->ai_atom_head, atm);
-    akl_free_atom(in, atm);
     return res;
 }
 
@@ -131,7 +127,6 @@ akl_list_append_value(struct akl_state *in, struct akl_list *list, struct akl_va
 {
     struct akl_list_entry *le;
     le = akl_list_append(in, list, (void *)val);
-    AKL_GC_INC_REF(val);
     return le;
 }
 
@@ -158,7 +153,6 @@ akl_list_insert_value_head(struct akl_state *in, struct akl_list *list, struct a
 {
     struct akl_list_entry *le;
     le = akl_list_insert_head(in, list, (void *)val);
-    AKL_GC_INC_REF(val);
     return le;
 }
 
@@ -176,10 +170,10 @@ struct akl_value *akl_duplicate_value(struct akl_state *in, struct akl_value *ov
 
         case TYPE_ATOM:
         oatom = AKL_GET_ATOM_VALUE(oval);
-        natom = akl_new_atom(in, strdup(oatom->at_name));
-        natom->at_desc = strdup(oatom->at_desc);
+        natom = akl_new_atom(in, STRDUP_FUNCTION(oatom->at_name));
+        natom->at_desc = STRDUP_FUNCTION(oatom->at_desc);
         natom->at_value = akl_duplicate_value(in, oatom->at_value);
-        return akl_new_atom_value(in, strdup(oatom->at_name));
+        return akl_new_atom_value(in, STRDUP_FUNCTION(oatom->at_name));
 
         case TYPE_NUMBER:
         return akl_new_number_value(in, AKL_GET_NUMBER_VALUE(oval));
@@ -368,7 +362,7 @@ void akl_print_value(struct akl_state *in, struct akl_value *val)
         START_COLOR(YELLOW);
         struct akl_utype *type = NULL;
         akl_utype_t tid = akl_get_utype_value(val);
-        if (tid >= 0 && tid < in->ai_utype_count)
+        if (tid < in->ai_utype_count)
             type = in->ai_utypes[tid];
         if (type)
             printf("<USERDATA: %s>", type->ut_name);

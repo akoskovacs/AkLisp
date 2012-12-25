@@ -30,12 +30,21 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdarg.h>
+#include <gc/gc.h>
 #include "akl_tree.h"
 
-#define MALLOC_FUNCTION malloc
-#define FREE_FUNCTION free
-#define AKL_MALLOC(in, type) (type *)akl_malloc(in, sizeof(type))
-#define AKL_FREE(ptr) FREE_FUNCTION((void *)(ptr))
+/*
+ * NOTE: AkLisp uses Boehm Garbage Collector now, so we do not really use free().
+ * If you want to port AkLisp to an evironment where Boehm GC is not available,
+ * you must also need to port the Boehm GC or implement another one...
+ * You can simply specify your GC's main functions with the following macros:
+*/
+#define MALLOC_FUNCTION GC_MALLOC
+#define FREE_FUNCTION
+#define STRDUP_FUNCTION GC_STRDUP
+#define REALLOC_FUNCTION GC_REALLOC
+#define AKL_MALLOC(type) (type *)MALLOC_FUNCTION(sizeof (type))
+#define AKL_FREE(ptr) GC_FREE(ptr)
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
 #define AKL_GET_VALUE_MEMBER_PTR(val, type, member) \
@@ -80,50 +89,18 @@ typedef unsigned int akl_utype_t;
 #define AKL_IS_QUOTED(type) ((type)->is_quoted)
 #define AKL_IS_TRUE(type) (!AKL_IS_NIL(type))
 
-/* This section contains the most important datastructures
- for the garbage collector */
-typedef void (*akl_destructor_t)(struct akl_state *, void *obj);
-/* Every structure, which is suitable for collection, have to
-   embed this structure as a 'gc_obj' variable.
-   BE AWARE: This is object orineted! :-) */
-struct akl_gc_object {
-    /* Reference count for the object */
-    unsigned int gc_ref_count;
-    /* Desctructor function for the object getting a pointer 
-     of the active state and the object pointer as parameters. */
-    akl_destructor_t gc_de_fun;
-    bool_t gc_is_static : 1; /* Static object will not be free()'d */
-};
-#define AKL_GC_DEFINE_OBJ struct akl_gc_object gc_obj
-#define AKL_GC_INIT_OBJ(obj, de_fun) (obj)->gc_obj.gc_ref_count = 0; \
-                                     (obj)->gc_obj.gc_is_static = FALSE; \
-                                     (obj)->gc_obj.gc_de_fun = de_fun
-/* Call the destructor */
-#define AKL_GC_COLLECT_OBJ(in, obj) (obj)->gc_obj.gc_de_fun(in, obj)
-/* Increase the reference count for an object */
-#define AKL_GC_INC_REF(obj) (obj)->gc_obj.gc_ref_count++
-#define AKL_GC_SET_STATIC(obj) (obj)->gc_obj.gc_is_static = TRUE
-/* Decrease the reference count for an object and free it
-  if it's 'ref_count' is zero and if the object is not static. */
-#define AKL_GC_DEC_REF(in, obj) if ((obj) && --(obj)->gc_obj.gc_ref_count == 0 \
-                                && (!(obj)->gc_obj.gc_is_static)) \
-                                AKL_GC_COLLECT_OBJ(in,obj)
-
-void *akl_malloc(struct akl_state *, size_t);
 struct akl_userdata {
     unsigned int ud_id; /* Exact user type */
     void *ud_private; /* Arbitrary userdata */
 };
 
 struct akl_lex_info {
-    AKL_GC_DEFINE_OBJ;
     const char *li_name;
     unsigned int li_line; /* Line count */
     unsigned int li_count; /* Column count */
 };
 
 extern struct akl_value {
-    AKL_GC_DEFINE_OBJ;
     struct akl_lex_info *va_lex_info;
     enum akl_type va_type;
     union {
@@ -140,7 +117,6 @@ extern struct akl_value {
 } NIL_VALUE, TRUE_VALUE;
 
 struct akl_atom {
-    AKL_GC_DEFINE_OBJ;
     RB_ENTRY(akl_atom) at_entry;
     struct akl_value *at_value;
     char *at_name;
@@ -163,19 +139,17 @@ struct akl_io_device {
     unsigned int iod_column;
 };
 
-#define AKL_NR_GC_STAT_ENT 6
+#define AKL_NR_GC_STAT_ENT 5
 enum { AKL_GC_STAT_ATOM,
        AKL_GC_STAT_LIST,
        AKL_GC_STAT_NUMBER,
        AKL_GC_STAT_STRING,
-       AKL_GC_STAT_LIST_ENTRY,
-       AKL_GC_STAT_ALLOC
+       AKL_GC_STAT_LIST_ENTRY
 };
 
 struct akl_utype {
     const char *ut_name;
     akl_utype_t ut_id;
-    akl_destructor_t ut_de_fun; /* Destructor for the given type */
 };
 
 typedef int (*akl_mod_load_t)(struct akl_state *);
@@ -239,7 +213,6 @@ struct akl_list_entry {
 };
 
 struct akl_list {
-    AKL_GC_DEFINE_OBJ;
     struct akl_list_entry *li_head;
     struct akl_list_entry *li_last; /* Last element (not the tail) */
     struct akl_list *li_parent; /* Parent (container) list */
@@ -339,12 +312,6 @@ struct akl_userdata *akl_get_userdata_value(struct akl_value *);
 bool_t akl_check_user_type(struct akl_value *, akl_utype_t);
 struct akl_module *akl_get_module_descriptor(struct akl_state *, struct akl_value *);
 
-void akl_free_atom(struct akl_state *in, struct akl_atom *atom);
-void akl_free_value(struct akl_state *in, struct akl_value *val);
-void akl_free_list_entry(struct akl_state *in, struct akl_list_entry *ent);
-void akl_free_list(struct akl_state *in, struct akl_list *list);
-void akl_free_state(struct akl_state *in);
-
 struct akl_list_entry *
 akl_list_append(struct akl_state *, struct akl_list *, void *);
 struct akl_list_entry *
@@ -389,7 +356,7 @@ void akl_print_errors(struct akl_state *);
 
 /* Create a new user type and register it for the interpreter. The returned
   integer will identify this new type. */
-unsigned int akl_register_type(struct akl_state *, const char *, akl_destructor_t);
+unsigned int akl_register_type(struct akl_state *, const char *);
 void akl_deregister_type(struct akl_state *, unsigned int);
 
 enum AKL_INIT_FLAGS { 

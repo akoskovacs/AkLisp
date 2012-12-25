@@ -104,7 +104,7 @@ AKL_CFUN_DEFINE(getenv, in, args)
     if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
         env = getenv(AKL_GET_STRING_VALUE(a1));
         if (env)
-            return akl_new_string_value(in, strdup(env));
+            return akl_new_string_value(in, STRDUP_FUNCTION(env));
     }
     return &NIL_VALUE;
 }
@@ -129,7 +129,7 @@ AKL_CFUN_DEFINE(env, in, args)
     struct akl_value *v;
     char **var = environ;
     while (*var) {
-       v = akl_new_string_value(in, strdup(*var)); 
+       v = akl_new_string_value(in, STRDUP_FUNCTION(*var));
        akl_list_append_value(in, vars, v);
        var++;
     }
@@ -153,8 +153,8 @@ AKL_CFUN_DEFINE(load, in, args)
    }
 
    modname = AKL_GET_STRING_VALUE(a1);
-   mod_path = (char *)akl_malloc(in
-       , sizeof(AKL_MODULE_SEARCH_PATH) + strlen(modname) + 5); /* must be enough */
+   mod_path = (char *)MALLOC_FUNCTION(sizeof(AKL_MODULE_SEARCH_PATH)
+                          + strlen(modname) + 5); /* must be enough */
    strcpy(mod_path, AKL_MODULE_SEARCH_PATH);
    strcat(mod_path, modname);
    /* Ok try to figure out where is this tiny module */
@@ -174,7 +174,6 @@ AKL_CFUN_DEFINE(load, in, args)
                akl_add_error(in, AKL_ERROR, a1->va_lex_info
                    , "ERROR: load: Module '%s' is not found.\n"
                    , AKL_GET_STRING_VALUE(a1));
-               FREE_FUNCTION((void *)mod_path);
                return &NIL_VALUE;
            }
        }
@@ -188,7 +187,6 @@ AKL_CFUN_DEFINE(load, in, args)
        if (mod_desc && (strcmp(modname, mod_desc->am_path) == 0)) {
            akl_add_error(in, AKL_ERROR, a1->va_lex_info
                , "ERROR: load: Module '%s' is already loaded.\n", mod_desc->am_name);
-           FREE_FUNCTION((void *)mod_path);
            return &NIL_VALUE;
        }
    }
@@ -198,7 +196,6 @@ AKL_CFUN_DEFINE(load, in, args)
    if (!handle) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
            , "ERROR: load: Cannot load '%s': %s\n", modname, dlerror());
-       FREE_FUNCTION((void *)mod_path);
        return &NIL_VALUE;
    }
 
@@ -208,7 +205,6 @@ AKL_CFUN_DEFINE(load, in, args)
    if (mod_desc == NULL || ((error = dlerror()) != NULL)) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
            , "ERROR: load: No way to get back the module descriptor: %d.\n", error);
-       FREE_FUNCTION((void *)mod_path);
        return &NIL_VALUE;
    }
 
@@ -221,14 +217,12 @@ AKL_CFUN_DEFINE(load, in, args)
        if (errcode != AKL_LOAD_OK) {
            akl_add_error(in, AKL_ERROR, a1->va_lex_info
                , "ERROR: load: Module loader gave error code: %d.\n", errcode);
-           FREE_FUNCTION((void *)mod_path);
            dlclose(handle);
            return &NIL_VALUE;
        }
    } else {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
            , "ERROR: load: Module descriptor is invalid.\n");
-       FREE_FUNCTION((void *)mod_path);
        dlclose(handle);
        return &NIL_VALUE;
    }
@@ -236,7 +230,7 @@ AKL_CFUN_DEFINE(load, in, args)
    /* No free slot for the new module, make some room */
    if (in->ai_module_count >= in->ai_module_size-1) {
        in->ai_module_size += in->ai_module_size; 
-       in->ai_modules = (struct akl_module **)realloc(in->ai_modules
+       in->ai_modules = (struct akl_module **)REALLOC_FUNCTION(in->ai_modules
            , (sizeof (struct akl_module *))*in->ai_module_size);
    }
     
@@ -301,7 +295,6 @@ AKL_CFUN_DEFINE(unload, in, args)
                    , mod->am_name);
                return &NIL_VALUE;
             }
-            FREE_FUNCTION((void *)mod->am_path);
             dlclose(mod->am_handle);
             in->ai_modules[i] = NULL;
             in->ai_module_count--;

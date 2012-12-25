@@ -93,7 +93,6 @@ static void init_readline(void)
 #else //HAVE_READLINE
 static void init_readline(void) {}
 static void add_history(char *line __unused) {}
-
 static char *readline(char *prompt)
 {
 #define INPUT_BUFSIZE 256
@@ -128,7 +127,6 @@ static void interactive_mode(void)
         line = readline(prompt);
         if (line == NULL || strcmp(line, "exit") == 0) {
             printf("Bye!\n");
-            AKL_FREE(line);
             return;
         }
         if (line && *line) {
@@ -142,7 +140,7 @@ static void interactive_mode(void)
             akl_print_value(in, akl_eval_value(in, value));
             akl_print_errors(in);
             akl_clear_errors(in);
-            AKL_GC_DEC_REF(in, value);
+            GC_collect_a_little();
             printf("\n");
         }
         lnum++;
@@ -164,10 +162,10 @@ int main(int argc, const char *argv[])
         interactive_mode();
         return 0;
     }
+    GC_INIT();
     akl_init_lib(in, AKL_LIB_ALL);
     akl_parse(in);
     akl_eval_program(in);
     akl_print_errors(in);
-    akl_free_state(in);
     return 0;
 }
