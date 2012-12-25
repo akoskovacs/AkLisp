@@ -2,7 +2,7 @@
 # the project's root path
 CC= gcc
 RM= rm -rf
-CFLAGS= -shared -fPIC -ldl -I "../src"
+CFLAGS= -shared -fPIC -ldl -ggdb -I "../src"
 SRCS= $(wildcard *.c)
 OBJS= $(patsubst %.c,%.alm,$(SRCS))
 all: $(OBJS)
