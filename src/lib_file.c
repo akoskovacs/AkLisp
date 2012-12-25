@@ -339,17 +339,17 @@ void akl_init_file(struct akl_state *s)
 {
     akl_file_utype = akl_register_type(s, "FILE");
     create_std_desc(s, akl_file_utype);
-    AKL_ADD_CFUN(s, file_open, "FOPEN", "Open a file for a given operation (read, write)");
-    AKL_ADD_CFUN(s, file_close, "FCLOSE", "Close a file");
+    AKL_ADD_CFUN(s, file_open, "FILE-OPEN", "Open a file for a given operation (read, write)");
+    AKL_ADD_CFUN(s, file_close, "FILE-CLOSE", "Close a file");
     AKL_ADD_CFUN(s, file_printf, "PRINT", "Write a string to a stream (with C-style formatting)");
     AKL_ADD_CFUN(s, file_getline, "GETLINE", "Get a line from a stream");
     AKL_ADD_CFUN(s, file_read_number, "READ-NUMBER", "Read a number from the standard input");
     AKL_ADD_CFUN(s, file_read_string, "READ-WORD", "Read a word from the standard input");
     AKL_ADD_CFUN(s, file_read_string, "READ-WORD", "Read a word from the standard input");
     AKL_ADD_CFUN(s, file_newline, "NEWLINE", "Just put out a newline character to the standard output");
-    AKL_ADD_CFUN(s, file_seek, "FSEEK", "Sets the file position");
-    AKL_ADD_CFUN(s, file_tell, "FTELL", "Tells the current file position");
-    AKL_ADD_CFUN(s, file_rewind, "FREWIND", "Sets the current file position to the beginning of the file");
+    AKL_ADD_CFUN(s, file_seek, "FILE-SEEK", "Sets the file position");
+    AKL_ADD_CFUN(s, file_tell, "FILE-TELL", "Tells the current file position");
+    AKL_ADD_CFUN(s, file_rewind, "FILE-REWIND", "Sets the current file position to the beginning of the file");
 }
 
 #if 0
