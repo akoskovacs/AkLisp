@@ -105,7 +105,7 @@ struct akl_state *akl_new_state(void)
     return in;
 }
 
-static void akl_gc_list_finalize(GC_PTR list, GC_PTR state)
+static void akl_gc_list_finalize(void *list, void *state)
 {
     if (state) {
         ((struct akl_state *)state)->ai_gc_stat[AKL_GC_STAT_LIST]--;
@@ -128,7 +128,7 @@ struct akl_list *akl_new_list(struct akl_state *s)
     return lh;
 }
 
-static void akl_gc_atom_finalize(GC_PTR atom, GC_PTR state)
+static void akl_gc_atom_finalize(void *atom, void *state)
 {
     if (state) {
         ((struct akl_state *)state)->ai_gc_stat[AKL_GC_STAT_ATOM]--;
@@ -147,9 +147,17 @@ struct akl_atom *akl_new_atom(struct akl_state *s, char *name)
     return atom;
 }
 
+static void akl_gc_list_enty_finalizer(void *s, void *state)
+{
+    if (state) {
+        ((struct akl_state *)state)->ai_gc_stat[AKL_GC_STAT_LIST_ENTRY]--;
+    }
+}
+
 struct akl_list_entry *akl_new_list_entry(struct akl_state *s)
 {
     struct akl_list_entry *ent = AKL_MALLOC(struct akl_list_entry);
+    GC_register_finalizer(ent, akl_gc_list_enty_finalizer, s, NULL, NULL);
     s && s->ai_gc_stat[AKL_GC_STAT_LIST_ENTRY]++;
     ent->le_value = NULL;
     ent->le_next  = NULL;
@@ -299,7 +307,7 @@ struct akl_value *akl_to_symbol(struct akl_state *in, struct akl_value *v)
     return NULL;
 }
 
-static void akl_gc_string_finalizer(GC_PTR s, GC_PTR state)
+static void akl_gc_string_finalizer(void *s, void *state)
 {
     if (state) {
         ((struct akl_state *)state)->ai_gc_stat[AKL_GC_STAT_STRING]--;
@@ -317,7 +325,7 @@ struct akl_value *akl_new_string_value(struct akl_state *s, char *str)
     return val;
 }
 
-static void akl_gc_number_finalizer(GC_PTR n, GC_PTR state)
+static void akl_gc_number_finalizer(void *n, void *state)
 {
     if (state) {
         ((struct akl_state *)state)->ai_gc_stat[AKL_GC_STAT_NUMBER]--;
