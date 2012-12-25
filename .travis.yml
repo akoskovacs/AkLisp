@@ -1,6 +1,6 @@
 language: c
 script: cmake
-install: libgc-dev libgc1c2
+install: sudo apt-get install libgc-dev libgc1c2
 compiler:
     - clang
     - gcc
