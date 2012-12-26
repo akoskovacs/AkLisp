@@ -176,17 +176,28 @@ struct akl_module __module_desc = { \
     .am_unload = unload \
 }
 
+#define AKL_VECTOR_DEFSIZE 10
+#define AKL_VECTOR_NEW(type, count) akl_vector_new(sizeof(type), count)
+struct akl_vector {
+    void **av_vector;
+    unsigned int av_count;
+    unsigned int av_size;
+};
+
+struct akl_vector *akl_vector_new(unsigned int, unsigned int);
+void akl_vector_push(akl_state *, struct akl_vector *, void *);
+void *akl_vector_pop(akl_state *, struct akl_vector *);
+void *akl_vector_at(akl_state *, struct akl_vector *);
+
 struct akl_state {
     struct akl_io_device *ai_device;
     RB_HEAD(ATOM_TREE, akl_atom) ai_atom_head;
     unsigned int ai_gc_stat[AKL_NR_GC_STAT_ENT];
     struct akl_list *ai_program;
-    struct akl_utype **ai_utypes; /* Available user-defined types */
-    size_t ai_utype_count; /* Number of utypes */
-    size_t ai_utype_size; /* Size of the array */
-    struct akl_module **ai_modules; /* Loaded modules */
-    size_t ai_module_count; /* Number of loaded modules */
-    size_t ai_module_size; /* Size of the ai_modules array */
+    /* Loaded user-defined types */
+    struct akl_vector ai_utypes;
+    /* Currently loaded modules */
+    struct akl_vector ai_modules;
     struct akl_list *ai_errors; /* Collection of the errors (if any, default NULL) */
     bool_t ai_interactive;
 };
@@ -263,6 +274,8 @@ typedef enum {
     tRBRACE,
     tQUOTE,
 } token_t;
+
+
 
 struct akl_state  *akl_new_file_interpreter(const char *, FILE *);
 struct akl_state  *akl_new_string_interpreter(const char *, const char *);
