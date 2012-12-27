@@ -146,12 +146,8 @@ struct akl_state *akl_new_state(void)
     TRUE_VALUE.gc_obj.gc_is_static = TRUE;
     in->ai_device = NULL;
     memset(in->ai_gc_stat, 0, AKL_NR_GC_STAT_ENT * sizeof(unsigned int));
-    in->ai_utype_size  = 5;
-    in->ai_module_size = 5;
-    in->ai_utypes = (struct akl_utype **)calloc(in->ai_utype_size, sizeof(struct akl_utype *));
-    in->ai_modules = (struct akl_module **)calloc(in->ai_module_size, sizeof(struct akl_module *));
-    in->ai_module_count = 0;
-    in->ai_utype_count  = 0;
+    akl_vector_init(&in->ai_modules, sizeof(struct akl_module *), 5);
+    akl_vector_init(&in->ai_utypes, sizeof(struct akl_module *), 5);
     in->ai_program  = NULL;
     in->ai_errors   = NULL;
     return in;
@@ -351,7 +347,6 @@ struct akl_value *akl_to_symbol(struct akl_state *in, struct akl_value *v)
 
 void akl_free_value(struct akl_state *in, struct akl_value *val)
 {
-    int type;
     struct akl_userdata *data;
     struct akl_utype *utype;
     akl_destructor_t destroy;
@@ -382,8 +377,8 @@ void akl_free_value(struct akl_state *in, struct akl_value *val)
         case TYPE_USERDATA:
             data = akl_get_userdata_value(val);
             if (in) {
-                utype = in->ai_utypes[data->ud_id];
-                if (type) {
+                utype = akl_vector_at(&in->ai_utypes, data->ud_id);
+                if (utype) {
                     destroy = utype->ut_de_fun;
                 /* Call the proper destructor function */
                 /* The 'in->ai_utypes[data->ud_id]->ut_de_fun(in, data->ud_private);' */
@@ -391,9 +386,6 @@ void akl_free_value(struct akl_state *in, struct akl_value *val)
                 /* ourselves from the NULL pointer dereference. */
                     if (destroy)
                         destroy(in, data->ud_private);
-                    else
-                    /* NULL means that the object can be free()'d normally */
-                        AKL_FREE(data);
                 } /* else: ERROR */
             } else {
                 assert(in);
@@ -445,7 +437,7 @@ struct akl_value *akl_new_user_value(struct akl_state *in, unsigned int type, vo
     struct akl_userdata *udata;
     struct akl_value    *value;
     /* We should stop now, since the requested type does not exist */
-    assert(in->ai_utype_size > type && in->ai_utypes[type] != NULL);
+    assert(akl_vector_at(&in->ai_utypes, type));
     udata = AKL_MALLOC(in, struct akl_userdata);
     value = akl_new_value(in);
     udata->ud_id = type;
@@ -495,58 +487,6 @@ void akl_free_atom(struct akl_state *in, struct akl_atom *atom)
     in && in->ai_gc_stat[AKL_GC_STAT_ATOM]--;
 }
 
-char *akl_get_atom_name_value(struct akl_value *val)
-{
-    struct akl_atom *atom = AKL_GET_ATOM_VALUE(val);
-    return (atom != NULL) ? atom->at_name : NULL;
-}
-
-struct akl_userdata *akl_get_userdata_value(struct akl_value *value)
-{
-    struct akl_userdata *data;
-    if (AKL_CHECK_TYPE(value, TYPE_USERDATA)) {
-       data = value->va_value.udata; 
-       return data;
-    }
-    return NULL;
-}
-
-bool_t akl_check_user_type(struct akl_value *v, akl_utype_t type)
-{
-    struct akl_userdata *d = akl_get_userdata_value(v);
-    if (d && d->ud_id == type)
-        return TRUE;
-    return FALSE;
-}
-
-struct akl_module *akl_get_module_descriptor(struct akl_state *in, struct akl_value *v)
-{
-    struct akl_userdata *data;
-    if (in && AKL_CHECK_TYPE(v, TYPE_USERDATA)) {
-       data = akl_get_userdata_value(v);
-       return in->ai_modules[data->ud_id];
-    }
-    return NULL;
-}
-
-unsigned int akl_get_utype_value(struct akl_value *value)
-{
-    struct akl_userdata *data;
-    data = akl_get_userdata_value(value);
-    if (data)
-        return data->ud_id;
-    return (unsigned int)-1;
-}
-
-void *akl_get_udata_value(struct akl_value *value)
-{
-    struct akl_userdata *data;
-    data = akl_get_userdata_value(value);
-    if (data)
-        return data->ud_private;
-    return NULL;
-}
-
 struct akl_io_device *
 akl_new_file_device(const char *file_name, FILE *fp)
 {
@@ -572,71 +512,4 @@ akl_new_string_device(const char *name, const char *str)
     dev->iod_char_count = 0;
     dev->iod_name = name;
     return dev;
-}
-
-unsigned int 
-akl_register_type(struct akl_state *in, const char *name, akl_destructor_t de_fun)
-{
-    struct akl_utype *type = AKL_MALLOC(in, struct akl_utype);
-    unsigned nid = in->ai_utype_count;
-    unsigned i, nsize;
-    type->ut_name = name;
-    type->ut_de_fun = de_fun;
-    /* There are some free slots */
-    if (in->ai_utype_size > nid) {
-        /* The next is also free, so we can simply use it */
-        if (in->ai_utypes[nid] == NULL) {
-            in->ai_utypes[nid] = type;
-        } else {
-            /* Oops, the next is not free, we must iterate through the 
-              array to find a NULL'd room */
-            for (i = 0; i < in->ai_utype_size; i++) {
-                /* Cool this is free */
-                if (in->ai_utypes[i] == NULL) {
-                    nid = i; /* Use the proper index as the new id */
-                    in->ai_utypes[i] = type;
-                }
-            }
-        }
-    /* There is no free slot, we must allocate some; */
-    } else {
-        nsize = in->ai_utype_size + in->ai_utype_size / 2;
-        in->ai_utypes = (struct akl_utype **)realloc(in->ai_utypes, nsize);
-        /* Initialize the new elements */
-        for (i = in->ai_utype_size; i < nsize; i++) {
-            in->ai_utypes[i] = NULL;
-        }
-        in->ai_utypes[nid] = type;
-        in->ai_utype_size = nsize;
-    }
-    in->ai_utype_count++;
-    return nid;
-}
-
-void akl_deregister_type(struct akl_state *in, unsigned int type)
-{
-    AKL_FREE(in->ai_utypes[type]);
-    in->ai_utypes[type] = NULL;
-    in->ai_utype_count--;
-}
-
-#define CHECK_UTYPE(utype, tname) (utype && utype->ut_name \
-                    &&(strcasecmp(utype->ut_name, tname) == 0))
-
-int akl_get_typeid(struct akl_state *in, const char *tname)
-{
-    /* Cache it */
-    static struct akl_utype *utype = NULL;
-    int i;
-    if (CHECK_UTYPE(utype, tname)) 
-        return (int)utype->ut_id;
-
-    if (in && in->ai_utypes) {
-        for (i = 0; i < in->ai_utype_size; i++) {
-            utype = in->ai_utypes[i];
-            if (CHECK_UTYPE(utype, tname)) 
-                return (int)utype->ut_id;
-        }
-    }
-    return -1;
 }

@@ -33,6 +33,8 @@
 #include "akl_tree.h"
 
 #define MALLOC_FUNCTION malloc
+#define REALLOC_FUNCTION realloc
+#define CALLOC_FUNCTION calloc
 #define FREE_FUNCTION free
 #define AKL_MALLOC(in, type) (type *)akl_malloc(in, sizeof(type))
 #define AKL_FREE(ptr) FREE_FUNCTION((void *)(ptr))
@@ -203,17 +205,27 @@ struct akl_module __module_desc = { \
 }
 
 #define AKL_VECTOR_DEFSIZE 10
-#define AKL_VECTOR_NEW(type, count) akl_vector_new(sizeof(type), count)
+#define AKL_VECTOR_NEW(s, type, count) akl_vector_new(s, sizeof(type), count)
+#define AKL_VECTOR_FOREACH(ptr, vec) int i; \
+    for (i = 0, (ptr) = akl_vector_at(vec, 0) \
+        ;i < akl_vector_count(vec); i++, (ptr) = akl_vector_at(vec, i))
+
 struct akl_vector {
     void **av_vector;
     unsigned int av_count;
     unsigned int av_size;
 };
 
-struct akl_vector *akl_vector_new(struct akl_state *, unsigned int, unsigned int);
-void akl_vector_push(akl_state *, struct akl_vector *, void *);
-void *akl_vector_pop(akl_state *, struct akl_vector *);
-void *akl_vector_at(akl_state *, struct akl_vector *);
+struct akl_vector  *akl_vector_new(struct akl_state *, unsigned int, unsigned int);
+void                akl_vector_init(struct akl_vector *, unsigned int, unsigned int);
+inline unsigned int akl_vector_size(struct akl_vector *);
+inline unsigned int akl_vector_count(struct akl_vector *);
+unsigned int akl_vector_push(struct akl_vector *, void *);
+unsigned int akl_vector_add(struct akl_vector *, void *);
+void        *akl_vector_remove(struct akl_vector *, unsigned int);
+void        *akl_vector_pop(struct akl_vector *);
+void        *akl_vector_find(struct akl_vector *, bool_t (*)(void *, void *), void *, unsigned int *);
+inline void *akl_vector_at(struct akl_vector *, unsigned int);
 
 struct akl_state {
     struct akl_io_device *ai_device;

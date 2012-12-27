@@ -541,7 +541,7 @@ AKL_CFUN_DEFINE(about, in, args)
                            , "Numbers", "Strings"
                            , "List entries", "Total allocated bytes"
                            , NULL };
-    int i;
+    int c;
     struct akl_module *mod;
     printf("\nAkLisp version %d.%d-%s\n"
             "\tCopyleft (c) Akos Kovacs\n"
@@ -562,21 +562,20 @@ AKL_CFUN_DEFINE(about, in, args)
             , AKL_USER_NAME, AKL_HOST_NAME
 #endif // AKL_USER_INFO
             );
-    if (in->ai_module_count != 0 && in->ai_modules != NULL) {
-        printf("\n%u loaded module%s:", (unsigned)in->ai_module_count
-            , (in->ai_module_count > 1)?"s":"");
-        for (i = 0; i < in->ai_module_size; i++) {
-            mod = in->ai_modules[i];
-            if (mod != NULL) {
-                printf("\n");
-                if (mod->am_name && mod->am_path)
-                    printf("\tName: '%s'\n\tPath: '%s'\n", mod->am_name, mod->am_path);
-                if (mod->am_desc)
-                    printf("\tDescription: '%s'\n", mod->am_desc);
-                if (mod->am_author)
-                    printf("\tAuthor: '%s'\n", mod->am_author);
-            }
+    c = akl_vector_count(&in->ai_modules);
+    if (c > 0)
+        printf("\n%u loaded module%s:\n", c, (c > 1)?"s":"");
+
+    AKL_VECTOR_FOREACH(mod, &in->ai_modules) {
+        if (mod) {
+            if (mod->am_name && mod->am_path)
+                printf("\tName: '%s'\n\tPath: '%s'\n", mod->am_name, mod->am_path);
+            if (mod->am_desc)
+                printf("\tDescription: '%s'\n", mod->am_desc);
+            if (mod->am_author)
+                printf("\tAuthor: '%s'\n", mod->am_author);
         }
+        printf("\n");
     }
     printf("\nGC statistics:\n");
     for (i = 0; i < AKL_NR_GC_STAT_ENT; i++) {
@@ -916,7 +915,8 @@ AKL_CFUN_DEFINE(typeof, in, args)
         break;
 
         case TYPE_USERDATA:
-        tname = in->ai_utypes[akl_get_utype_value(a1)]->ut_name;
+        tname = ((struct akl_module *)akl_vector_at(&in->ai_utypes
+                                , akl_get_utype_value(a1)))->am_name;
         break;
 
         case TYPE_TRUE:

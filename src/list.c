@@ -368,8 +368,7 @@ void akl_print_value(struct akl_state *in, struct akl_value *val)
         START_COLOR(YELLOW);
         struct akl_utype *type = NULL;
         akl_utype_t tid = akl_get_utype_value(val);
-        if (tid >= 0 && tid < in->ai_utype_count)
-            type = in->ai_utypes[tid];
+        type = akl_vector_at(&in->ai_utypes, tid);
         if (type)
             printf("<USERDATA: %s>", type->ut_name);
         else

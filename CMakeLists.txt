@@ -41,6 +41,7 @@ set(SOURCES
     ${SDIR}parser.c
     ${SDIR}list.c
     ${SDIR}lib_file.c
+    ${SDIR}types.c
     ${SDIR}lexer.c)
 
 option(USE_COLORS "Use standard terminal colors" ON)

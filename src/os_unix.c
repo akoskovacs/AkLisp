@@ -137,6 +137,15 @@ AKL_CFUN_DEFINE(env, in, args)
     return akl_new_list_value(in, vars);
 }
 
+bool_t module_finder_path(void *ptr, void *name)
+{
+    struct akl_module *mod = (struct akl_module *)ptr;
+    if (strcmp(mod->am_path, (const char *)name) == 0)
+        return TRUE;
+
+    return FALSE;
+}
+
 AKL_CFUN_DEFINE(load, in, args)
 {
    void *handle;
@@ -181,18 +190,17 @@ AKL_CFUN_DEFINE(load, in, args)
    }
 
    /* Are there any of this module already loaded in? */
-   /* NOTE: Just the paths are examined here */
-   for (i = 0; i < in->ai_module_size; i++) {
-       mod_desc = in->ai_modules[i];
-       /* TODO: Compare the basename()'s of the paths */
-       if (mod_desc && (strcmp(modname, mod_desc->am_path) == 0)) {
-           akl_add_error(in, AKL_ERROR, a1->va_lex_info
-               , "ERROR: load: Module '%s' is already loaded.\n", mod_desc->am_name);
-           FREE_FUNCTION((void *)mod_path);
-           return &NIL_VALUE;
-       }
+   /* NOTE: Just the paths are examined here. */
+   mod_desc = (struct akl_module *)akl_vector_find(&in->ai_modules
+                                       , module_finder_path, modname, NULL);
+   /* TODO: Compare the basename()'s of the paths */
+   if (mod_desc) {
+       akl_add_error(in, AKL_ERROR, a1->va_lex_info
+           , "ERROR: load: Module '%s' is already loaded.\n", mod_desc->am_name);
+       FREE_FUNCTION((void *)mod_path);
+       return &NIL_VALUE;
    }
-
+   
    /* We are on our way, lazy load */
    handle = dlopen(modname, RTLD_LAZY);
    if (!handle) {
@@ -233,23 +241,17 @@ AKL_CFUN_DEFINE(load, in, args)
        return &NIL_VALUE;
    }
 
-   /* No free slot for the new module, make some room */
-   if (in->ai_module_count >= in->ai_module_size-1) {
-       in->ai_module_size += in->ai_module_size; 
-       in->ai_modules = (struct akl_module **)realloc(in->ai_modules
-           , (sizeof (struct akl_module *))*in->ai_module_size);
-   }
-    
-   in->ai_module_count++;
-
-   /* Are there any unloaded module, with a free slot */
-   for (i = 0; i < in->ai_module_size; i++) {
-       if (in->ai_modules[i] == NULL) {
-           in->ai_modules[i] = mod_desc;
-           return &TRUE_VALUE;
-       }
-   }
+   akl_vector_add(&in->ai_modules, (void *)mod_desc);
    return &TRUE_VALUE;
+}
+
+bool_t module_finder_name(void *m, void *name)
+{
+    struct akl_module *mod = (struct akl_module *)m;
+    if (mod && mod->am_name 
+        && (strcmp(mod->am_name, (const char *)name) == 0))
+        return TRUE;
+    return FALSE;
 }
 
 AKL_CFUN_DEFINE(unload, in, args)
@@ -258,57 +260,52 @@ AKL_CFUN_DEFINE(unload, in, args)
     struct akl_value *a2;
     char *modname;
     struct akl_module *mod = NULL;
-    int i, errcode;
+    int ind, errcode;
     if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
         modname = AKL_GET_STRING_VALUE(a1);
     } else {
         return &NIL_VALUE;
     }
-
-    for (i = 0; i < in->ai_module_size; i++) {
-        mod = in->ai_modules[i];
-        /* We can only search by name */
-        if (mod && ((strcmp(mod->am_name, modname) == 0)
-                || (strcmp(mod->am_path, modname) == 0))) {
-            if (mod->am_unload) {
-                errcode = mod->am_unload(in);
-                if (errcode != AKL_LOAD_OK) {
-                   if (args->li_elem_count < 2) {
-                       akl_add_error(in, AKL_ERROR, a1->va_lex_info
-                       , "ERROR: unload: Module unloader gave error code: %d.\n", errcode);
-                       akl_add_error(in, AKL_WARNING, a1->va_lex_info
-                       , "Use :force symbol as the second argument to force unload.\n");
-                       return &NIL_VALUE;
-                   } else {
-                       a2 = AKL_SECOND_VALUE(args);
-                       if (AKL_CHECK_TYPE(a2, TYPE_ATOM) && AKL_IS_QUOTED(a2)) {
-                           if (strcmp(a2->va_value.atom->at_name, "FORCE") != 0) {
-                               akl_add_error(in, AKL_ERROR, a2->va_lex_info
-                               , "ERROR: unload: Unknown option.\n");
-                               return &NIL_VALUE;
-                           }
-                           /* Force unload */
-                       } else {
+    mod = (struct akl_module *)akl_vector_find(&in->ai_modules, module_finder_name, modname, &ind);
+    /* We can only search by name */
+    if (mod) {
+        if (mod->am_unload) {
+            errcode = mod->am_unload(in);
+            if (errcode != AKL_LOAD_OK) {
+               if (args->li_elem_count < 2) {
+                   akl_add_error(in, AKL_ERROR, a1->va_lex_info
+                   , "ERROR: unload: Module unloader gave error code: %d.\n", errcode);
+                   akl_add_error(in, AKL_WARNING, a1->va_lex_info
+                   , "Use :force symbol as the second argument to force unload.\n");
+                   return &NIL_VALUE;
+               } else {
+                   a2 = AKL_SECOND_VALUE(args);
+                   if (AKL_CHECK_TYPE(a2, TYPE_ATOM) && AKL_IS_QUOTED(a2)) {
+                       if (strcmp(a2->va_value.atom->at_name, "FORCE") != 0) {
                            akl_add_error(in, AKL_ERROR, a2->va_lex_info
                            , "ERROR: unload: Unknown option.\n");
                            return &NIL_VALUE;
                        }
+                       /* Force unload */
+                   } else {
+                       akl_add_error(in, AKL_ERROR, a2->va_lex_info
+                       , "ERROR: unload: Unknown option.\n");
+                       return &NIL_VALUE;
                    }
-                }
-            } else {
-               akl_add_error(in, AKL_ERROR, a1->va_lex_info
-                   , "ERROR: unload: Cannot call '%s' module's unload code\n"
-                   , mod->am_name);
-               return &NIL_VALUE;
+               }
             }
-            FREE_FUNCTION((void *)mod->am_path);
-            dlclose(mod->am_handle);
-            in->ai_modules[i] = NULL;
-            in->ai_module_count--;
-            return &TRUE_VALUE;
+        } else {
+           akl_add_error(in, AKL_ERROR, a1->va_lex_info
+               , "ERROR: unload: Cannot call '%s' module's unload code\n"
+               , mod->am_name);
+           return &NIL_VALUE;
         }
-
+        FREE_FUNCTION((void *)mod->am_path);
+        dlclose(mod->am_handle);
+        akl_vector_remove(&in->ai_modules, ind);
+        return &TRUE_VALUE;
     }
+
     akl_add_error(in, AKL_ERROR, a1->va_lex_info
        , "ERROR: unload: '%s' module not found.\n"
        , modname);
