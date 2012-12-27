@@ -35,7 +35,7 @@ static int last_char;
 
 static void init_buffer(void)
 {
-    buffer = (char *)MALLOC_FUNCTION(buf_size);
+    buffer = (char *)akl_malloc(NULL, buf_size);
 }
 
 void akl_lex_free(void)
@@ -48,7 +48,7 @@ static void put_buffer(int pos, char ch)
 {
     if (pos+1 >= buf_size) {
         buf_size = buf_size + (buf_size / 2);
-        buffer = REALLOC_FUNCTION(buffer, buf_size);
+        buffer = realloc(buffer, buf_size);
         if (buffer == NULL) {
             fprintf(stderr, "ERROR! No memory left!\n");
             exit(1);
@@ -266,7 +266,7 @@ token_t akl_lex(struct akl_io_device *dev)
 
 char *akl_lex_get_string(void)
 {
-    char *str = STRDUP_FUNCTION(buffer);
+    char *str = strdup(buffer);
     buffer[0] = '\0';
     return str;
 }

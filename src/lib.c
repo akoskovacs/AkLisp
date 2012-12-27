@@ -44,9 +44,9 @@ AKL_CFUN_DEFINE(plus, in, args)
 
             case TYPE_STRING:
             if (str == NULL) {
-                str = STRDUP_FUNCTION(AKL_GET_STRING_VALUE(val));
+                str = strdup(AKL_GET_STRING_VALUE(val));
             } else {
-                str = (char *)REALLOC_FUNCTION(str
+                str = (char *)realloc(str
                   , strlen(str)+strlen(AKL_GET_STRING_VALUE(val)));
                 str = strcat(str, AKL_GET_STRING_VALUE(val));
             }
@@ -110,7 +110,7 @@ AKL_CFUN_DEFINE(times, in, args)
     if (a1->va_type == TYPE_NUMBER && a2->va_type == TYPE_STRING) {
         n1 = (int)AKL_GET_NUMBER_VALUE(a1);
         s2 = AKL_GET_STRING_VALUE(a2);
-        str = (char *)MALLOC_FUNCTION(n1*strlen(s2)+1);
+        str = (char *)akl_malloc(in, n1*strlen(s2)+1);
         for (i = 0; i < n1; i++) {
             strcat(str, s2);
         }
@@ -186,6 +186,7 @@ AKL_CFUN_DEFINE(average, in, args)
 {
     struct akl_value *value = plus_function(in, args);
     double num = AKL_GET_NUMBER_VALUE(value);
+    AKL_GC_DEC_REF(in, value);
     num /= args->li_elem_count;
     return akl_new_number_value(in, num);
 }
@@ -311,6 +312,7 @@ AKL_CFUN_DEFINE(cdr, in, args)
     struct akl_value *ret;
     if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
         ret = akl_new_list_value(in, akl_cdr(in, a1->va_value.list));
+        AKL_GC_INC_REF(ret);
         return ret;
     }
     return &NIL_VALUE;
@@ -414,13 +416,20 @@ akl_set_value(struct akl_state *s, struct akl_list *args, bool_t is_const)
     a = akl_add_global_atom(s, atom);
     /* If the atom is already exist, but not a constant */
     if (a && !a->at_is_const) {
+        AKL_GC_DEC_REF(s, a->at_value);
+        AKL_FREE(a->at_desc);
         a->at_value = atom->at_value;
         a->at_desc = atom->at_desc;
+        AKL_FREE(atom->at_name);
+        AKL_FREE(atom);
     } else if (a && a->at_is_const) {
         /* It's a constant, cannot write */
         akl_add_error(s, AKL_ERROR, av->va_lex_info
             , "ERROR: set: Cannot bound to constant atom\n");
+        AKL_GC_DEC_REF(s, av);
         return &NIL_VALUE;
+    } else {
+        AKL_GC_INC_REF(atom);
     }
 
     return value;
@@ -511,7 +520,7 @@ AKL_CFUN_DEFINE(list, in, args)
 AKL_CFUN_DEFINE(version, in, args __unused)
 {
     struct akl_list *version = akl_new_list(in);
-    char *ver = STRDUP_FUNCTION(VER_ADDITIONAL);
+    char *ver = strdup(VER_ADDITIONAL);
     struct akl_value *addit;
     int i;
     for (i = 0; ver[i]; i++) {
@@ -573,9 +582,6 @@ AKL_CFUN_DEFINE(about, in, args)
     for (i = 0; i < AKL_NR_GC_STAT_ENT; i++) {
         printf("\t%s: %d\n", tnames[i], in->ai_gc_stat[i]);
     }
-    
-    printf("\tHeap size: %d\n", GC_get_heap_size());
-    printf("\tTotal memory usage: %d\n", GC_get_total_bytes());
     printf("\n");
     
     return version_function(in, args);
@@ -641,7 +647,7 @@ AKL_CFUN_DEFINE(index, in, args)
     } else if (AKL_CHECK_TYPE(a2, TYPE_STRING) && !AKL_IS_NIL(a2)) {
         str = AKL_GET_STRING_VALUE(a2);
         if (str && strlen(str) > ind) {
-            rstr = (char *)MALLOC_FUNCTION(2);
+            rstr = (char *)akl_malloc(in, 2);
             rstr[0] = str[ind];
             rstr[1] = '\0';
             return akl_new_string_value(in, rstr);
@@ -664,7 +670,7 @@ AKL_CFUN_DEFINE(split, in, args)
         delim = AKL_GET_STRING_VALUE(a2);
 
     if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
-        str = STRDUP_FUNCTION(AKL_GET_STRING_VALUE(a1));
+        str = strdup(AKL_GET_STRING_VALUE(a1));
         ret = akl_new_list(in);
         ret->is_quoted = TRUE;
         while ((sub = strtok(str, delim)) != NULL) {
@@ -922,7 +928,7 @@ AKL_CFUN_DEFINE(typeof, in, args)
         break;
     }
     /* Must duplicate the name for gc */
-    ret = akl_new_atom_value(in, STRDUP_FUNCTION(tname));
+    ret = akl_new_atom_value(in, strdup(tname));
     ret->is_quoted = TRUE;
     return ret;
 }
@@ -937,7 +943,7 @@ AKL_BUILTIN_DEFINE(desc, in, args)
         if (atom == NULL || atom->at_desc == NULL)
             return &NIL_VALUE;
 
-        return akl_new_string_value(in, STRDUP_FUNCTION(atom->at_desc));
+        return akl_new_string_value(in, strdup(atom->at_desc));
     }
     return &NIL_VALUE;
 }
@@ -999,6 +1005,18 @@ AKL_CFUN_DEFINE(progn, in, args)
     else
         return &NIL_VALUE;
 }
+
+#ifdef AKL_DEBUG
+AKL_CFUN_DEFINE(ref_count, in, args)
+{
+    struct akl_value *val = AKL_FIRST_VALUE(args);
+    return akl_new_number_value(in, val->gc_obj.gc_ref_count);
+}
+
+AKL_CFUN_DEFINE(dump_state, in, args)
+{
+}
+#endif // AKL_DEBUG
 
 void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
 {
@@ -1106,6 +1124,10 @@ void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
     if (flags & AKL_LIB_FILE) {
         akl_init_file(in);
     }
+
+#ifdef AKL_DEBUG
+    AKL_ADD_CFUN(in, ref_count, "REF-COUNT-OF", "The current reference value of the argument");
+#endif
 
     if (flags & AKL_LIB_OS) {
         akl_init_os(in);

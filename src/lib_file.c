@@ -28,6 +28,13 @@ static akl_utype_t akl_file_utype;
 /* Standard streams */
 static struct akl_atom *akl_stdin, *akl_stdout, *akl_stderr;
 
+static void file_utype_desctruct(struct akl_state *in, void *obj)
+{
+    if (obj != NULL && obj != stdin && obj != stdout && obj != stderr) {
+        fclose((FILE *)obj);
+    }
+}
+
 /*
  * Get the file descriptor from the first argument. If that is mandatory, give error
  * with the caller's function name otherwise use 'sv'.
@@ -179,12 +186,8 @@ AKL_CFUN_DEFINE(file_printf, s, args)
                 case 'a': nf = "\a"; break;
                 case 'f': nf = "\f"; break;
                 case 'b': nf = "\b"; break;
-                default:
-                    akl_add_error(s, AKL_WARNING, a1->va_lex_info
-                              , "PRINT: Unknown escapse sequence \\%c'.", *fmt);
-                continue;
             }
-            fprintf(fp, "%s", nf);
+            fprintf(fp, nf);
         } else {
             fputc(*fmt, fp);
         }
@@ -232,7 +235,7 @@ AKL_CFUN_DEFINE(file_read_string, in, args)
 #else // _GNUC_
 AKL_CFUN_DEFINE(file_read_string, in, args)
 {
-    char *str = (char *)MALLOC_FUNCTION(256);
+    char *str = (char *)akl_malloc(in, 256);
     FILE *fp = file_get_fp(in, args, akl_stdin, "READ-STRING", FALSE);
     fscanf(fp, "%s", str);
     if (str)
@@ -307,9 +310,9 @@ AKL_CFUN_DEFINE(file_tell, in, args)
 
 static void create_std_desc(struct akl_state *s, akl_utype_t tid)
 {
-    akl_stdin = akl_new_atom(s, STRDUP_FUNCTION("STDIN"));
-    akl_stdout = akl_new_atom(s, STRDUP_FUNCTION("STDOUT"));
-    akl_stderr = akl_new_atom(s, STRDUP_FUNCTION("STDERR"));
+    akl_stdin = akl_new_atom(s, strdup("STDIN"));
+    akl_stdout = akl_new_atom(s, strdup("STDOUT"));
+    akl_stderr = akl_new_atom(s, strdup("STDERR"));
 
     akl_stdin->at_value = akl_new_user_value(s, tid, stdin);
     akl_stdin->at_desc = "The descriptor of the standard input";
@@ -337,7 +340,7 @@ static void destroy_std_desc(struct akl_state *s)
 
 void akl_init_file(struct akl_state *s)
 {
-    akl_file_utype = akl_register_type(s, "FILE");
+    akl_file_utype = akl_register_type(s, "FILE", file_utype_desctruct);
     create_std_desc(s, akl_file_utype);
     AKL_ADD_CFUN(s, file_open, "FILE-OPEN", "Open a file for a given operation (read, write)");
     AKL_ADD_CFUN(s, file_close, "FILE-CLOSE", "Close a file");

@@ -31,6 +31,8 @@ static void update_recent_value(struct akl_state *in, struct akl_value *val)
         recent_value->at_desc = "Previously returned value";
         recent_value->at_is_const = TRUE;
         akl_add_global_atom(in, recent_value);
+        AKL_GC_INC_REF(recent_value);
+        AKL_GC_SET_STATIC(recent_value);
     }
     /* Update $? */
     recent_value->at_value = val;
@@ -182,7 +184,9 @@ struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
 
         assert(cfun);
         ret = cfun(in, args);
+        AKL_GC_INC_REF(ret);
         if (fatm->at_value->va_type != TYPE_BUILTIN) {
+            AKL_GC_DEC_REF(in, list);
             if (list->li_elem_count > 1 && args != NULL)
                 AKL_FREE(args);
         }
@@ -213,7 +217,7 @@ void akl_add_error(struct akl_state *in, enum AKL_ALERT_TYPE type
     size_t new_size = fmt_size + (fmt_size/2);
     int n;
     char *np;
-    char *msg = (char *)MALLOC_FUNCTION(new_size);
+    char *msg = (char *)akl_malloc(in, new_size);
     while (1) {
         va_start(ap, fmt);
         n = vsnprintf(msg, new_size, fmt, ap);
@@ -225,7 +229,8 @@ void akl_add_error(struct akl_state *in, enum AKL_ALERT_TYPE type
             new_size = n+1;
         else           /* glibc 2.0 */
             new_size *= 2;
-        if ((np = (char *)REALLOC_FUNCTION(msg, new_size)) == NULL) {
+        if ((np = (char *)realloc (msg, new_size)) == NULL) {
+            free(msg);
             return;
         } else {
             msg = np;
@@ -236,7 +241,9 @@ void akl_add_error(struct akl_state *in, enum AKL_ALERT_TYPE type
         if (in->ai_errors == NULL) {
             in->ai_errors = akl_new_list(in);
         }
-        err = AKL_MALLOC(struct akl_error);
+        err = AKL_MALLOC(in, struct akl_error);
+        if (info)
+            AKL_GC_INC_REF(info);
         err->err_info = info;
         err->err_type = type;
         err->err_msg = msg;
@@ -252,6 +259,7 @@ void akl_clear_errors(struct akl_state *in)
         AKL_LIST_FOREACH_SAFE(ent, in->ai_errors, tmp) {
            err = (struct akl_error *)ent->le_value;
            AKL_FREE((void *)err->err_msg);
+           AKL_GC_DEC_REF(in, err->err_info);
            AKL_FREE((void *)err);
         }
         in->ai_errors->li_elem_count = 0;
