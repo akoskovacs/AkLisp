@@ -278,5 +278,15 @@ char *akl_lex_get_atom(void)
 
 double akl_lex_get_number(void)
 {
-    return strtod(buffer, NULL);
+    double n;
+    unsigned int o; /* Should be type safe */
+    /* strtod() do not handle octal numbers */
+    if (buffer[0] == '0') {
+        sscanf(buffer, "%o", &o);
+        n = (double)o;
+    } else {
+        n = strtod(buffer, NULL);
+    }
+    buffer[0] = '\0';
+    return n;
 }
