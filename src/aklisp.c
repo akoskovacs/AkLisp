@@ -31,13 +31,76 @@ static void update_recent_value(struct akl_state *in, struct akl_value *val)
         recent_value->at_desc = "Previously returned value";
         recent_value->at_is_const = TRUE;
         akl_add_global_atom(in, recent_value);
-        AKL_GC_INC_REF(recent_value);
         AKL_GC_SET_STATIC(recent_value);
     }
     /* Update $? */
     recent_value->at_value = val;
 }
 
+void akl_ir_exec_store(struct akl_state *s, struct akl_ir_instruction *ir)
+{
+    struct akl_value *v;
+    switch (ir->in_arg_type) {
+        case TYPE_STRING:
+        v = akl_new_string_value(s, ir->in_arg.arg[0]);
+        break;
+
+        case TYPE_NUMBER:
+        v = akl_new_number_value(s, ir->in_arg.number);
+        break;
+
+        case TYPE_LIST:
+        v = akl_new_list_value(s, ir->in_arg.arg[0]);
+        break;
+
+        case TYPE_NIL:
+        v = &NIL_VALUE;
+        break;
+
+        case TYPE_TRUE:
+        v = &TRUE_VALUE;
+        break;
+    }
+    akl_stack_push(s, v);
+}
+
+void akl_execute_ir(struct akl_state *s, struct akl_vector *ir)
+{
+    struct akl_ir_instruction *in;
+    struct akl_function *func;
+    struct akl_vector *br;
+    struct akl_value *v;
+    AKL_VECTOR_FOREACH(in, ir) {
+        switch (in->in_op) {
+            case AKL_IR_NOP:
+            continue;
+
+            case AKL_IR_LOAD:
+            break;
+
+            case AKL_IR_STORE:
+            akl_ir_exec_store(s, ir, in);
+            break;
+
+            case AKL_IR_CALL:
+            break;
+
+            case AKL_IR_BRANCH:
+            v = akl_stack_pop(s);
+            /* If the last value was NIL, execute the false
+              branch. */
+            brind = (AKL_IS_NIL(v)) ? 1 : 0;
+            br = (struct akl_vector *)in->in_op.op[brind];
+            akl_execute_ir(s, br);
+            break;
+        }
+    }
+}
+
+void akl_execute(struct akl_state *s)
+{
+    akl_execute_ir(s, &s->ai_ir_code);
+}
 
 static int compare_numbers(int n1, int n2)
 {
@@ -96,17 +159,6 @@ struct akl_value *akl_eval_value(struct akl_state *in, struct akl_value *val)
 
     switch (val->va_type) {
         case TYPE_ATOM:
-        aval = AKL_GET_ATOM_VALUE(val);
-        if (aval->at_value != NULL)
-           return aval->at_value;
-        fname = aval->at_name;
-        aval = akl_get_global_atom(in, fname);
-        if (aval != NULL && aval->at_value != NULL) {
-           update_recent_value(in, aval->at_value);
-           return aval->at_value;
-        } else {
-            akl_add_error(in, AKL_ERROR, val->va_lex_info, "ERROR: No value for \'%s\' atom!\n", fname);
-        }
         break;
 
         case TYPE_LIST:
@@ -117,6 +169,27 @@ struct akl_value *akl_eval_value(struct akl_state *in, struct akl_value *val)
         return val;
     }
     return &NIL_VALUE;
+}
+
+struct akl_value *akl_eval_list(struct akl_state *s, struct akl_list *list)
+{
+    struct akl_value *fval;
+    struct akl_value *val;
+    struct akl_function *fn
+
+    fval = akl_eval_value(s, AKL_FIRST_VALUE(list));
+    if (AKL_IS_FUNCTION(fn)) {
+        fval = AKL_GET_FUNCTION_VALUE(fval);
+            switch (fval->va_type) {
+            case AKL_FUNC_SEPECIAL:
+            if (fn->fn_body.scfun)
+                val = fn->fn_body.scfun(s, list);
+            break;
+
+            case AKL_FUNC_CFUN:
+            break;
+        }
+    }
 }
 
 struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
@@ -140,7 +213,6 @@ struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
 
     a1 = AKL_FIRST_VALUE(list);
     if (AKL_CHECK_TYPE(a1, TYPE_ATOM)) {
-        fatm = akl_get_global_atom(in, akl_get_atom_name_value(a1));
         if (fatm == NULL || fatm->at_value == NULL) {
             akl_add_error(in, AKL_ERROR, a1->va_lex_info, "ERROR: Cannot find \'%s\' function!\n"
                           , akl_get_atom_name_value(a1));
@@ -172,7 +244,7 @@ struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
             from the second element. */
         AKL_LIST_FOREACH_SECOND(ent, list) {
             tmp = AKL_ENTRY_VALUE(ent);
-            ent->le_value = akl_eval_value(in, AKL_ENTRY_VALUE(ent));
+            akl_stack_push(akl_eval_value(in, AKL_ENTRY_VALUE(ent)));
         }
     }
 
@@ -183,13 +255,7 @@ struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
             args = NULL;
 
         assert(cfun);
-        ret = cfun(in, args);
-        AKL_GC_INC_REF(ret);
-        if (fatm->at_value->va_type != TYPE_BUILTIN) {
-            AKL_GC_DEC_REF(in, list);
-            if (list->li_elem_count > 1 && args != NULL)
-                AKL_FREE(args);
-        }
+        ret = cfun(in);
     }
     update_recent_value(in, ret);
     return ret;
@@ -202,7 +268,7 @@ void akl_eval_program(struct akl_state *in)
     struct akl_value *value;
     AKL_LIST_FOREACH(ent, list) {
         value = AKL_ENTRY_VALUE(ent);
-        ent->le_value = akl_eval_value(in, value);
+        akl_eval_value(in, value);
     }
 }
 
@@ -242,8 +308,6 @@ void akl_add_error(struct akl_state *in, enum AKL_ALERT_TYPE type
             in->ai_errors = akl_new_list(in);
         }
         err = AKL_MALLOC(in, struct akl_error);
-        if (info)
-            AKL_GC_INC_REF(info);
         err->err_info = info;
         err->err_type = type;
         err->err_msg = msg;
@@ -259,7 +323,6 @@ void akl_clear_errors(struct akl_state *in)
         AKL_LIST_FOREACH_SAFE(ent, in->ai_errors, tmp) {
            err = (struct akl_error *)ent->le_value;
            AKL_FREE((void *)err->err_msg);
-           AKL_GC_DEC_REF(in, err->err_info);
            AKL_FREE((void *)err);
         }
         in->ai_errors->li_elem_count = 0;
