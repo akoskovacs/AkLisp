@@ -186,7 +186,6 @@ AKL_CFUN_DEFINE(average, in, args)
 {
     struct akl_value *value = plus_function(in, args);
     double num = AKL_GET_NUMBER_VALUE(value);
-    AKL_GC_DEC_REF(in, value);
     num /= args->li_elem_count;
     return akl_new_number_value(in, num);
 }
@@ -312,7 +311,6 @@ AKL_CFUN_DEFINE(cdr, in, args)
     struct akl_value *ret;
     if (a1 && a1->va_type == TYPE_LIST && a1->va_value.list != NULL) {
         ret = akl_new_list_value(in, akl_cdr(in, a1->va_value.list));
-        AKL_GC_INC_REF(ret);
         return ret;
     }
     return &NIL_VALUE;
@@ -416,7 +414,6 @@ akl_set_value(struct akl_state *s, struct akl_list *args, bool_t is_const)
     a = akl_add_global_atom(s, atom);
     /* If the atom is already exist, but not a constant */
     if (a && !a->at_is_const) {
-        AKL_GC_DEC_REF(s, a->at_value);
         AKL_FREE(a->at_desc);
         a->at_value = atom->at_value;
         a->at_desc = atom->at_desc;
@@ -426,10 +423,8 @@ akl_set_value(struct akl_state *s, struct akl_list *args, bool_t is_const)
         /* It's a constant, cannot write */
         akl_add_error(s, AKL_ERROR, av->va_lex_info
             , "ERROR: set: Cannot bound to constant atom\n");
-        AKL_GC_DEC_REF(s, av);
         return &NIL_VALUE;
     } else {
-        AKL_GC_INC_REF(atom);
     }
 
     return value;
@@ -541,7 +536,7 @@ AKL_CFUN_DEFINE(about, in, args)
                            , "Numbers", "Strings"
                            , "List entries", "Total allocated bytes"
                            , NULL };
-    int c;
+    int c, i;
     struct akl_module *mod;
     printf("\nAkLisp version %d.%d-%s\n"
             "\tCopyleft (c) Akos Kovacs\n"
@@ -566,7 +561,7 @@ AKL_CFUN_DEFINE(about, in, args)
     if (c > 0)
         printf("\n%u loaded module%s:\n", c, (c > 1)?"s":"");
 
-    AKL_VECTOR_FOREACH(mod, &in->ai_modules) {
+    AKL_VECTOR_FOREACH(i, mod, &in->ai_modules) {
         if (mod) {
             if (mod->am_name && mod->am_path)
                 printf("\tName: '%s'\n\tPath: '%s'\n", mod->am_name, mod->am_path);
@@ -577,11 +572,12 @@ AKL_CFUN_DEFINE(about, in, args)
         }
         printf("\n");
     }
+    /*
     printf("\nGC statistics:\n");
     for (i = 0; i < AKL_NR_GC_STAT_ENT; i++) {
         printf("\t%s: %d\n", tnames[i], in->ai_gc_stat[i]);
     }
-    printf("\n");
+    printf("\n");*/
     
     return version_function(in, args);
 }
@@ -1006,18 +1002,6 @@ AKL_CFUN_DEFINE(progn, in, args)
         return &NIL_VALUE;
 }
 
-#ifdef AKL_DEBUG
-AKL_CFUN_DEFINE(ref_count, in, args)
-{
-    struct akl_value *val = AKL_FIRST_VALUE(args);
-    return akl_new_number_value(in, val->gc_obj.gc_ref_count);
-}
-
-AKL_CFUN_DEFINE(dump_state, in, args)
-{
-}
-#endif // AKL_DEBUG
-
 void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
 {
     if (flags & AKL_LIB_BASIC) {
@@ -1124,10 +1108,6 @@ void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
     if (flags & AKL_LIB_FILE) {
         akl_init_file(in);
     }
-
-#ifdef AKL_DEBUG
-    AKL_ADD_CFUN(in, ref_count, "REF-COUNT-OF", "The current reference value of the argument");
-#endif
 
     if (flags & AKL_LIB_OS) {
         akl_init_os(in);
