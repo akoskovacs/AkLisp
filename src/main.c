@@ -133,16 +133,13 @@ static void interactive_mode(void)
         }
         if (line && *line) {
             add_history(line);
-            akl_reset_string_interpreter(in, "stdin", line);
-            in->ai_device->iod_line_count = lnum;
-            value = akl_parse_value(in, in->ai_device);
+            value = akl_parse_string(in, "stdin", line);
             akl_print_value(in, value);
             /*akl_list_append(in, inst->ai_program, il);*/
             printf("\n => ");
             akl_print_value(in, akl_eval_value(in, value));
             akl_print_errors(in);
             akl_clear_errors(in);
-            AKL_GC_DEC_REF(in, value);
             printf("\n");
         }
         lnum++;
@@ -168,6 +165,7 @@ int main(int argc, const char *argv[])
     akl_parse(in);
     akl_eval_program(in);
     akl_print_errors(in);
-    akl_free_state(in);
+    akl_clear_errors(in);
+//    akl_free_state(in);
     return 0;
 }
