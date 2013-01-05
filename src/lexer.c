@@ -23,40 +23,41 @@
 #include "aklisp.h"
 
 /* Starting size of the buffer */
-static size_t buf_size = 50;
-/*
- * The buffer is dynamic, so the: "The Ultimate Answer to Life,
- * the Universe and Everything" will not work, for the first time...
- * Use '42' instead!
-*/
-static char *buffer = NULL;
-static token_t last_token;
-static int last_char;
+#define DEF_BUFFER_SIZE 50
 
-static void init_buffer(void)
+static void init_buffer(struct akl_io_device *dev)
 {
-    buffer = (char *)akl_malloc(NULL, buf_size);
+    assert(dev);
+    dev->iod_buffer = (char *)akl_malloc(NULL, DEF_BUFFER_SIZE);
+    dev->iod_buffer_size = DEF_BUFFER_SIZE;
+    dev->iod_tokens.av_vector = NULL;
 }
 
-void akl_lex_free(void)
+void akl_lex_free(struct akl_io_device *dev)
 {
-    FREE_FUNCTION(buffer);
-    buffer = NULL;
+    if (!dev)
+        return;
+
+    dev->iod_buffer_size = 0;
+    akl_vector_destroy(&dev->iod_tokens);
+    FREE_FUNCTION(dev->iod_buffer);
+    dev->iod_buffer = NULL;
 }
 
-static void put_buffer(int pos, char ch)
+static void put_buffer(struct akl_io_device *dev, int pos, char ch)
 {
-    if (pos+1 >= buf_size) {
-        buf_size = buf_size + (buf_size / 2);
-        buffer = realloc(buffer, buf_size);
-        if (buffer == NULL) {
+    if (pos+1 >= dev->iod_buffer_size) {
+        dev->iod_buffer_size = dev->iod_buffer_size
+                + (dev->iod_buffer_size / 2);
+        dev->iod_buffer = realloc(dev->iod_buffer, dev->iod_buffer_size);
+        if (dev->iod_buffer == NULL) {
             fprintf(stderr, "ERROR! No memory left!\n");
             exit(1);
         }
     }
-    buffer[pos]   = ch;
+    dev->iod_buffer[pos]   = ch;
     /* XXX: Take this serious! */
-    buffer[++pos] = '\0';
+    dev->iod_buffer[++pos] = '\0';
 }
 
 int akl_io_getc(struct akl_io_device *dev)
@@ -67,15 +68,11 @@ int akl_io_getc(struct akl_io_device *dev)
     dev->iod_char_count++;
     switch (dev->iod_type) {
         case DEVICE_FILE:
-        last_char = fgetc(dev->iod_source.file);
-        break;
+        return fgetc(dev->iod_source.file);
 
         case DEVICE_STRING:
-        last_char = dev->iod_source.string[dev->iod_pos];
-        dev->iod_pos++;
-        break;
+        return dev->iod_source.string[dev->iod_pos++];
     }
-    return last_char;
 }
 
 int akl_io_ungetc(int ch, struct akl_io_device *dev)
@@ -113,13 +110,17 @@ size_t copy_number(struct akl_io_device *dev, char op)
 {
     int ch;
     size_t i = 0;
+    bool_t is_hexa = FALSE;
     assert(dev);
     if (op != 0)
-        put_buffer(i++, op);
+        put_buffer(dev, i++, op);
 
     while ((ch = akl_io_getc(dev))) {
-        if (isdigit(ch) || ch == '.') {
-            put_buffer(i++, ch);
+        /* The second character can be 'x' (because of the hexa numbers) */
+        if (isdigit(ch)) {
+            put_buffer(dev, i++, ch);
+        } else if (is_hexa) {
+            put_buffer(dev, i++, ch);
         } else {
             akl_io_ungetc(ch, dev);
             break;
@@ -140,13 +141,13 @@ size_t copy_string(struct akl_io_device *dev)
         if (ch == '\\') { // \" escaping
             ch = akl_io_getc(dev);
             if (ch == '"') {
-                put_buffer(i++, ch);
+                put_buffer(dev, i++, ch);
             } else {
-                put_buffer(i++, '\\');
-                put_buffer(i++, ch);
+                put_buffer(dev, i++, '\\');
+                put_buffer(dev, i++, ch);
             }
         } else if (ch != '\"') {
-            put_buffer(i++, ch);
+            put_buffer(dev, i++, ch);
         } else {
             break;
         }
@@ -164,7 +165,7 @@ size_t copy_atom(struct akl_io_device *dev)
 
     while ((ch = akl_io_getc(dev))) {
         if (ch != ' ' && ch != ')' && ch != '\n') {
-            put_buffer(i++, toupper(ch)); /* Good old times... */
+            put_buffer(dev, i++, toupper(ch)); /* Good old times... */
         } else {
             akl_io_ungetc(ch, dev);
             break;
@@ -175,7 +176,7 @@ size_t copy_atom(struct akl_io_device *dev)
     return i;
 }
 
-token_t akl_lex(struct akl_io_device *dev)
+akl_token_t akl_lex(struct akl_io_device *dev)
 {
     int ch;
     /* We should take care of the '+', '++',
@@ -183,8 +184,8 @@ token_t akl_lex(struct akl_io_device *dev)
       positive and negative numbers must also work:
       '(++ +5)' should be valid. */
     char op = 0;
-    if (!buffer)
-        init_buffer();
+    if (!dev->iod_buffer)
+        init_buffer(dev);
 
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
@@ -201,9 +202,9 @@ token_t akl_lex(struct akl_io_device *dev)
         } else if (ch == '+' || ch == '-') {
             if (op != 0) {
                 if (op == '+')
-                    strcpy(buffer, "++");
+                    strcpy(dev->iod_buffer, "++");
                 else
-                    strcpy(buffer, "--");
+                    strcpy(dev->iod_buffer, "--");
                 op = 0;
                 return tATOM;
             }
@@ -217,9 +218,9 @@ token_t akl_lex(struct akl_io_device *dev)
             dev->iod_column = dev->iod_char_count+1;
             if (op != 0) {
                 if (op == '+')
-                    strcpy(buffer, "+");
+                    strcpy(dev->iod_buffer, "+");
                 else
-                    strcpy(buffer, "-");
+                    strcpy(dev->iod_buffer, "-");
                 op = 0;
                 return tATOM;
             } else {
@@ -251,9 +252,9 @@ token_t akl_lex(struct akl_io_device *dev)
         } else if (isalpha(ch) || ispunct(ch)) {
             akl_io_ungetc(ch, dev);
             copy_atom(dev);
-            if ((strcasecmp(buffer, "NIL")) == 0)
+            if ((strcasecmp(dev->iod_buffer, "NIL")) == 0)
                 return tNIL;
-            else if ((strcasecmp(buffer, "T")) == 0)
+            else if ((strcasecmp(dev->iod_buffer, "T")) == 0)
                 return tTRUE;
             else
                 return tATOM;
@@ -264,29 +265,35 @@ token_t akl_lex(struct akl_io_device *dev)
     return tEOF;
 }
 
-char *akl_lex_get_string(void)
+akl_token_t akl_lex_get(struct akl_io_device *dev)
 {
-    char *str = strdup(buffer);
-    buffer[0] = '\0';
+    if (dev && dev->iod_tokens.av_vector == NULL) {
+    }
+}
+
+char *akl_lex_get_string(struct akl_io_device *dev)
+{
+    char *str = strdup(dev->iod_buffer);
+    dev->iod_buffer[0] = '\0';
     return str;
 }
 
-char *akl_lex_get_atom(void)
+char *akl_lex_get_atom(struct akl_io_device *dev)
 {
-    return akl_lex_get_string();
+    return akl_lex_get_string(dev);
 }
 
-double akl_lex_get_number(void)
+double akl_lex_get_number(struct akl_io_device *dev)
 {
     double n;
     unsigned int o; /* Should be type safe */
     /* strtod() do not handle octal numbers */
-    if (buffer[0] == '0') {
-        sscanf(buffer, "%o", &o);
+    if (dev->iod_buffer[0] == '0' && tolower(dev->iod_buffer[1]) != 'x') {
+        sscanf(dev->iod_buffer, "%o", &o);
         n = (double)o;
     } else {
-        n = strtod(buffer, NULL);
+        n = strtod(dev->iod_buffer, NULL);
     }
-    buffer[0] = '\0';
+    dev->iod_buffer[0] = '\0';
     return n;
 }
