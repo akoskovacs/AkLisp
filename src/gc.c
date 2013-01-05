@@ -104,7 +104,7 @@ akl_reset_string_interpreter(struct akl_state *in, const char *name, const char 
    }
 }
 
-/* Will not call fclose() */
+/* Won't call fclose() */
 struct akl_state *
 akl_reset_file_interpreter(struct akl_state *in, const char *name, FILE *fp)
 {
@@ -260,7 +260,7 @@ void akl_gc_init_pool(struct akl_state *s
     p->gp_type = type;
     s->ai_gc_pool_count[type]++;
     s->ai_gc_pool_last[type] = p;
-    akl_vector_init(&p->gp_pool, AKL_GC_POOL_SIZE, sizeof(void *));
+    akl_vector_init(&p->gp_pool, AKL_GC_POOL_SIZE, akl_gc_obj_sizes[type]);
 }
 
 struct akl_gc_pool *akl_new_gc_pool(struct akl_state *s, enum AKL_GC_OBJECT_TYPE type)
@@ -271,6 +271,13 @@ struct akl_gc_pool *akl_new_gc_pool(struct akl_state *s, enum AKL_GC_OBJECT_TYPE
     return pool;
 }
 
+struct akl_function *akl_new_function(struct akl_state *s)
+{
+    struct akl_function *func = (struct akl_function *)akl_gc_malloc(s, AKL_GC_FUNCTION);
+    func->fn_argc = 0;
+    func->fn_body = NULL;
+    return func;
+}
 
 void akl_gc_init(struct akl_state *s)
 {
@@ -301,11 +308,18 @@ struct akl_state *akl_new_state(void)
     return in;
 }
 
-void akl_gc_pool_add(struct akl_state *s, void *ptr
-                     , enum AKL_GC_OBJECT_TYPE type)
+/**
+ * @brief Request memory from the GC
+ * @param s An instance of the interpreter (cannot be NULL)
+ * @param type Type of the GC object
+ * @see AKL_GC_OBJECT_TYPE
+ * If the claim is not met, try to collect some memory or 
+ * create a new GC pool.
+*/
+void *akl_gc_malloc(struct akl_state *s, enum AKL_GC_OBJECT_TYPE type)
 {
-    static bool_t last_was_mark = FALSE;
     assert(s && ptr && type < AKL_GC_NR_TYPE);
+    static bool_t last_was_mark = FALSE;
     struct akl_gc_pool *p = s->ai_gc_pool_last[type];
     struct akl_vector *v = &p->gp_pool;
     if (akl_vector_is_grow_need(v)) {
@@ -313,20 +327,20 @@ void akl_gc_pool_add(struct akl_state *s, void *ptr
             akl_gc_mark(s);
             akl_gc_sweep(s);
             last_was_mark = TRUE;
-            akl_gc_pool_add(s, ptr, type);
+            return akl_gc_malloc(s, type);
         } else {
             p->gp_next = akl_new_gc_pool(s, type);
             last_was_mark = FALSE;
-            akl_gc_pool_add(s, ptr, type);
+            return akl_gc_malloc(s, type);
         }
     } else {
-        akl_vector_add(v, ptr);
+        return akl_vector_reserve(v);
     }
 }
 
 struct akl_list *akl_new_list(struct akl_state *s)
 {
-    struct akl_list *lh = AKL_MALLOC(s, struct akl_list);
+    struct akl_list *lh = (struct akl_list *)akl_gc_malloc(s, AKL_GC_LIST);
     AKL_GC_INIT_OBJ(lh, akl_gc_normal_free_destruct);
     lh->li_head   = NULL;
     lh->li_last   = NULL;
@@ -335,22 +349,21 @@ struct akl_list *akl_new_list(struct akl_state *s)
     lh->li_parent = NULL;
     lh->li_elem_count  = 0;
     lh->li_local_count = 0;
-    akl_gc_pool_add(s, lh, AKL_GC_LIST);
     return lh;
 }
 
 struct akl_atom *akl_new_atom(struct akl_state *s, char *name)
 {
-    struct akl_atom *atom = AKL_MALLOC(s, struct akl_atom);
+    struct akl_atom *atom = (struct akl_atom *)akl_gc_malloc(s, AKL_GC_ATOM);
     AKL_GC_INIT_OBJ(atom, akl_gc_normal_free_destruct);
     assert(name);
     atom->at_value = NULL;
     atom->at_name = name;
     atom->at_desc = NULL;
-    akl_gc_pool_add(s, atom, AKL_GC_ATOM);
     return atom;
 }
 
+#if 0
 struct akl_list_entry *akl_new_list_entry(struct akl_state *s)
 {
     struct akl_list_entry *ent = AKL_MALLOC(s, struct akl_list_entry);
@@ -360,6 +373,7 @@ struct akl_list_entry *akl_new_list_entry(struct akl_state *s)
     akl_gc_pool_add(s, ent, AKL_GC_LIST_ENTRY);
     return ent;
 }
+#endif
 
 struct akl_lex_info *akl_new_lex_info(struct akl_state *in, struct akl_io_device *dev)
 {
@@ -375,13 +389,12 @@ struct akl_lex_info *akl_new_lex_info(struct akl_state *in, struct akl_io_device
 
 struct akl_value *akl_new_value(struct akl_state *s)
 {
-    struct akl_value *val = AKL_MALLOC(s, struct akl_value);
+    struct akl_value *val = (struct akl_value *)akl_gc_malloc(s, AKL_GC_VALUE);
     AKL_GC_INIT_OBJ(val, akl_gc_value_destruct);
     val->is_nil    = FALSE;
     val->is_quoted = FALSE;
     val->va_lex_info = NULL;
     val->va_cdr      = NULL;
-    akl_gc_pool_add(s, val, AKL_GC_VALUE);
     return val;
 }
 
@@ -417,7 +430,7 @@ struct akl_value *akl_new_user_value(struct akl_state *in, unsigned int type, vo
     struct akl_value    *value;
     /* We should stop now, since the requested type does not exist */
     assert(akl_vector_at(&in->ai_utypes, type));
-    udata = AKL_MALLOC(in, struct akl_userdata);
+    udata = (struct akl_userdata *)akl_gc_malloc(in, AKL_GC_UDATA);
     value = akl_new_value(in);
     udata->ud_id = type;
     udata->ud_private = data;
@@ -447,6 +460,9 @@ akl_new_file_device(const char *file_name, FILE *fp)
     dev->iod_pos = 0;
     dev->iod_line_count = 1;
     dev->iod_name = file_name;
+    dev->iod_buffer = NULL;
+    dev->iod_buffer_size = 0;
+    akl_vector_init(&dev->iod_tokens, 60, sizeof(akl_token_t));
     return dev;
 }
 
@@ -461,6 +477,9 @@ akl_new_string_device(const char *name, const char *str)
     dev->iod_line_count = 1;
     dev->iod_char_count = 0;
     dev->iod_name = name;
+    dev->iod_buffer = NULL;
+    dev->iod_buffer_size = 0;
+    akl_vector_init(&dev->iod_tokens, 30, sizeof(akl_token_t));
     return dev;
 }
 
