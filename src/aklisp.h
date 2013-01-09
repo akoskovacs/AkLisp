@@ -340,23 +340,23 @@ enum AKL_CMP_TYPE {
     AKL_CMP_LT = 0x4
 };
 
-enum AKL_IR_OPERATIONS {
+enum AKL_IR_OPERATION {
     AKL_IR_NOP = 0,
     AKL_IR_STORE,
+    AKL_IR_STORE_NIL,
+    AKL_IR_STORE_TRUE,
     AKL_IR_LOAD,
     AKL_IR_CALL,
+    AKL_IR_CMP,
+    AKL_IR_JMP,
     AKL_IR_BRANCH
 };
 
 struct akl_ir_instruction {
     enum AKL_IR_OPERATIONS in_op;
     /* Only used for store, load and cmp */
-    enum AKL_VALUE_TYPE in_arg_type[2];
     unsigned int in_argc;
-    union {
-        void *arg[2];
-        double number;
-    } in_arg;
+    void *in_arg[2];
 };
 
 static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)

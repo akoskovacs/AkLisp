@@ -367,7 +367,7 @@ void akl_print_value(struct akl_state *in, struct akl_value *val)
         break;
 
         case TYPE_NIL:
-        case TYPE_CFUN: case TYPE_BUILTIN:
+        //case TYPE_CFUN: case TYPE_BUILTIN:
         /* Nothing to do... */
         break;
     }

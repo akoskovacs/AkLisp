@@ -32,72 +32,72 @@ struct akl_list *akl_parse_quoted_list(struct akl_state *s, struct akl_io_device
     return list;
 }
 
+struct akl_value *akl_build_value(struct akl_state *s, struct akl_io_device *dev, akl_token_t tok)
+{
+    switch (tok) {
+        case tEOF:
+        akl_lex_free();
+        case tRBRACE:
+        return NULL;
+
+        case tATOM:
+        value = akl_new_atom_value(in, akl_lex_get_atom());
+        value->is_quoted = is_quoted;
+        value->va_lex_info = akl_new_lex_info(in, dev);
+        is_quoted = TRUE;
+        return value;
+
+        case tNUMBER:
+        value = akl_new_number_value(in, akl_lex_get_number());
+        value->va_lex_info = akl_new_lex_info(in, dev);
+        return value;
+
+        case tSTRING:
+        value = akl_new_string_value(in, akl_lex_get_string());
+        value->va_lex_info = akl_new_lex_info(in, dev);
+        return value;
+
+        /* We should care only about quoted lists */
+        case tLBRACE:
+        l = akl_parse_quoted_list(in, dev);
+        l->is_quoted = TRUE;
+        value = akl_new_list_value(in, l);
+        value->va_lex_info = akl_new_lex_info(in, dev);
+        return value;
+
+        /* TODO: These values must have a better lexer info strategy... */
+        case tNIL:
+        if (NIL_VALUE.va_lex_info)
+            AKL_FREE(NIL_VALUE.va_lex_info);
+        NIL_VALUE.va_lex_info = akl_new_lex_info(in, dev);
+        return &NIL_VALUE;
+
+        case tTRUE:
+        if (TRUE_VALUE.va_lex_info)
+            AKL_FREE(TRUE_VALUE.va_lex_info);
+        TRUE_VALUE.va_lex_info = akl_new_lex_info(in, dev);
+        return &TRUE_VALUE;
+
+        default:
+        break;
+    }
+    return &NIL_VALUE;
+}
+
 struct akl_value *akl_parse_value(struct akl_state *in, struct akl_io_device *dev)
 {
     bool_t is_quoted = FALSE;
     struct akl_list *l = NULL;
     struct akl_value *value;
     akl_token_t tok;
+
     while ((tok = akl_lex(dev))) {
         switch (tok) {
-            case tEOF:
-            akl_lex_free();
-            case tRBRACE:
-            return NULL;
-
-            case tATOM:
-            value = akl_new_atom_value(in, akl_lex_get_atom());
-            value->is_quoted = is_quoted;
-            value->va_lex_info = akl_new_lex_info(in, dev);
-            is_quoted = FALSE;
-            return value;
-
-            case tNUMBER:
-            value = akl_new_number_value(in, akl_lex_get_number());
-            value->va_lex_info = akl_new_lex_info(in, dev);
-            return value;
-
-            case tSTRING:
-            value = akl_new_string_value(in, akl_lex_get_string());
-            value->va_lex_info = akl_new_lex_info(in, dev);
-            return value;
-
-            /* Whooa new list */
-            case tLBRACE:
-            if (!is_quoted) {
-                on_list = TRUE;
-                break;
-            }
-            l = akl_parse_quoted_list(in, dev);
-            l->is_quoted = TRUE;
-            value = akl_new_list_value(in, l);
-            value->va_lex_info = akl_new_lex_info(in, dev);
-            return value;
-
-            case tQUOTE:
-            is_quoted = TRUE;
-            continue;
-
-            case tNIL:
-            if (NIL_VALUE.va_lex_info)
-                AKL_FREE(NIL_VALUE.va_lex_info);
-            NIL_VALUE.va_lex_info = akl_new_lex_info(in, dev);
-            return &NIL_VALUE;
-
-            case tTRUE:
-            if (TRUE_VALUE.va_lex_info)
-                AKL_FREE(TRUE_VALUE.va_lex_info);
-            TRUE_VALUE.va_lex_info = akl_new_lex_info(in, dev);
-            return &TRUE_VALUE;
-
-            default:
-            break;
-            /* TODO: Set the 'is_quote' to false
-              when is "not used" */
         }
     }
     return NULL;
 }
+
 struct akl_list *akl_parse_list(struct akl_state *in, struct akl_io_device *dev)
 {
     struct akl_value *value = NULL;

@@ -66,13 +66,17 @@ int akl_io_getc(struct akl_io_device *dev)
         return EOF;
 
     dev->iod_char_count++;
+    char ch;
     switch (dev->iod_type) {
         case DEVICE_FILE:
-        return fgetc(dev->iod_source.file);
-
+        ch = fgetc(dev->iod_source.file);
+        break;
+        
         case DEVICE_STRING:
-        return dev->iod_source.string[dev->iod_pos++];
+        ch = dev->iod_source.string[dev->iod_pos++];
+        break;
     }
+    return ch;
 }
 
 int akl_io_ungetc(int ch, struct akl_io_device *dev)

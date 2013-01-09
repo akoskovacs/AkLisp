@@ -22,73 +22,64 @@
  ************************************************************************/
 #include "aklisp.h"
 #include <stdint.h>
-typedef unsigned char akl_byte_t;
 
-struct akl_operation *akl_find_op_by_name(const char *name)
+void akl_build_store(struct akl_vector *ir, struct akl_value *arg)
 {
-    struct akl_operation *op = akl_instructions[0];
-    while (op->name) {
-        if (strcmp(op->name, name) == 0)
-                return op;
-        op++;
-    }
+    struct akl_ir_instruction *store = akl_vector_reserve(ir);
+    store->in_op = AKL_IR_STORE;
+    store->in_arg[0] = arg;
+    store->in_argc = 1;
 }
 
-void akl_build_store(struct akl_vector *ir, enum AKL_VALUE_TYPE vtype, void *arg)
+void akl_build_store_nil(struct akl_vector *ir, struct akl_lex_info *lex)
 {
-    struct akl_ir_instruction store;
-    store.in_op = AKL_IR_STORE;
-    store.in_arg_type[0] = vtype;
-    if (vtype != TYPE_NUMBER) {
-        store.in_arg.arg[0] = arg;
-    } else {
-        store.in_arg.number = *(double *)arg;
-    }
-    store.in_argc = 1;
-    akl_vector_push(ir, &store);
+    struct akl_ir_instruction *store = akl_vector_reserve(ir);
+    store->in_op = AKL_IR_STORE_NIL;
+    store->in_arg[0] = lex;
+    store->in_argc = 0;
+}
+
+void akl_build_store_true(struct akl_vector *ir, struct akl_lex_info *lex)
+{
+    struct akl_ir_instruction *store = akl_vector_reserve(ir);
+    store->in_op = AKL_IR_STORE_TRUE;
+    store->in_arg[0] = lex;
+    store->in_argc = 0;
 }
 
 void akl_build_load(struct akl_vector *ir, char *name)
 {
-    struct akl_ir_instruction load;
-    load.in_op = AKL_IR_LOAD;
-    load.in_arg_type[0] = TYPE_STRING;
-    load.in_arg.arg[0] = name;
-    load.in_argc = 1;
-    akl_vector_push(ir, &load);
+    struct akl_ir_instruction *load = akl_vector_reserve(ir);
+    load->in_op = AKL_IR_LOAD;
+    load->in_arg[0] = name;
+    load->in_argc = 1;
 }
 
 void akl_build_call(struct akl_vector *ir, char *fname, int argc)
 {
-    struct akl_ir_instruction call;
-    call.in_op = AKL_IR_CALL;
-    call.in_arg_type[0] = TYPE_FUNCTION;
-    call.in_args.op[0] = fname;
+    struct akl_ir_instruction *call = akl_vector_reserve(ir);
+    call->in_op = AKL_IR_CALL;
+    call->in_arg[0] = fname;
     /* Here we use argc, to represent the argument count _for the function_. */
-    call.in_argc = argc;
-    akl_vector_push(ir, &call);
+    call->in_argc = argc;
 }
 
 void akl_build_branch(struct akl_vector *ir, struct akl_vector *tb, struct akl_vector *fb)
 {
-    struct akl_ir_instruction branch;
-    branch.in_op = AKL_IR_BRANCH;
-    branch.in_arg.arg[0] = tb; /* True branch */
-    branch.in_arg.arg[1] = fb; /* False branch */
-    branch.in_argc = 2;
-    akl_vector_push(ir, &branch);
+    struct akl_ir_instruction *branch = akl_vector_reserve(ir);
+    branch->in_op = AKL_IR_BRANCH;
+    branch->in_arg.arg[0] = tb; /* True branch */
+    branch->in_arg.arg[1] = fb; /* False branch */
+    branch->in_argc = 2;
 }
 
-void akl_build_cmp(struct akl_vector *ir, int cmp_type
-                   , enum AKL_VALUE_TYPE atype[2], void *args[2])
+void akl_build_cmp(struct akl_vector *ir, struct akl_value *a1, struct akl_value *a2)
 {
-    struct akl_ir_instruction cmp;
-    cmp.in_op = AKL_IR_CMP;
-    branch.in_arg.arg[0] = arg[0];
-    branch.in_arg.arg[1] = arg[0];
-
-    branch.in_argc = 2;
-    akl_vector_push(ir, &branch);
+    struct akl_ir_instruction *cmp = akl_vector_reserve(ir);
+    cmp->in_op = AKL_IR_CMP;
+    branch->in_arg[0] = a1; 
+    branch->in_arg[1] = a2;
+    branch->in_argc = 2;
 }
 
 #if 0
@@ -105,6 +96,7 @@ struct akl_vector *akl_compile(struct akl_state *s, struct akl_list *list)
     return instr;
 }
 #endif
+struct akl_value *akl_build_value(struct akl_state *, struct akl_io_device *dev, akl_token_t);
 
 /* Build the intermediate representation for an unquoted list */
 void akl_compile_list(struct akl_state *s, struct akl_vector *ir, struct akl_io_device *dev)
@@ -113,6 +105,7 @@ void akl_compile_list(struct akl_state *s, struct akl_vector *ir, struct akl_io_
     bool_t is_quoted = FALSE;
     struct akl_list *l;
     akl_token_t tok;
+    int argc = 0;
 
     while ((tok = akl_lex(dev))) {
         if (tok = tQUOTE) {
@@ -124,7 +117,7 @@ void akl_compile_list(struct akl_state *s, struct akl_vector *ir, struct akl_io_
             case tATOM:
             if (is_quoted) {
                 /* It just used as a symol, nothing special... */
-                akl_build_store(ir, TYPE_LIST, akl_lex_get_atom(dev));
+                akl_build_store(ir, akl_build_value(s, dev, tok));
                 argc++;
                 break;
             } else {
@@ -146,46 +139,38 @@ void akl_compile_list(struct akl_state *s, struct akl_vector *ir, struct akl_io_
             }
             break;
 
-            /* The following tokens are used as parameters to a function
-                , so just push them to the stack */
-            case tNIL:
-            akl_build_store(ir, TYPE_NIL);
-            argc++;
-            break;
-
-            case tTRUE:
-            akl_build_store(ir, TYPE_TRUE);
-            argc++;
-            break;
-
-            case tNUMBER:
-            akl_build_store(ir, TYPE_NUMBER, akl_lex_get_number());
-            argc++;
-            break;
-
-            case tSTRING:
-            akl_build_store(ir, TYPE_STRING, akl_lex_get_string());
-            argc++;
-            break;
-
             case tLBRACE:
             /* The following list can be quoted, then it will be handled
               as an ordinary value */
             if (is_quoted) {
-                l = akl_parse_quoted_list(s, dev);
-                akl_build_push(ir, TYPE_LIST, l);
-                break;
+                akl_build_store(ir, akl_build_value(s, dev, tok));
+                argc++;
             } else {
                 /* Not quoted, compile it recursively. */
-                akl_build_list_code(ir, dev);
+                akl_compile_list(s, ir, dev);
             }
             break;
 
             case tRBRACE:
             /* We are run out of arguments, it's time for a function call */
             akl_build_call(ir, atom_name, argc);
-            argc = 0;
             return;
+    
+            case tNIL:
+            akl_build_store_nil(ir, akl_new_lex_info(in, dev));
+            argc++;
+            break;
+
+            case tTRUE:
+            akl_build_store_true(ir, akl_new_lex_info(in, dev));
+            argc++;
+            break;
+
+            /* tNUMBER, tSTRING */
+            default:
+            akl_build_store(ir, akl_build_value(s, dev, tok));
+            argc++;
+            break;
         }
         is_quoted = FALSE;
     }
