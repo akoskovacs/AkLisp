@@ -35,8 +35,8 @@
 
 /*
  * NOTE: AkLisp uses Boehm Garbage Collector now, so we do not really use free().
- * If you want to port AkLisp to an evironment where Boehm GC is not available,
- * you must also need to port the Boehm GC or implement another one...
+ * If you want to port AkLisp to an environment where Boehm GC is not available,
+ * you have to port the Boehm GC or implement another one...
  * You can simply specify your GC's main functions with the following macros:
 */
 #define MALLOC_FUNCTION GC_MALLOC
