@@ -21,7 +21,6 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ************************************************************************/
 #include "aklisp.h"
-#include <limits.h>
 
 /* ~~~===### VECTOR ###===~~~ */
 struct akl_vector *
@@ -50,57 +49,6 @@ void akl_vector_init(struct akl_vector *vec, unsigned int nmemb, unsigned int si
     vec->av_free = NULL;
 }
 
-/**
- * @brief Create an initial free list (bitmap) for an existing vector
- * @param vec An instance of the vector
- * @return TRUE if it was the first call
- * It is also mark all used elements.
-*/
-bool_t akl_vector_init_free(struct akl_vector *vec)
-{
-    if (vec && !vec->av_free) {
-        vec->av_free = (struct akl_byte_t *)
-            CALLOC_FUNCTION((vec->av_size+1)/8, sizeof(akl_byte_t));
-
-        /* Because this is the first time, when akl_vector_init_free() runs, 
-         mark everything. */
-        akl_vector_mark_all(vec);
-        return TRUE;
-    }
-    return FALSE;
-}
-
-#define BIT_INDEX_MASK(bi) (1 << ((bi)%8-1))
-#define BIT_IS_SET(byte, bi) (byte) & BIT_INDEX_MASK(bi)
-#define BIT_SET(byte, bi) (byte) |= BIT_INDEX_MASK(bi)
-#define BIT_CLEAR(byte, bi) (byte) ^= BIT_INDEX_MASK(bi) 
-
-/**
- * @brief Mark a vector element 'used' in the free list
- * @param vec An existing vector
- * @param ind Index of the element
-*/
-void akl_vector_set_mark(struct akl_vector *vec, unsigned int ind)
-{
-    if (!vec || !vec->av_free || ind > vec->av_size)
-        return;
-
-    BIT_SET(vec->av_free[ind/8], ind);
-}
-
-/**
- * @brief Mark a vector element 'free' in the free list
- * @param vec An existing vector
- * @param ind Index of the element
-*/
-void akl_vector_clear_mark(struct akl_vector *vec, unsigned int ind)
-{
-    if (!vec || !vec->av_free || ind > vec->av_size)
-        return;
-
-    BIT_CLEAR(vec->av_free[ind/8], ind);
-}
-
 void akl_vector_mark_all(struct akl_vector *vec)
 {
     int i;
@@ -114,23 +62,14 @@ bool_t akl_vector_is_empty(struct akl_vector *vec)
     return (!vec || !vec->av_vector || vec->av_count == 0);
 }
 
-/** 
- * @brief Gives back \c TRUE if the element is not used at the given index
- * @param vec Instance of the vector
- * @param ind Index of the element
+/**
+ @brief Remove and return with the last element of a vector
 */
-bool_t akl_vector_is_empty_at(struct akl_vector *vec, unsigned int ind)
-{
-    assert(vec);
-    return BIT_IS_SET(vec->av_free[ind/8], ind);
-}
-
 void *akl_vector_pop(struct akl_vector *vec)
 {
     assert(vec);
     if (vec->av_count == 0)
         return NULL;
-    akl_vector_clear_mark(vec, vec->av_count-1);
     return  akl_vector_at(vec, --vec->av_count);
 }
 
@@ -148,10 +87,19 @@ void *akl_vector_reserve(struct akl_vector *vec)
     if (akl_vector_is_grow_need(vec))
         akl_vector_grow(vec);
 
-    /* Mark the current element used 
-     and give back it's address */
-    akl_vector_set_mark(vec, vec->av_count);
     return akl_vector_at(vec, vec->av_count++);
+}
+
+void *akl_vector_reserve_more(struct akl_vector *vec, int cnt)
+{
+    assert(cnt >= 0);
+    void *start = akl_vector_reserve(vec);
+    cnt--;
+    while (cnt--) {
+        /* I don't care. The space must be contignous */
+        (void)akl_vector_reserve(vec);
+    }
+    return start;
 }
 
 unsigned int
@@ -181,29 +129,6 @@ void akl_vector_push_vec(struct akl_vector *vec, struct akl_vector *v)
     vec->av_count += v->av_count;
 }
 
-/** 
- * @brief Find a free index
- * @return With the index of a free element, otherwise -1
-*/
-int akl_vector_get_free(struct akl_vector *vec)
-{
-    int i, j;
-    assert(vec);
-
-    if (akl_vector_init_free(vec))
-        return -1;
-
-    for (i = 0; i < vec->av_size; i++) {
-        /* Are there any zeroed bits? */
-        if (vec->av_free[i] < UCHAR_MAX) {
-            for (j = 0; i < 8; j++)
-                if (BIT_IS_SET(vec->av_free[i], j))
-                    return i*8+j*8;
-        }
-    }
-    return -1;
-}
-
 unsigned int
 akl_vector_add(struct akl_vector *vec, void *data)
 {
@@ -221,15 +146,21 @@ akl_vector_add(struct akl_vector *vec, void *data)
     return i;
 }
 
+/** @brief Find a specific element in a vector
+  * @param vec The vector
+  * @param cmp_fn Comparison function
+  * @param arg The argument second argument of the comparison function
+  * @param ind Pointer to an unsigned int, which will store the index
+*/
 void *akl_vector_find(struct akl_vector *vec
-      , bool_t (*finder)(void *, void *), void *arg, unsigned int *ind)
+      , akl_cmp_fn_t cmp_fn, void *arg, unsigned int *ind)
 {
     unsigned int i;
     void *at;
     assert(vec);
     for (i = 0; i < vec->av_size; i++) {
         at = akl_vector_at(vec, i);
-        if (finder(at, arg)) {
+        if (cmp_fn(at, arg)) {
             if (ind != NULL)
                 *ind = i;
             return at;
@@ -248,28 +179,12 @@ void akl_vector_grow(struct akl_vector *vec)
     else
         vec->av_size = vec->av_size * 2;
     vec->av_vector = REALLOC_FUNCTION(vec->av_vector, vec->av_size*vec->av_msize);
-
-    if (vec->av_free) {
-        bmap = CALLOC_FUNCTION(vec->av_size/8+1, sizeof(akl_byte_t));
-        memcpy(bmap, vec->av_free, osize/8+1);
-        FREE_FUNCTION(vec->av_free);
-        vec->av_free = bmap;
-    }
 }
 
 /* The user should zero out the removed memory */
 void *akl_vector_remove(struct akl_vector *vec, unsigned int ind)
 {
-    void *data;
-    assert(vec);
-    if (vec->av_size < ind)
-        return NULL;
-
-    akl_vector_init_free(vec);
-    data = akl_vector_at(vec, ind);
-    akl_vector_clear_mark(vec, ind);
-    vec->av_count--;
-    return data;
+    /* TODO */
 }
 
 inline void *
