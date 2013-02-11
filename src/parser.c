@@ -22,18 +22,16 @@
  ************************************************************************/
 #include "aklisp.h"
 
-struct akl_list *akl_parse_quoted_list(struct akl_state *s, struct akl_io_device *dev)
+struct akl_value *akl_parse_value(struct akl_state *s, struct akl_io_device *dev)
 {
-    struct akl_list *list = akl_new_list(s);
-    struct akl_value *val;
-    while ((val = akl_parse_value(s, dev))) {
-        akl_list_append_value(val);
-    }
-    return list;
-}
+    akl_token_t tok = akl_lex(dev);
+    bool_t is_quoted = FALSE;
 
-struct akl_value *akl_build_value(struct akl_state *s, struct akl_io_device *dev, akl_token_t tok)
-{
+    if (tok == tQUOTE) {
+        is_quoted = TRUE;
+        tok = akl_lex(dev);
+    }
+
     switch (tok) {
         case tEOF:
         akl_lex_free();
@@ -44,7 +42,6 @@ struct akl_value *akl_build_value(struct akl_state *s, struct akl_io_device *dev
         value = akl_new_atom_value(in, akl_lex_get_atom());
         value->is_quoted = is_quoted;
         value->va_lex_info = akl_new_lex_info(in, dev);
-        is_quoted = TRUE;
         return value;
 
         case tNUMBER:
@@ -60,7 +57,7 @@ struct akl_value *akl_build_value(struct akl_state *s, struct akl_io_device *dev
         /* We should care only about quoted lists */
         case tLBRACE:
         l = akl_parse_quoted_list(in, dev);
-        l->is_quoted = TRUE;
+        l->is_quoted = is_quoted;
         value = akl_new_list_value(in, l);
         value->va_lex_info = akl_new_lex_info(in, dev);
         return value;
@@ -84,26 +81,14 @@ struct akl_value *akl_build_value(struct akl_state *s, struct akl_io_device *dev
     return &NIL_VALUE;
 }
 
-struct akl_value *akl_parse_value(struct akl_state *in, struct akl_io_device *dev)
-{
-    bool_t is_quoted = FALSE;
-    struct akl_list *l = NULL;
-    struct akl_value *value;
-    akl_token_t tok;
-
-    while ((tok = akl_lex(dev))) {
-        switch (tok) {
-        }
-    }
-    return NULL;
-}
-
+/* TODO: Fix for NULL */
 struct akl_list *akl_parse_list(struct akl_state *in, struct akl_io_device *dev)
 {
-    struct akl_value *value = NULL;
+    struct akl_value *value = NULL, *v = NULL;
     struct akl_list *list, *lval, *last_list = NULL;
     list = akl_new_list(in);
-    while ((value = akl_parse_value(in, dev)) != NULL) {
+    while ((v = akl_parse_value(in, dev)) != NULL) {
+
         /* If the next value is a list, reparent it... */
         if (AKL_CHECK_TYPE(value, TYPE_LIST)) {
             lval = AKL_GET_LIST_VALUE(value);
@@ -117,10 +102,11 @@ struct akl_list *akl_parse_list(struct akl_state *in, struct akl_io_device *dev)
 struct akl_list *akl_parse_string(struct akl_state *s, const char *name, const char *str)
 {
     struct akl_io_device *dev = akl_new_string_device(name, str);
-    struct akl_list *list = akl_parse_io(s, dev);
+    struct akl_list *list = akl_new_list(s);
     AKL_FREE(dev);
 }
 
+#if 0
 struct akl_list *akl_parse_io(struct akl_state *s, struct akl_io_device *dev)
 {
     assert(dev);
@@ -131,6 +117,7 @@ struct akl_list *akl_parse_io(struct akl_state *s, struct akl_io_device *dev)
     akl_compile_list(s, dev, &s->ai_ir_code);
     return NULL;
 }
+#endif
 
 struct akl_list *akl_parse(struct akl_state *s)
 {

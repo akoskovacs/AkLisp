@@ -8,11 +8,11 @@
  * distribute, sublicense, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
  * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
@@ -76,6 +76,7 @@ void akl_execute_ir(struct akl_state *s, struct akl_vector *ir)
             continue;
 
             case AKL_IR_LOAD:
+
             break;
 
             case AKL_IR_STORE:
@@ -112,10 +113,12 @@ static int compare_numbers(int n1, int n2)
         return -1;
 }
 
-int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
+int akl_compare_values(void *c1, void *c2)
 {
-    assert(v1);
-    assert(v2);
+    assert(c1);
+    assert(c2);
+    struct akl_value *v1 = (struct akl_value *)c1;
+    struct akl_value *v2 = (struct akl_value *)c2;
     if (v1->va_type == v2->va_type) {
         switch (v1->va_type) {
             case TYPE_NUMBER:
@@ -148,7 +151,7 @@ int akl_compare_values(struct akl_value *v1, struct akl_value *v2)
     return -1;
 }
 
-struct akl_value *akl_eval_value(struct akl_state *in, struct akl_value *val)
+struct akl_value *akl_eval_value(struct akl_state *s, struct akl_value *val, struct akl_context *ctx)
 {
     struct akl_atom *aval;
     char *fname;
@@ -201,7 +204,7 @@ struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
     struct akl_value *ret, *tmp, *a1;
     assert(list);
 
-    if (AKL_IS_NIL(list) || list->li_elem_count == 0) 
+    if (AKL_IS_NIL(list) || list->li_elem_count == 0)
         return &NIL_VALUE;
 
     if (AKL_IS_QUOTED(list)) {
@@ -218,7 +221,7 @@ struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
                           , akl_get_atom_name_value(a1));
             return &NIL_VALUE;
         }
-        switch (fatm->at_value->va_type) {  
+        switch (fatm->at_value->va_type) {
             case TYPE_LIST:
             return akl_eval_list(in, AKL_GET_LIST_VALUE(fatm->at_value));
 
@@ -238,9 +241,9 @@ struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
 
     /* If the first atom is BUILTIN, i.e: it has full controll over
       it's arguments, the other elements of the list will not be evaluated...*/
-    if (list->li_elem_count > 1 
+    if (list->li_elem_count > 1
             && fatm->at_value->va_type != TYPE_BUILTIN) {
-        /* Not quoted, so start the list processing 
+        /* Not quoted, so start the list processing
             from the second element. */
         AKL_LIST_FOREACH_SECOND(ent, list) {
             tmp = AKL_ENTRY_VALUE(ent);
@@ -251,7 +254,7 @@ struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
     if (fatm != NULL) {
         if (list->li_elem_count > 1)
             args = akl_cdr(in, list);
-        else 
+        else
             args = NULL;
 
         assert(cfun);

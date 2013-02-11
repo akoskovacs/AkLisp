@@ -101,55 +101,73 @@ akl_cfun_t akl_get_global_cfun(struct akl_state *in, const char *name)
     }
     return NULL;
 }
-void akl_list_append(struct akl_state *in, struct akl_list *list, akl_value *val)
+
+struct akl_list_entry 
+*akl_list_append(struct akl_state *s, struct akl_list *list, void *data)
 {
     assert(list != NULL);
-    assert(val != NULL);
+    struct akl_list_entry *ent = akl_new_list_entry(s);
+    ent->li_data = data;
 
     if (list->li_head == NULL) {
-        list->li_head = val;
+        list->li_head = ent;
     } else {
-        list->li_last->va_cdr = le;
+        list->li_last->li_next = ent;
+        ent->li_prev = list->li_last;
     }
 
     list->li_last = val;
     list->li_elem_count++;
     list->is_nil = FALSE;
-    return le; 
+    return ent; 
 }
 
-void
-akl_list_insert_head(struct akl_list *list, struct akl_value *val)
+struct akl_list_entry
+*akl_list_append_value(struct akl_state *s, struct akl_list *list, struct akl_value *val)
 {
-    assert(list);
-    assert(val);
-    struct akl_value *head;
-    if (list->li_head == NULL) {
-        list->li_last = val;
-    } else {
-        head = list->li_head;
-        val->va_cdr = head;
-    }
-    list->li_head = val;
-    list->li_elem_count++;
-}
-
-struct akl_value *
-akl_list_shift(struct akl_list *list)
-{
-    assert(list);
-    struct akl_value *ohead = list->li_head;
-    struct akl_value *nhead = (ohead) ? ohead->va_cdr : NULL;
-    list->li_head = nhead;
-    if (ohead == list->li_last)
-        list->li_last = nhead;
-
-    return ohead;
+    struct akl_list_entry *ent = akl_list_append(s, list, (void *)val);
+    ent->gc_obj.gc_le_is_obj = TRUE;
+    return ent;
 }
 
 struct akl_list_entry *
-akl_list_insert_value_head(struct akl_state *in, struct akl_list *list, struct akl_value *val)
+akl_list_insert_head(struct akl_state *s, struct akl_list *list, void *data)
 {
+    assert(list);
+    struct akl_list_entry *ent = akl_new_list_entry(s);
+    ent->li_data = data;
+    if (list->li_head == NULL) {
+        list->li_last = val;
+    } else {
+        list->li_head->li_prev = ent;
+        ent->li_next = list->li_head; 
+    }
+    list->li_head = val;
+    list->li_elem_count++;
+    list->is_nil = FALSE;
+    return ent;
+}
+
+struct akl_list_entry *
+akl_list_insert_head_value(struct akl_state *s, struct akl_list *list, struct akl_value *val)
+{
+    struct akl_list_entry *ent = akl_list_insert_head(s, list, (void *)val);
+    ent->gc_obj.gc_le_is_obj = TRUE;
+    return ent;
+}
+
+void *akl_list_shift(struct akl_list *list)
+{
+    assert(list);
+    struct akl_list_entry *ohead = list->li_head;
+    struct akl_list_entry *nhead = (ohead) ? ohead->li_next : NULL;
+    list->li_head = nhead;
+    nhead->li_prev = NULL;
+    if (ohead == list->li_last)
+        list->li_last = nhead;
+
+    /* TODO: Can explicitly free() the ohead */
+    return ohead->li_data;
 }
 
 struct akl_value *akl_duplicate_value(struct akl_state *in, struct akl_value *oval)
@@ -208,26 +226,40 @@ struct akl_list *akl_list_duplicate(struct akl_state *in, struct akl_list *list)
     return nlist;
 }
 
-struct akl_list_entry *akl_list_find(struct akl_list *list, struct akl_value *val)
+struct akl_list_entry *
+akl_list_find(struct akl_list *list, akl_cmp_fn_t cmp_fn, void *data)
 {
+    assert(list);
+    assert(cmp_fn);
     struct akl_list_entry *ent;
-    struct akl_value *v;
+    void *ptr;
     AKL_LIST_FOREACH(ent, list) {
-       v = AKL_ENTRY_VALUE(ent);
-       if (akl_compare_values(v, val) == 0)
+       if (cmp_fn(ent->li_data, data) == 0)
            return ent;
     }
     return NULL;
 }
+
+struct akl_list_entry *
+akl_list_find_value(struct akl_list *list, struct akl_value *val)
+{
+    return akl_list_find(list, akl_compare_values, val);
+}
+
 struct akl_value *akl_list_index(struct akl_list *list, int index)
 {
     void *ptr = NULL;
     struct akl_value *ent;
     if (list == NULL || list->li_head == NULL || AKL_IS_NIL(list))
         return ptr;
+
     if (index < 0) {
-        /* Yeah! Extremely inefficient! */
-        return akl_list_index(list, list->li_elem_count + index);
+        ent = list->li_last;
+        while (index++) {
+            if ((ent = AKL_LIST_PREV(ent)) == NULL)
+                return NULL;
+        }
+        ptr = ent->li_data;
     } else if (index == 0) {
         if (list->li_head)
             return list->li_head;
@@ -242,35 +274,50 @@ struct akl_value *akl_list_index(struct akl_list *list, int index)
     return ptr;
 }
 
-struct akl_value *akl_list_index_value(struct akl_list *list, int index)
+void akl_list_remove_entry(struct akl_list *list, struct akl_list_entry *ent)
 {
-    struct akl_value *val = &NIL_VALUE;
-    if ((val = (struct akl_value *)akl_list_index(list, index)) == NULL)
-        return &NIL_VALUE;
-    return val;
+    struct akl_list_entry *prev, *next;
+    if (ent) {
+        prev = ent->li_prev;
+        next = ent->li_next;
+        if (prev) {
+            prev->li_next = next;
+        }
+        if (next) {
+            next->li_prev = prev;
+        }
+
+        if (list->li_head == ent) {
+            list->li_head = next;
+        }
+
+        if (list->li_last == ent) {
+            list->li_last = prev;
+        }
+        list->li_elem_count--;
+    }
 }
 
-bool_t akl_list_remove_value(struct akl_state *in, struct akl_list *list
-                       , struct akl_value *val)
+/**
+ * @brief Remove an element from the list 
+*/
+struct akl_list_entry *
+akl_list_remove(struct akl_list *list, akl_cmp_fn_t cmp_fn, void *ptr)
 {
-    struct akl_list_entry *ent;
-    struct akl_value *v;
-    if (list == NULL || val == NULL)
-        return FALSE;
+    assert(list);
+    assert(cmp_fn);
+    assert(ptr);
+    struct akl_list_entry *ent = akl_list_find(list, cmp_fn, ptr);
+    /* NOTE: The removed entry is still pointing to it's original neighbours. */
+    akl_list_remove_entry(list, ent);
+    return ent;
+}
 
-    v = AKL_ENTRY_VALUE(list->li_head);
-    if (v != NULL && akl_compare_values(val, v)) {
-        list->li_head = AKL_LIST_SECOND(list);
-    }
-    AKL_LIST_FOREACH(ent, list) {
-       v = AKL_ENTRY_VALUE(ent->le_next);
-       if (v != NULL && akl_compare_values(val, v)) {
-           /* TODO: Free the entry */
-           ent = ent->le_next;
-           return TRUE;
-       }
-    }
-    return FALSE;
+struct akl_list_entry *
+akl_list_remove_value(struct akl_list *list, struct akl_value *val) 
+{
+    struct akl_list_entry *ent = akl_list_remove(list, akl_compare_values, (void *)val);
+    return ent;
 }
 
 struct akl_value *akl_car(struct akl_list *l)
@@ -278,18 +325,17 @@ struct akl_value *akl_car(struct akl_list *l)
     return AKL_FIRST_VALUE(l);
 }
 
-struct akl_list *akl_cdr(struct akl_state *in, struct akl_list *l)
+struct akl_list *akl_cdr(struct akl_state *s, struct akl_list *l)
 {
     struct akl_list *nhead;
     assert(l);
-    if (AKL_IS_NIL(l))
+    if (AKL_IS_NIL(l) || l->li_elem_count == 0)
         return NULL;
 
     nhead = akl_new_list(in);
     nhead->li_elem_count = l->li_elem_count - 1;
     if (nhead->li_elem_count <= 0) {
-        nhead->li_head = nhead->li_last = NULL;
-        nhead->is_nil = 1;
+        nhead->is_nil = TRUE;
     } else {
         nhead->li_head = l->li_head->le_next;
         nhead->li_last = l->li_last;

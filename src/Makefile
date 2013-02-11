@@ -12,6 +12,7 @@ MAKE = make
 OBJECTS := main.o aklisp.o lib.o lexer.o parser.o os_unix.o gc.o list.o lib_file.o
 DEFINES := -DVER_MAJOR=0 -DVER_MINOR=1 -DVER_ADDITIONAL=\"alpha\" -DUSE_COLORS -DHAVE_READLINE -include "../conf.h"
 TARGET := ../aklisp
+CTARGET := akl.c
 
 all: $(OBJECTS)
 	@echo "LINK aklisp"
@@ -20,6 +21,11 @@ all: $(OBJECTS)
 %.o: %.c
 	@echo "CC $<"
 	@$(CC) $(CFLAGS) $(DEFINES) $< -c 
+
+gen-file:
+	cat akl_tree.h > $(CTARGET)
+	cat aklisp.h >> $(CTARGET)
+	tail lexer.c parser.c gc.c list.c types.c lib.c lib_file.c aklisp.c -q -n +23 >> $(CTARGET)
 
 PHONY: clean clean-cmake
 clean:

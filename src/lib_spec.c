@@ -26,6 +26,10 @@
  * These functions are special forms. They build their own internal
  * representation, by parsing the tokens.
 */
+#define AKL_SPEC_DEFINE(name, state, args, ctx) \
+    static void akl_spec_##name(struct akl_state * state \
+    , struct akl_list * args , struct akl_context * ctx)
+
 #define AKL_SPEC_DEFINE(name, state, args, instr) \
     static void akl_spec_##name(struct akl_state * state \
     , struct akl_vector * ir , struct akl_io_device * dev)
@@ -33,7 +37,7 @@
 
 AKL_SPEC_DEFINE(if, s, ir, dev)
 {
-    struct akl_vector *branch;
+    struct akl_vector *branch, *tb, *fb;
 
     /* Compile the condition (while pushing the instructions to the list) */
     akl_compile_list(s, cl, ir);
@@ -51,13 +55,20 @@ AKL_SPEC_DEFINE(if, s, ir, dev)
 AKL_SPEC_DEFINE(while, s, ir, dev)
 {
     akl_token_t tok;
-    struct akl_vector *cond = akl_vector_new(s, 2
-                             , sizeof(struct akl_ir_instruction));
-
-    if ((tok = akl_lex(dev)) != tRBRACE) {
+    const size_t ir_size = sizeof(struct akl_ir_instruction);
+    struct akl_vector *cond = akl_vector_new(s, 4, ir_size);
+    struct akl_vector *loop = akl_vector_new(s, 5, ir_size);
+    if ((tok = akl_lex(dev)) != tLBRACE) {
         return; /* Panic */
     }
+    /* Compile the condition */
     akl_compile_list(s, dev, cond);
+    /* Compile loop */
+    while ((tok = akl_lex(dev)) != tRBRACE) {
+        akl_compile_list(s, dev, loop);
+    }
+    akl_build_branch(cond,
+
     /* TODO... */
 }
 
@@ -112,5 +123,22 @@ AKL_SPEC_DEFINE(lambda, s, ir, dev)
         akl_compile_list(s, fbody, dev);
     } else {
         /* TODO: Scream again! */
+    }
+}
+
+AKL_SPEC_DEFINE(defun, s, args, ctx)
+{
+    struct akl_value *fn, *a, *body;
+    struct akl_atom *atm;
+    fn = AKL_FIRST_VALUE(args);
+    a = AKL_SECOND_VALUE(args);
+    if (AKL_CHECK_TYPE(fn, TYPE_ATOM)) {
+        atm = AKL_GET_ATOM_VALUE(fn);
+    } else {
+        return;
+    }
+    switch (a->va_type) {
+        case TYPE_STRING:
+        atm->at_desc = AKL_GET_STRING_VALUE(a);
     }
 }

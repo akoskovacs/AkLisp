@@ -64,20 +64,24 @@ void akl_build_call(struct akl_vector *ir, char *fname, int argc)
     call->in_argc = argc;
 }
 
+/* It can also mean 'jmp' if the second (the false branch is NULL) */
 void akl_build_branch(struct akl_vector *ir, struct akl_vector *tb, struct akl_vector *fb)
 {
     struct akl_ir_instruction *branch = akl_vector_reserve(ir);
     branch->in_op = AKL_IR_BRANCH;
     branch->in_arg.arg[0] = tb; /* True branch */
     branch->in_arg.arg[1] = fb; /* False branch */
-    branch->in_argc = 2;
+    if (fb == NULL)
+        branch->in_argc = 1;
+    else
+        branch->in_argc = 2;
 }
 
 void akl_build_cmp(struct akl_vector *ir, struct akl_value *a1, struct akl_value *a2)
 {
     struct akl_ir_instruction *cmp = akl_vector_reserve(ir);
     cmp->in_op = AKL_IR_CMP;
-    branch->in_arg[0] = a1; 
+    branch->in_arg[0] = a1;
     branch->in_arg[1] = a2;
     branch->in_argc = 2;
 }
@@ -116,7 +120,7 @@ void akl_compile_list(struct akl_state *s, struct akl_vector *ir, struct akl_io_
         switch (tok) {
             case tATOM:
             if (is_quoted) {
-                /* It just used as a symol, nothing special... */
+                /* It just used as a symbol, nothing special... */
                 akl_build_store(ir, akl_build_value(s, dev, tok));
                 argc++;
                 break;
@@ -155,7 +159,7 @@ void akl_compile_list(struct akl_state *s, struct akl_vector *ir, struct akl_io_
             /* We are run out of arguments, it's time for a function call */
             akl_build_call(ir, atom_name, argc);
             return;
-    
+
             case tNIL:
             akl_build_store_nil(ir, akl_new_lex_info(in, dev));
             argc++;

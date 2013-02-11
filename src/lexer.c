@@ -269,12 +269,6 @@ akl_token_t akl_lex(struct akl_io_device *dev)
     return tEOF;
 }
 
-akl_token_t akl_lex_get(struct akl_io_device *dev)
-{
-    if (dev && dev->iod_tokens.av_vector == NULL) {
-    }
-}
-
 char *akl_lex_get_string(struct akl_io_device *dev)
 {
     char *str = strdup(dev->iod_buffer);

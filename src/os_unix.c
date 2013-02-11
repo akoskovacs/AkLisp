@@ -137,7 +137,7 @@ AKL_CFUN_DEFINE(env, in, args)
     return akl_new_list_value(in, vars);
 }
 
-bool_t module_finder_path(void *ptr, void *name)
+int module_finder_path(void *ptr, void *name)
 {
     struct akl_module *mod = (struct akl_module *)ptr;
     if (strcmp(mod->am_path, (const char *)name) == 0)
@@ -191,8 +191,8 @@ AKL_CFUN_DEFINE(load, in, args)
 
    /* Are there any of this module already loaded in? */
    /* NOTE: Just the paths are examined here. */
-   mod_desc = (struct akl_module *)akl_vector_find(&in->ai_modules
-                                       , module_finder_path, modname, NULL);
+   mod_desc = (struct akl_module *)akl_list_find(&in->ai_modules
+                                       , module_finder_path, modname)->li_data;
    /* TODO: Compare the basename()'s of the paths */
    if (mod_desc) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
@@ -241,11 +241,11 @@ AKL_CFUN_DEFINE(load, in, args)
        return &NIL_VALUE;
    }
 
-   akl_vector_add(&in->ai_modules, (void *)mod_desc);
+   akl_list_append(in, &in->ai_modules, (void *)mod_desc);
    return &TRUE_VALUE;
 }
 
-bool_t module_finder_name(void *m, void *name)
+int module_finder_name(void *m, void *name)
 {
     struct akl_module *mod = (struct akl_module *)m;
     if (mod && mod->am_name 
@@ -258,6 +258,7 @@ AKL_CFUN_DEFINE(unload, in, args)
 {
     struct akl_value *a1 = AKL_FIRST_VALUE(args);
     struct akl_value *a2;
+    struct akl_list_entry *ent;
     char *modname;
     struct akl_module *mod = NULL;
     int ind, errcode;
@@ -266,8 +267,9 @@ AKL_CFUN_DEFINE(unload, in, args)
     } else {
         return &NIL_VALUE;
     }
-    mod = (struct akl_module *)akl_vector_find(&in->ai_modules, module_finder_name, modname, &ind);
+    ent = akl_list_find(&in->ai_modules, module_finder_name, modname);
     /* We can only search by name */
+    mod = (struct akl_module *)ent->li_data;
     if (mod) {
         if (mod->am_unload) {
             errcode = mod->am_unload(in);
@@ -302,7 +304,7 @@ AKL_CFUN_DEFINE(unload, in, args)
         }
         FREE_FUNCTION((void *)mod->am_path);
         dlclose(mod->am_handle);
-        akl_vector_remove(&in->ai_modules, ind);
+        akl_list_remove_entry(&in->ai_modules, ent);
         return &TRUE_VALUE;
     }
 
