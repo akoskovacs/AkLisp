@@ -30,7 +30,6 @@ static void init_buffer(struct akl_io_device *dev)
     assert(dev);
     dev->iod_buffer = (char *)akl_malloc(NULL, DEF_BUFFER_SIZE);
     dev->iod_buffer_size = DEF_BUFFER_SIZE;
-    dev->iod_tokens.av_vector = NULL;
 }
 
 void akl_lex_free(struct akl_io_device *dev)
@@ -39,7 +38,6 @@ void akl_lex_free(struct akl_io_device *dev)
         return;
 
     dev->iod_buffer_size = 0;
-    akl_vector_destroy(&dev->iod_tokens);
     FREE_FUNCTION(dev->iod_buffer);
     dev->iod_buffer = NULL;
 }
@@ -49,7 +47,8 @@ static void put_buffer(struct akl_io_device *dev, int pos, char ch)
     if (pos+1 >= dev->iod_buffer_size) {
         dev->iod_buffer_size = dev->iod_buffer_size
                 + (dev->iod_buffer_size / 2);
-        dev->iod_buffer = realloc(dev->iod_buffer, dev->iod_buffer_size);
+        dev->iod_buffer = (char *)REALLOC_FUNCTION(dev->iod_buffer
+            , dev->iod_buffer_size);
         if (dev->iod_buffer == NULL) {
             fprintf(stderr, "ERROR! No memory left!\n");
             exit(1);
@@ -106,7 +105,7 @@ bool_t akl_io_eof(struct akl_io_device *dev)
         return feof(dev->iod_source.file);
 
         case DEVICE_STRING:
-        return dev->iod_source.string[dev->iod_pos] == '\0' ? 1 : 0;
+        return dev->iod_source.string[dev->iod_pos] == '\0' ? TRUE : FALSE;
     }
 }
 
