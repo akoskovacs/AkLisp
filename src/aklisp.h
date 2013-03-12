@@ -32,30 +32,8 @@
 #include <stdarg.h>
 #include "akl_tree.h"
 
-/* The users can define their own memory handlers,
-  by using these macros. */
-#ifndef MALLOC_FUNCTION
-#define MALLOC_FUNCTION malloc
-#endif // MALLOC_FUNCTION
-
-#ifndef REALLOC_FUNCTION
-#define REALLOC_FUNCTION realloc
-#endif // REALLOC_FUNCTION
-
-#ifndef CALLOC_FUNCTION
-#define CALLOC_FUNCTION calloc
-#endif // CALLOC_FUNCTION
-
-#ifndef FREE_FUNCTION
-#define FREE_FUNCTION free
-#endif // FREE_FUNCTION
-
-#ifndef STRDUP_FUNCTION
-#define STRDUP_FUNCTION strdup
-#endif // STRDUP_FUNCTION
-
-#define AKL_MALLOC(in, type) (type *)akl_malloc(in, sizeof(type))
-#define AKL_FREE(ptr) FREE_FUNCTION((void *)(ptr))
+#define AKL_MALLOC(s, type) (type *)akl_alloc(s, sizeof(type))
+#define AKL_FREE(s, obj) (type *)akl_free(s, (void *)obj)
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
 #define AKL_GET_VALUE_MEMBER_PTR(val, type, member) \
@@ -147,7 +125,6 @@ struct akl_gc_generic_object {
     AKL_GC_DEFINE_OBJ;
 };
 
-void  *akl_malloc(struct akl_state *, size_t);
 struct akl_userdata {
     unsigned int ud_id; /* Exact user type */
     void        *ud_private; /* Arbitrary userdata */
@@ -297,10 +274,11 @@ struct akl_vector {
     /* Full_size = av_size * av_msize; see calloc() */
 };
 
+
 inline unsigned int akl_vector_size(struct akl_vector *);
 inline unsigned int akl_vector_count(struct akl_vector *);
 struct akl_vector  *akl_vector_new(struct akl_state *, unsigned int);
-void         akl_vector_init(struct akl_vector *, unsigned int, unsigned int);
+void         akl_vector_init(struct akl_state *, struct akl_vector *, unsigned int, unsigned int);
 void        *akl_vector_reserve(struct akl_vector *);
 unsigned int akl_vector_add(struct akl_vector *, void *);
 unsigned int akl_vector_push(struct akl_vector *, void *);
@@ -333,8 +311,18 @@ struct akl_list *akl_stack_pop_list(struct akl_state *);
 enum   AKL_VALUE_TYPE akl_stack_top_type(struct akl_state *);
 struct akl_value *akl_stack_top(struct akl_state *);
 
+typedef enum {
+    AKL_NM_TERMINATE, AKL_NM_TRYAGAIN, AKL_NM_RETNULL
+} akl_nomem_action_t;
+
 /* An instance of the interpreter */
 struct akl_state {
+    void *(*ai_malloc_fn)(size_t);
+    void *(*ai_calloc_fn)(size_t, size_t);
+    void (*ai_free_fn)(void *);
+    void (*ai_realloc_fn)(void *, size_t);
+    akl_nomem_action_t (*ai_nomem_fn)(struct akl_state *);
+
     struct akl_io_device *ai_device;
     struct akl_list *ai_contexts;
     RB_HEAD(ATOM_TREE, akl_atom) ai_atom_head;
@@ -355,6 +343,13 @@ struct akl_state {
     struct akl_vector ai_ir_code;
     bool_t ai_interactive : 1;
     bool_t ai_gc_is_enabled : 1;
+};
+
+struct akl_label *akl_new_branches(struct akl_state *, struct akl_vector *v, unsigned int cnt);
+
+struct akl_label {
+    struct akl_vector *ab_branch;
+    unsigned int       ab_code; /* The index of the first instruction */
 };
 
 enum AKL_CMP_TYPE {
@@ -470,14 +465,21 @@ typedef enum {
     tTRUE,
     tLBRACE,
     tRBRACE,
-    tQUOTE,
+    tQUOTE
 } akl_token_t;
 
-struct akl_state     *akl_new_file_interpreter(const char *, FILE *);
-struct akl_state     *akl_new_string_interpreter(const char *, const char *);
-struct akl_io_device *akl_new_file_device(const char *, FILE *);
-struct akl_io_device *akl_new_string_device(const char *, const char *);
-struct akl_state     *akl_reset_string_interpreter(struct akl_state *, const char *, const char *);
+void *akl_alloc(struct akl_state *, size_t);
+void *akl_calloc(struct akl_state *, size_t, size_t);
+void *akl_realloc(struct akl_state *, void *, size_t);
+void akl_free(struct akl_state *, void *);
+
+struct akl_state     *akl_new_file_interpreter(const char *, FILE *, void (*)(size_t));
+struct akl_state     *akl_new_string_interpreter(const char *, const char *, void (*)(size_t));
+struct akl_io_device *akl_new_file_device(const char *, FILE *, void (*)(size_t));
+struct akl_io_device *akl_new_string_device(const char *, const char *, void (*)(size_t));
+struct akl_state     *akl_reset_string_interpreter(struct akl_state *, const char *, const char *, void (*)(size_t));
+void                  akl_init_string_device(const char *name, const char *str);
+void                  akl_init_string_device(const char *name, const char *str);
 
 akl_token_t akl_lex(struct akl_io_device *);
 void    akl_lex_free(struct akl_io_device *);
@@ -495,7 +497,8 @@ struct akl_value *akl_car(struct akl_list *);
 struct akl_list  *akl_cdr(struct akl_state *, struct akl_list *);
 
 /* Creating and destroying structures */
-struct akl_state      *akl_new_state(void);
+void                  *akl_init_state(struct akl_state *s);
+struct akl_state      *akl_new_state(void *(malloc_fn)(void *));
 void                   akl_init_list(struct akl_list *);
 struct akl_list       *akl_new_list(struct akl_state *);
 struct akl_atom       *akl_new_atom(struct akl_state *, char *);
@@ -522,6 +525,8 @@ void   akl_gc_enable(struct akl_state *);
 void   akl_gc_disable(struct akl_state *);
 void   akl_gc_pool_add(struct akl_state *, void *, enum AKL_GC_OBJECT_TYPE);
 struct akl_gc_pool *akl_new_gc_pool(struct akl_state *, enum AKL_GC_OBJECT_TYPE);
+bool_t akl_gc_pool_is_empty(struct akl_gc_pool *);
+bool_t akl_gc_pool_tryfree(struct akl_state *);
 
 char             *akl_num_to_str(struct akl_state *, double);
 struct akl_value *akl_to_number(struct akl_state *, struct akl_value *);

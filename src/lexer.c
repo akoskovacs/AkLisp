@@ -38,7 +38,8 @@ void akl_lex_free(struct akl_io_device *dev)
         return;
 
     dev->iod_buffer_size = 0;
-    FREE_FUNCTION(dev->iod_buffer);
+    // TODO: Use s->ai_free_fn()
+    free(dev->iod_buffer);
     dev->iod_buffer = NULL;
 }
 
@@ -47,8 +48,7 @@ static void put_buffer(struct akl_io_device *dev, int pos, char ch)
     if (pos+1 >= dev->iod_buffer_size) {
         dev->iod_buffer_size = dev->iod_buffer_size
                 + (dev->iod_buffer_size / 2);
-        dev->iod_buffer = (char *)REALLOC_FUNCTION(dev->iod_buffer
-            , dev->iod_buffer_size);
+        dev->iod_buffer = (char *)REALLOC_FUNCTION(dev->iod_buffer, dev->iod_buffer_size);
         if (dev->iod_buffer == NULL) {
             fprintf(stderr, "ERROR! No memory left!\n");
             exit(1);
@@ -65,7 +65,7 @@ int akl_io_getc(struct akl_io_device *dev)
         return EOF;
 
     dev->iod_char_count++;
-    char ch;
+    int ch;
     switch (dev->iod_type) {
         case DEVICE_FILE:
         ch = fgetc(dev->iod_source.file);

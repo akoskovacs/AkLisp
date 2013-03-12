@@ -25,7 +25,7 @@
 #include <string.h>
 
 #define PROMPT_MAX 10
-static struct akl_state *in = NULL;
+static struct akl_state in;
 
 #ifdef HAVE_READLINE
 #include <readline/readline.h>
@@ -119,9 +119,9 @@ static void interactive_mode(void)
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
     printf("Copyleft (C) 2012 Akos Kovacs\n\n");
-    in = akl_new_state();
-    in->ai_interactive = TRUE;
-    akl_init_lib(in, AKL_LIB_ALL);
+    akl_init_state(&in);
+    in.ai_interactive = TRUE;
+    akl_init_lib(&in, AKL_LIB_ALL);
     init_readline();
     while (1) {
         snprintf(prompt, PROMPT_MAX, "[%d]> ", lnum);
@@ -133,13 +133,13 @@ static void interactive_mode(void)
         }
         if (line && *line) {
             add_history(line);
-            value = akl_parse_string(in, "stdin", line);
+            value = akl_parse_string(&in, "stdin", line);
             akl_print_value(in, value);
             /*akl_list_append(in, inst->ai_program, il);*/
             printf("\n => ");
-            akl_print_value(in, akl_eval_value(in, value));
-            akl_print_errors(in);
-            akl_clear_errors(in);
+            akl_print_value(&in, akl_eval_value(&in, value));
+            akl_print_errors(&in);
+            akl_clear_errors(&in);
             printf("\n");
         }
         lnum++;
@@ -155,6 +155,7 @@ int main(int argc, const char *argv[])
             fprintf(stderr, "ERROR: Cannot open file %s!\n", argv[1]);
             return -1;
         }
+        // TODO...
         in = akl_new_file_interpreter(argv[1], fp);
         in->ai_interactive = FALSE;
     } else {

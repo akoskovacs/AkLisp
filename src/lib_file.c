@@ -177,6 +177,7 @@ AKL_CFUN_DEFINE(file_printf, s, args)
             }
             if (ent)
                 ent = ent->le_next;
+            // TODO: Substitute with the right hexcode and move it to the lexer
         } else if (*fmt == '\\') {
             switch (*++fmt) {
                 case 'n': nf = "\n"; break;

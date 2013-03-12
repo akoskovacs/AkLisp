@@ -28,11 +28,11 @@ akl_vector_new(struct akl_state *s, unsigned int nmemb, unsigned int size)
 {
     struct akl_vector *vec = AKL_MALLOC(s, struct akl_vector);
 
-    akl_vector_init(vec, nmemb, size);
+    akl_vector_init(s, vec, nmemb, size);
     return vec;
 }
 
-void akl_vector_init(struct akl_vector *vec, unsigned int nmemb, unsigned int size)
+void akl_vector_init(struct akl_state *s, struct akl_vector *vec, unsigned int nmemb, unsigned int size)
 {
     assert(vec);
     if (!nmemb)
@@ -41,7 +41,7 @@ void akl_vector_init(struct akl_vector *vec, unsigned int nmemb, unsigned int si
     if (!size)
         size = sizeof(void *);
 
-    vec->av_vector = CALLOC_FUNCTION(nmemb, size);
+    vec->av_vector = s->ai_calloc_fn(nmemb, size);
     vec->av_size = nmemb;
     vec->av_count = 0;
     vec->av_msize = size;

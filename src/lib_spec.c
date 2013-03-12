@@ -34,30 +34,43 @@
     static void akl_spec_##name(struct akl_state * state \
     , struct akl_vector * ir , struct akl_io_device * dev)
 
+void akl_build_label(struct akl_vector ir, struct akl_label *br)
+{
+    assert(br && ir || dev || s);
+    br->ab_code = akl_vector_count(ir);
+}
+
+void akl_compile_branch(struct akl_state *s, struct akl_vector *ir
+                        , struct akl_io_device *dev, struct akl_label *br)
+{
+    assert(br && ir && dev && s);
+    akl_build_label(ir, br);
+    akl_compile_list(s, ir, dev);
+}
 
 AKL_SPEC_DEFINE(if, s, ir, dev)
 {
-    struct akl_vector *branch, *tb, *fb;
+    /* Allocate the branch */
+    struct akl_label *label = akl_new_branches(s, 3);
 
     /* Compile the condition (while pushing the instructions to the list) */
-    akl_compile_list(s, cl, ir);
-    /* Create the new branches */
-    tb = akl_vector_new(s, 10, sizeof(struct akl_ir_instruction));
-    fb = akl_vector_new(s, 10, sizeof(struct akl_ir_instruction));
-    /* Compile the true branch, and place it in the new vector */
-    akl_compile_list(s, dev, tb);
-    /* Compile the false branch, and place it in the new vector */
-    akl_compile_list(s, dev, fb);
+    akl_compile_list(s, ir, dev);
     /* Add the branch instruction to the IR */
-    akl_build_branch(ir, tb, fb);
+    akl_build_branch(ir, label[0], label[1]);
+    /* Compile the true branch */
+    akl_compile_branch(s, ir, dev, label[0]);
+    akl_build_branch(ir, label[2], NULL);
+    /* Compile the false branch */
+    akl_compile_branch(s, ir, dev, label[1]);
+    akl_build_branch(ir, label[2], NULL);
+    akl_build_label(ir, label[2]);
+
 }
 
 AKL_SPEC_DEFINE(while, s, ir, dev)
 {
     akl_token_t tok;
     const size_t ir_size = sizeof(struct akl_ir_instruction);
-    struct akl_vector *cond = akl_vector_new(s, 4, ir_size);
-    struct akl_vector *loop = akl_vector_new(s, 5, ir_size);
     if ((tok = akl_lex(dev)) != tLBRACE) {
         return; /* Panic */
     }
@@ -67,7 +80,6 @@ AKL_SPEC_DEFINE(while, s, ir, dev)
     while ((tok = akl_lex(dev)) != tRBRACE) {
         akl_compile_list(s, dev, loop);
     }
-    akl_build_branch(cond,
 
     /* TODO... */
 }
