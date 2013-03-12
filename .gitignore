@@ -1,4 +1,5 @@
 *.o
 aklisp
-lib*
+./lib*
 Makefile
+nbproject/private/
