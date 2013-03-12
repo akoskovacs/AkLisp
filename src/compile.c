@@ -161,12 +161,12 @@ void akl_compile_list(struct akl_state *s, struct akl_vector *ir, struct akl_io_
             return;
 
             case tNIL:
-            akl_build_store_nil(ir, akl_new_lex_info(in, dev));
+            akl_build_store_nil(ir, akl_new_lex_info(s, dev));
             argc++;
             break;
 
             case tTRUE:
-            akl_build_store_true(ir, akl_new_lex_info(in, dev));
+            akl_build_store_true(ir, akl_new_lex_info(s, dev));
             argc++;
             break;
 

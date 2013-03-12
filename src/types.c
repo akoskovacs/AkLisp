@@ -45,16 +45,6 @@ void akl_vector_init(struct akl_vector *vec, unsigned int nmemb, unsigned int si
     vec->av_size = nmemb;
     vec->av_count = 0;
     vec->av_msize = size;
-    /* Only useful, when remove used */
-    vec->av_free = NULL;
-}
-
-void akl_vector_mark_all(struct akl_vector *vec)
-{
-    int i;
-    for (i = 0; i < vec->av_count; i++) {
-        akl_vector_set_mark(vec, i);
-    }
 }
 
 bool_t akl_vector_is_empty(struct akl_vector *vec)
@@ -127,23 +117,6 @@ void akl_vector_push_vec(struct akl_vector *vec, struct akl_vector *v)
     ptr = akl_vector_at(vec, vec->av_count+1);
     memcpy(ptr, v->av_vector, v->av_count);
     vec->av_count += v->av_count;
-}
-
-unsigned int
-akl_vector_add(struct akl_vector *vec, void *data)
-{
-    unsigned int i;
-    void *at;
-    assert(vec);
-    i = akl_vector_get_free(vec);
-    if (i == -1) {
-        return akl_vector_push(vec, data);
-    }
-    at = akl_vector_at(vec, (unsigned int) i);
-    memcpy(at, data, vec->av_msize);
-    akl_vector_set_mark(vec, (unsigned int) i);
-    vec->av_count++;
-    return i;
 }
 
 /** @brief Find a specific element in a vector
@@ -458,7 +431,7 @@ unsigned int akl_get_utype_value(struct akl_value *value)
 }
 
 unsigned int
-akl_register_type(struct akl_state *s, const char *name, akl_destructor_t de_fun)
+akl_register_type(struct akl_state *s, const char *name, akl_gc_destructor_t de_fun)
 {
     struct akl_utype *type = AKL_MALLOC(s, struct akl_utype);
     type->ut_name = name;
@@ -486,7 +459,7 @@ static bool_t utype_finder_name(void *t, void *name)
 int akl_get_typeid(struct akl_state *in, const char *tname)
 {
     struct akl_utype *utype = NULL;
-    int ind;
+    unsigned int ind;
     utype = akl_vector_find(&in->ai_utypes, utype_finder_name
                                         , (void *)tname, &ind);
     if (utype)

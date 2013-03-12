@@ -116,12 +116,13 @@ typedef int (*akl_cmp_fn_t)(void *, void *);
 #define AKL_GC_MARK(obj)        AKL_GC_MARKER(obj, TRUE)
 #define AKL_GC_UNMARK(obj)      AKL_GC_MARKER(obj, FALSE)
 #define AKL_GC_IS_MARKED(obj)   ((obj)->gc_obj.gc_mark == TRUE)
+#define AKL_GC_SET_STATIC(obj)  ((obj)->gc_obj.gc_static = TRUE)
 #define AKL_GC_INIT_OBJ(obj, de_fun, mk_fun) \
-    ((obj)->gc_obj.gc_de_fun = de_fun; (obj)->gc_obj.gc_mk_fun = mk_fun; \
-    AKL_GC_UNMARK(obj) ; (obj)->gc_obj.le_is_obj = FALSE
+    ((obj)->gc_obj.gc_de_fun = de_fun; (obj)->gc_obj.gc_mark_fun = mk_fun; \
+    (obj)->gc_obj.gc_mark = FALSE ; (obj)->gc_obj.gc_le_is_obj = FALSE;)
 
 
-typedef void (*akl_destructor_t)(struct akl_state *, void *obj);
+typedef void (*akl_gc_destructor_t)(struct akl_state *, void *obj);
 /* Mark and unmark GC'd objects */
 typedef void (*akl_gc_marker_t)(void *, bool_t);
 /*
@@ -132,13 +133,13 @@ typedef void (*akl_gc_marker_t)(void *, bool_t);
 struct akl_gc_object {
     /* Destructor function for the object getting a pointer
      of the active state and the object pointer as parameters. */
-    akl_destructor_t gc_de_fun;
-    akl_gc_marker_t  gc_mark_fun;
-    bool_t           gc_mark      : 1;
+    akl_gc_destructor_t gc_de_fun;
+    akl_gc_marker_t     gc_mark_fun;
+    bool_t              gc_mark      : 1;
     /* Are the le_data field points to a GC-managed object? (Mostly used
      * for akl_list_entry structures) */
-    bool_t           gc_le_is_obj : 1;
-    bool_t           gc_static    : 1;
+    bool_t              gc_le_is_obj : 1;
+    bool_t              gc_static    : 1;
 };
 
 /* Just used for conversion purposes */
@@ -185,11 +186,12 @@ extern struct akl_value {
     struct akl_lex_info *va_lex_info;
     enum AKL_VALUE_TYPE  va_type;
     union {
+		double number;
         struct akl_atom *atom;
         char  *string;
-        double number;
         struct akl_function *func;
         struct akl_userdata *udata;
+		struct akl_list     *list;
     } va_value;
 
     bool_t is_quoted : 1;
@@ -239,10 +241,19 @@ enum AKL_GC_OBJECT_TYPE {
        AKL_GC_UDATA
 };
 
+const size_t akl_gc_obj_sizes[] = {
+        sizeof(struct akl_value)
+      , sizeof(struct akl_atom)
+      , sizeof(struct akl_list)
+      , sizeof(struct akl_list_entry)
+      , sizeof(struct akl_function)
+      , sizeof(struct akl_userdata)
+};
+
 struct akl_utype {
     const char *ut_name;
     akl_utype_t ut_id;
-    akl_destructor_t ut_de_fun; /* Destructor for the given type */
+    akl_gc_destructor_t ut_de_fun; /* Destructor for the given type */
 };
 
 typedef int (*akl_mod_load_t)(struct akl_state *);
@@ -271,7 +282,7 @@ struct akl_module __module_desc = { \
 #define AKL_VECTOR_NEW(s, type, count) akl_vector_new(s, sizeof(type), count)
 #define AKL_VECTOR_FOREACH(ind, ptr, vec) \
     for ((ind) = 0, (ptr) = akl_vector_at(vec, 0) \
-        ;(ind) < akl_vector_count(vec); (ind)++, (ptr) = akl_vector_at(vec, i))
+        ;(ind) < akl_vector_count(vec); (ind)++, (ptr) = akl_vector_at(vec, ind))
 
 /* Foreach on all elements including the NULL ones */
 #define AKL_VECTOR_FOREACH_ALL(ind, ptr, vec) \
@@ -391,9 +402,9 @@ bool_t akl_is_equal_with(struct akl_atom *, const char **);
 
 struct akl_list_entry {
     AKL_GC_DEFINE_OBJ;
-    struct akl_list_entry *li_next;
-    struct akl_list_entry *li_prev;
-    void                  *li_data;
+    struct akl_list_entry *le_next;
+    struct akl_list_entry *le_prev;
+    void                  *le_data;
 };
 
 struct akl_list {
@@ -410,8 +421,8 @@ struct akl_list {
 
 #define AKL_LIST_FIRST(list) ((list)->li_head)
 #define AKL_LIST_LAST(list) ((list)->li_last)
-#define AKL_LIST_NEXT(ent) ((ent)->li_next)
-#define AKL_LIST_PREV(ent) ((ent)->li_prev)
+#define AKL_LIST_NEXT(ent) ((ent)->le_next)
+#define AKL_LIST_PREV(ent) ((ent)->le_prev)
 #define AKL_LIST_SECOND(list) (AKL_LIST_NEXT(AKL_LIST_FIRST(list)))
 #define AKL_FIRST_VALUE(list) (struct akl_value *)akl_list_index(list, 0)
 #define AKL_SECOND_VALUE(list) (struct akl_value *)akl_list_index(list, 1)
@@ -573,7 +584,7 @@ void akl_print_errors(struct akl_state *);
 
 /* Create a new user type and register it for the interpreter. The returned
   integer will identify this new type. */
-unsigned int akl_register_type(struct akl_state *, const char *, akl_destructor_t);
+unsigned int akl_register_type(struct akl_state *, const char *, akl_gc_destructor_t);
 void akl_deregister_type(struct akl_state *, unsigned int);
 
 enum AKL_INIT_FLAGS {

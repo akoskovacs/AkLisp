@@ -31,7 +31,29 @@
 #define BIT_SET(byte, bi) (byte) |= BIT_INDEX_MASK(bi)
 #define BIT_CLEAR(byte, bi) (byte) ^= BIT_INDEX_MASK(bi)
 
+static void akl_gc_value_destruct(struct akl_state *, void *);
+static void akl_gc_mark_value(void *, bool_t);
+
+static void akl_gc_atom_destruct(struct akl_state *, void *);
+static void akl_gc_mark_atom(void *, bool_t);
+
+static struct akl_gc_object vobj = { 
+     akl_gc_value_destruct
+   , akl_gc_mark_value
+   , FALSE, FALSE
+   , TRUE 
+};
+
+static struct akl_gc_object aobj = { 
+     akl_gc_atom_destruct
+   , akl_gc_mark_atom
+   , FALSE, FALSE
+   , FALSE 
+};
+
+#if _GNUC_
 struct akl_value TRUE_VALUE = {
+	.gc_obj = vobj,
     .va_type = TYPE_TRUE,
     .va_value.number = 1,
     .is_quoted = TRUE,
@@ -40,12 +62,26 @@ struct akl_value TRUE_VALUE = {
 };
 
 struct akl_value NIL_VALUE = {
+	.gc_obj = vobj,
     .va_type = TYPE_NIL,
     .va_value.number = 0,
     .is_quoted = TRUE,
     .is_nil = TRUE,
     .va_lex_info = NULL,
 };
+#else
+struct akl_value TRUE_VALUE = { 
+	vobj
+  , NULL, TYPE_TRUE, (double)0
+  , FALSE, FALSE
+};
+
+struct akl_value FALSE_VALUE = { 
+	vobj
+  , NULL, TYPE_TRUE, (double)0
+  , FALSE, TRUE
+};
+#endif // _GNU_
 
 void *akl_malloc(struct akl_state *in, size_t size)
 {
@@ -152,7 +188,7 @@ void akl_gc_mark_value(void *obj, bool_t m)
 {
     assert(obj);
     struct akl_value *v = (struct akl_value *)obj;
-    if (v == &NIL_VALUE || v == &TRUE_VALUE)
+    if (v == (&NIL_VALUE) || v == (&TRUE_VALUE))
         return;
 
     switch (v->va_type) {
@@ -175,20 +211,20 @@ void akl_gc_mark_value(void *obj, bool_t m)
 void akl_gc_mark_atom(void *obj, bool_t m)
 {
     assert(obj);
-    struct akl_atom *atom = (struct akl_atom)obj;
+    struct akl_atom *atom = (struct akl_atom *)obj;
     AKL_GC_SET_MARK(atom, m);
     if (atom->at_value)
-        AKL_GC_MARK(atom->le_value, m);
+		AKL_GC_MARK(atom->at_value, m);
 }
 
 void akl_gc_mark_list_entry(void *obj, bool_t m)
 {
     assert(obj);
     struct akl_value *v;
-    struct akl_list_entry *le = obj;
+    struct akl_list_entry *le = (struct akl_list_entry *)obj;
     AKL_GC_SET_MARK(le, m);
     if (le->gc_obj.gc_le_is_obj) {
-        v = le->le_value;
+		v = (struct akl_value *)le->li_data;
         if (v)
             AKL_GC_MARK(v, m);
     }
@@ -213,7 +249,7 @@ void akl_gc_mark_all(struct akl_state *s)
         return;
 
     RB_FOREACH(atom, ATOM_TREE, &s->ai_atom_head) {
-        akl_gc_mark_atom(atom);
+        akl_gc_mark_atom(atom, TRUE);
     }
 
     /* Walk around the IR and the variables */
@@ -232,21 +268,21 @@ bool_t akl_gc_pool_in_use(struct akl_gc_pool *p, unsigned int ind)
 {
     assert(p);
     ASSERT_INDEX(ind);
-    return BIT_IS_SET(INT_INDEX(p->gp_freemap), ind);
+    BIT_IS_SET(INT_INDEX(p->gp_freemap), ind);
 }
 
 void akl_gc_pool_use(struct akl_gc_pool *p, unsigned int ind)
 {
     assert(p);
     ASSERT_INDEX(ind);
-    return BIT_SET(INT_INDEX(p->gp_freemap), ind);
+    BIT_SET(INT_INDEX(p->gp_freemap), ind);
 }
 
 void akl_gc_pool_clear_use(struct akl_gc_pool *p, unsigned int ind)
 {
     assert(p);
     ASSERT_INDEX(ind);
-    return BIT_CLEAR(INT_INDEX(p->gp_freemap), ind);
+    BIT_CLEAR(INT_INDEX(p->gp_freemap), ind);
 }
 
 bool_t akl_gc_pool_have_free(struct akl_gc_pool *p)
@@ -279,7 +315,7 @@ void akl_gc_sweep_pool(struct akl_state *s, struct akl_gc_pool *p)
 {
     struct akl_vector *v;
     struct akl_gc_generic_object *go;
-    akl_destructor_t defun;
+    akl_gc_destructor_t defun;
     int i;
     if (!p)
         return;
@@ -347,7 +383,7 @@ struct akl_function *akl_new_function(struct akl_state *s)
 {
     struct akl_function *func = (struct akl_function *)
                         akl_gc_malloc(s, AKL_GC_FUNCTION);
-    func->fn_argc = 0;
+    //func->fn_argc = 0;
     func->fn_body = NULL;
     return func;
 }
@@ -368,8 +404,6 @@ struct akl_state *akl_new_state(void)
     int i;
     struct akl_state *in = AKL_MALLOC(NULL, struct akl_state);
     RB_INIT(&in->ai_atom_head);
-    AKL_GC_INIT_OBJ(&NIL_VALUE, akl_gc_value_destruct, akl_gc_mark_value);
-    AKL_GC_INIT_OBJ(&TRUE_VALUE, akl_gc_value_destruct, akl_gc_mark_value);
     in->ai_device = NULL;
     akl_init_list(&in->ai_modules);
     akl_vector_init(&in->ai_utypes, sizeof(struct akl_module *), 5);

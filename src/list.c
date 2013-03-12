@@ -54,7 +54,7 @@ akl_add_global_cfun(struct akl_state *in, const char *name
     if (desc != NULL)
         atom->at_desc = (char *)desc;
     atom->at_value = akl_new_value(in);
-    atom->at_value->va_type = TYPE_CFUN;
+    atom->at_value->va_type = TYPE_ATOM;
     atom->at_value->va_value.cfunc = fn;
     akl_add_global_atom(in, atom);
     return atom;
@@ -107,16 +107,16 @@ struct akl_list_entry
 {
     assert(list != NULL);
     struct akl_list_entry *ent = akl_new_list_entry(s);
-    ent->li_data = data;
+    ent->le_data = data;
 
     if (list->li_head == NULL) {
         list->li_head = ent;
     } else {
-        list->li_last->li_next = ent;
-        ent->li_prev = list->li_last;
+        list->li_last->le_next = ent;
+        ent->le_prev = list->li_last;
     }
 
-    list->li_last = val;
+    list->li_last = ent;
     list->li_elem_count++;
     list->is_nil = FALSE;
     return ent; 
@@ -135,14 +135,14 @@ akl_list_insert_head(struct akl_state *s, struct akl_list *list, void *data)
 {
     assert(list);
     struct akl_list_entry *ent = akl_new_list_entry(s);
-    ent->li_data = data;
+    ent->le_data = data;
     if (list->li_head == NULL) {
-        list->li_last = val;
+        list->li_last = ent;
     } else {
-        list->li_head->li_prev = ent;
-        ent->li_next = list->li_head; 
+        list->li_head->le_prev = ent;
+        ent->le_next = list->li_head; 
     }
-    list->li_head = val;
+    list->li_head = ent;
     list->li_elem_count++;
     list->is_nil = FALSE;
     return ent;
@@ -160,14 +160,14 @@ void *akl_list_shift(struct akl_list *list)
 {
     assert(list);
     struct akl_list_entry *ohead = list->li_head;
-    struct akl_list_entry *nhead = (ohead) ? ohead->li_next : NULL;
+    struct akl_list_entry *nhead = (ohead) ? ohead->le_next : NULL;
     list->li_head = nhead;
-    nhead->li_prev = NULL;
+    nhead->le_prev = NULL;
     if (ohead == list->li_last)
         list->li_last = nhead;
 
     /* TODO: Can explicitly free() the ohead */
-    return ohead->li_data;
+    return ohead->le_data;
 }
 
 struct akl_value *akl_duplicate_value(struct akl_state *in, struct akl_value *oval)
@@ -234,7 +234,7 @@ akl_list_find(struct akl_list *list, akl_cmp_fn_t cmp_fn, void *data)
     struct akl_list_entry *ent;
     void *ptr;
     AKL_LIST_FOREACH(ent, list) {
-       if (cmp_fn(ent->li_data, data) == 0)
+       if (cmp_fn(ent->le_data, data) == 0)
            return ent;
     }
     return NULL;
@@ -249,9 +249,9 @@ akl_list_find_value(struct akl_list *list, struct akl_value *val)
 struct akl_value *akl_list_index(struct akl_list *list, int index)
 {
     void *ptr = NULL;
-    struct akl_value *ent;
+    struct akl_list_entry *ent;
     if (list == NULL || list->li_head == NULL || AKL_IS_NIL(list))
-        return ptr;
+        return (struct akl_value *)ptr;
 
     if (index < 0) {
         ent = list->li_last;
@@ -259,32 +259,32 @@ struct akl_value *akl_list_index(struct akl_list *list, int index)
             if ((ent = AKL_LIST_PREV(ent)) == NULL)
                 return NULL;
         }
-        ptr = ent->li_data;
+        ptr = ent->le_data;
     } else if (index == 0) {
         if (list->li_head)
-            return list->li_head;
+            return (struct akl_value *)list->li_head->le_data;
     } else {
         ent = list->li_head;
         while (index--) {
             if ((ent = AKL_LIST_NEXT(ent)) == NULL)
                 return NULL;
         }
-        ptr = ent->le_value;
+        ptr = ent->le_data;
     }
-    return ptr;
+    return (struct akl_value *)ptr;
 }
 
 void akl_list_remove_entry(struct akl_list *list, struct akl_list_entry *ent)
 {
     struct akl_list_entry *prev, *next;
     if (ent) {
-        prev = ent->li_prev;
-        next = ent->li_next;
+        prev = ent->le_prev;
+        next = ent->le_next;
         if (prev) {
-            prev->li_next = next;
+            prev->le_next = next;
         }
         if (next) {
-            next->li_prev = prev;
+            next->le_prev = prev;
         }
 
         if (list->li_head == ent) {
@@ -332,7 +332,7 @@ struct akl_list *akl_cdr(struct akl_state *s, struct akl_list *l)
     if (AKL_IS_NIL(l) || l->li_elem_count == 0)
         return NULL;
 
-    nhead = akl_new_list(in);
+    nhead = akl_new_list(s);
     nhead->li_elem_count = l->li_elem_count - 1;
     if (nhead->li_elem_count <= 0) {
         nhead->is_nil = TRUE;
