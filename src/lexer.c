@@ -38,8 +38,7 @@ void akl_lex_free(struct akl_io_device *dev)
         return;
 
     dev->iod_buffer_size = 0;
-    // TODO: Use s->ai_free_fn()
-    free(dev->iod_buffer);
+    akl_free(dev->iod_buffer);
     dev->iod_buffer = NULL;
 }
 

@@ -172,16 +172,13 @@ void akl_realloc(struct akl_state *s, void *ptr, size_t size)
     }
 }
 
-/*
- * ACHTUNG! ACHTUNG!
- * If the akl_state pointer or it's ai_free_fn member is NULL,
- * no memory will free()'d!
-*/
 void akl_free(struct akl_state *s, void *ptr)
 {
-    if (s && s->ai_free_fn) {
+    if (s && s->ai_free_fn)
         s->ai_free_fn(ptr);
-    }
+    else
+        free(ptr);
+
 }
 
 static void akl_gc_value_destruct(struct akl_state *s, void *obj)
