@@ -30,12 +30,12 @@ AKL_CFUN_DEFINE(mkdir, in, args)
 {
     struct akl_value *a1, *a2;
     char *dirname;
-    int rights = 0644;
+    int rights = 01644;
     a1 = AKL_FIRST_VALUE(args);
     if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
         dirname = AKL_GET_STRING_VALUE(a1);
         a2 = AKL_SECOND_VALUE(args);
-        if (!a2)
+        if (AKL_CHECK_TYPE(a2, TYPE_NUMBER))
             rights = AKL_GET_NUMBER_VALUE(a2);
 
         if (mkdir(dirname, rights) != 0)
