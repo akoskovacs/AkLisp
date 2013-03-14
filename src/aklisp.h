@@ -320,7 +320,7 @@ struct akl_state {
     void *(*ai_malloc_fn)(size_t);
     void *(*ai_calloc_fn)(size_t, size_t);
     void (*ai_free_fn)(void *);
-    void (*ai_realloc_fn)(void *, size_t);
+    void *(*ai_realloc_fn)(void *, size_t);
     akl_nomem_action_t (*ai_nomem_fn)(struct akl_state *);
 
     struct akl_io_device *ai_device;

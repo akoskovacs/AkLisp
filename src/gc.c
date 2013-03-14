@@ -120,7 +120,7 @@ void *akl_alloc(struct akl_state *s, size_t size)
     }
 }
 
-void akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
+void *akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
 {
     void *ptr;
     assert(s && s->ai_calloc_fn);
@@ -146,7 +146,7 @@ void akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
     }
 }
 
-void akl_realloc(struct akl_state *s, void *ptr, size_t size)
+void *akl_realloc(struct akl_state *s, void *ptr, size_t size)
 {
     void *ptr;
     assert(s && s->ai_realloc_fn);
