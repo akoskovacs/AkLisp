@@ -65,13 +65,13 @@ struct akl_value *akl_parse_value(struct akl_state *s, struct akl_io_device *dev
         /* TODO: These values must have a better lexer info strategy... */
         case tNIL:
         if (NIL_VALUE.va_lex_info)
-            AKL_FREE(NIL_VALUE.va_lex_info);
+            AKL_FREE(s,NIL_VALUE.va_lex_info);
         NIL_VALUE.va_lex_info = akl_new_lex_info(in, dev);
         return &NIL_VALUE;
 
         case tTRUE:
         if (TRUE_VALUE.va_lex_info)
-            AKL_FREE(TRUE_VALUE.va_lex_info);
+            AKL_FREE(s, TRUE_VALUE.va_lex_info);
         TRUE_VALUE.va_lex_info = akl_new_lex_info(in, dev);
         return &TRUE_VALUE;
 
@@ -103,7 +103,7 @@ struct akl_list *akl_parse_string(struct akl_state *s, const char *name, const c
 {
     struct akl_io_device *dev = akl_new_string_device(name, str);
     struct akl_list *list = akl_new_list(s);
-    AKL_FREE(dev);
+    AKL_FREE(s,dev);
 }
 
 #if 0

@@ -25,11 +25,12 @@
 /* Starting size of the buffer */
 #define DEF_BUFFER_SIZE 50
 
-static void init_buffer(struct akl_io_device *dev)
+static void init_lexer(struct akl_state *s, struct akl_io_device *dev)
 {
     assert(dev);
-    dev->iod_buffer = (char *)akl_malloc(NULL, DEF_BUFFER_SIZE);
+    dev->iod_buffer = (char *)akl_alloc(s, DEF_BUFFER_SIZE);
     dev->iod_buffer_size = DEF_BUFFER_SIZE;
+    dev->iod_state = s;
 }
 
 void akl_lex_free(struct akl_io_device *dev)
@@ -37,8 +38,8 @@ void akl_lex_free(struct akl_io_device *dev)
     if (!dev)
         return;
 
+    akl_free(dev->iod_state, dev->iod_buffer, dev->iod_buffer_size);
     dev->iod_buffer_size = 0;
-    akl_free(dev->iod_buffer);
     dev->iod_buffer = NULL;
 }
 
@@ -47,7 +48,7 @@ static void put_buffer(struct akl_io_device *dev, int pos, char ch)
     if (pos+1 >= dev->iod_buffer_size) {
         dev->iod_buffer_size = dev->iod_buffer_size
                 + (dev->iod_buffer_size / 2);
-        dev->iod_buffer = (char *)REALLOC_FUNCTION(dev->iod_buffer, dev->iod_buffer_size);
+        dev->iod_buffer = (char *)akl_realloc(dev->iod_state, dev->iod_buffer, dev->iod_buffer_size);
         if (dev->iod_buffer == NULL) {
             fprintf(stderr, "ERROR! No memory left!\n");
             exit(1);
@@ -97,7 +98,7 @@ int akl_io_ungetc(int ch, struct akl_io_device *dev)
 bool_t akl_io_eof(struct akl_io_device *dev)
 {
     if (dev == NULL)
-        return EOF;
+        return TRUE;
 
     switch (dev->iod_type) {
         case DEVICE_FILE:
@@ -185,10 +186,7 @@ akl_token_t akl_lex(struct akl_io_device *dev)
       and etc. style functions. Moreover the
       positive and negative numbers must also work:
       '(++ +5)' should be valid. */
-    char op = 0;
-    if (!dev->iod_buffer)
-        init_buffer(dev);
-
+    char op = 0
     assert(dev);
     while ((ch = akl_io_getc(dev))) {
         /* We should avoid the interpretation of the Unix shebang */
