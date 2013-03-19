@@ -34,54 +34,68 @@
     static void akl_spec_##name(struct akl_state * state \
     , struct akl_vector * ir , struct akl_io_device * dev)
 
-void akl_build_label(struct akl_vector ir, struct akl_label *br)
+void akl_build_label(struct akl_vector *ir, struct akl_label *l)
 {
-    assert(br && ir || dev || s);
-    br->ab_code = akl_vector_count(ir);
+    l->ab_code = akl_vector_count(ir);
 }
 
-void akl_compile_branch(struct akl_state *s, struct akl_vector *ir
-                        , struct akl_io_device *dev, struct akl_label *br)
+struct akl_label *akl_new_labels(struct akl_state *s, int n)
 {
-    assert(br && ir && dev && s);
-    akl_build_label(ir, br);
-    akl_compile_list(s, ir, dev);
+    struct akl_label *labels = (struct akl_label *)
+            akl_calloc(s, sizeof(struct akl_label), n);
+    return labels;
 }
 
 AKL_SPEC_DEFINE(if, s, ir, dev)
 {
     /* Allocate the branch */
-    struct akl_label *label = akl_new_branches(s, 3);
+    struct akl_label *label = akl_new_labels(s, 3);
 
-    /* Compile the condition (while pushing the instructions to the list) */
+    /* Condition:*/
+    akl_compile_list(ir, dev);
+    akl_build_jump(s, AKL_JMP_TRUE, label+0);
+    akl_build_jump(s, AKL_JMP_FALSE, label+1);
+
+    /* .L0: True branch: */
+    akl_build_label(ir, label+0);
     akl_compile_list(s, ir, dev);
-    /* Add the branch instruction to the IR */
-    akl_build_branch(ir, label[0], label[1]);
-    /* Compile the true branch */
-    akl_compile_branch(s, ir, dev, label[0]);
-    akl_build_branch(ir, label[2], NULL);
-    /* Compile the false branch */
-    akl_compile_branch(s, ir, dev, label[1]);
-    akl_build_branch(ir, label[2], NULL);
-    akl_build_label(ir, label[2]);
+    akl_build_jump(s, AKL_JMP, label+2);
 
+    /* .L1: False branch: */
+    akl_build_label(ir, label+1);
+    akl_compile_list(s, ir, dev, label+1);
+    akl_build_jump(s, AKL_JMP, label+2);
+
+    /* .L2: Continue... */
+    akl_build_label(ir, label+2);
 }
 
 AKL_SPEC_DEFINE(while, s, ir, dev)
 {
     akl_token_t tok;
-    const size_t ir_size = sizeof(struct akl_ir_instruction);
+    struct akl_label *label = akl_new_labels(s, 2);
     if ((tok = akl_lex(dev)) != tLBRACE) {
         return; /* Panic */
     }
-    /* Compile the condition */
-    akl_compile_list(s, dev, cond);
-    /* Compile loop */
+    /* .L0: Condition: */
+    akl_build_label(ir, label+0);
+    akl_compile_list(s, dev, ir);
+    /* If the condition is false, don't need to get in the loop */
+    akl_build_jump(ir, AKL_JMP_FALSE, label+1);
+    
     while ((tok = akl_lex(dev)) != tRBRACE) {
-        akl_compile_list(s, dev, loop);
+        akl_compile_list(s, dev, ir);
     }
+    /* Jump back to the condition: (with an unconditional) */
+    akl_build_jump(ir, AKL_JMP, label+0);
 
-    /* TODO... */
+    /* .L1: Getting out of the loop... */
+    akl_build_label(ir, label+1);
+}
+
+AKL_SPEC_DEFINE(cond, s, ir, dev)
+{
+
 }
 
 struct akl_vector *akl_parse_params(struct akl_state *s, struct akl_vector *args

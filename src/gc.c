@@ -575,6 +575,7 @@ void akl_gc_init(struct akl_state *s)
 {
     int i;
     akl_gc_disable(s);
+    akl_vector_init(s, &s->ai_gc_types, sizeof(akl_gc_type), AKL_GC_NR_BASE_TYPES);
     for (i = 0; i < AKL_GC_NR_BASE_TYPES; i++) {
         akl_gc_register_type(s, base_type_markers[i], base_type_sizes[i]);
     }

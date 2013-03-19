@@ -345,28 +345,28 @@ struct akl_label {
     unsigned int       ab_code; /* The index of the first instruction */
 };
 
-enum AKL_CMP_TYPE {
-    AKL_CMP_EQ = 0x1,
-    AKL_CMP_GT = 0x2,
-    AKL_CMP_LT = 0x4
-};
-
-enum AKL_IR_OPERATION {
+typedef enum {
     AKL_IR_NOP = 0,
     AKL_IR_STORE,
     AKL_IR_STORE_NIL,
     AKL_IR_STORE_TRUE,
     AKL_IR_LOAD,
     AKL_IR_CALL,
-    AKL_IR_CMP,
-    AKL_IR_JMP,
-    AKL_IR_BRANCH,
     AKL_IR_GET,
-    AKL_IR_SET
-};
+    AKL_IR_SET,
+    AKL_IR_JMP, /* Unconditional jump */
+    AKL_IR_JT,  /* Jump if true */
+    AKL_IR_JN   /* Jump if false, (not true, nil) */
+ } akl_ir_instruction_t;
+
+typedef enum {
+      AKL_JMP = AKL_IR_JMP
+    , AKL_JMP_TRUE
+    , AKL_JMP_FALSE
+} akl_jump_t;
 
 struct akl_ir_instruction {
-    enum AKL_IR_OPERATIONS in_op;
+    akl_ir_instruction_t in_op;
     /* Only used for store, load and cmp */
     unsigned int in_argc;
     void        *in_arg[2];
