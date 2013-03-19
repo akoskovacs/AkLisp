@@ -70,7 +70,8 @@ void akl_execute_ir(struct akl_state *s, struct akl_vector *ir)
     struct akl_function *func;
     struct akl_vector *br;
     struct akl_value *v;
-    AKL_VECTOR_FOREACH(in, ir) {
+    int ind;
+    AKL_VECTOR_FOREACH(ind, in, ir) {
         switch (in->in_op) {
             case AKL_IR_NOP:
             continue;
@@ -286,7 +287,7 @@ void akl_add_error(struct akl_state *in, enum AKL_ALERT_TYPE type
     size_t new_size = fmt_size + (fmt_size/2);
     int n;
     char *np;
-    char *msg = (char *)akl_malloc(in, new_size);
+    char *msg = (char *)akl_alloc(in, new_size);
     while (1) {
         va_start(ap, fmt);
         n = vsnprintf(msg, new_size, fmt, ap);
@@ -324,9 +325,9 @@ void akl_clear_errors(struct akl_state *in)
     struct akl_error *err;
     if (in && in->ai_errors) {
         AKL_LIST_FOREACH_SAFE(ent, in->ai_errors, tmp) {
-           err = (struct akl_error *)ent->le_value;
-           AKL_FREE((void *)err->err_msg);
-           AKL_FREE((void *)err);
+            err = (struct akl_error *)ent->le_data;
+           akl_free(in, (void *)err->err_msg, 0);
+           AKL_FREE(in, err);
         }
         in->ai_errors->li_elem_count = 0;
         in->ai_errors->li_head = NULL;
@@ -345,7 +346,7 @@ void akl_print_errors(struct akl_state *in)
 
     if (in && in->ai_errors) {
         AKL_LIST_FOREACH(ent, in->ai_errors) {
-            err = (struct akl_error *)ent->le_value;
+            err = (struct akl_error *)ent->le_data;
             if (err) {
                 if (err->err_info) {
                     count = err->err_info->li_count;

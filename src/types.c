@@ -27,7 +27,6 @@ struct akl_vector *
 akl_vector_new(struct akl_state *s, unsigned int nmemb, unsigned int size)
 {
     struct akl_vector *vec = AKL_MALLOC(s, struct akl_vector);
-
     akl_vector_init(s, vec, nmemb, size);
     return vec;
 }
@@ -41,10 +40,11 @@ void akl_vector_init(struct akl_state *s, struct akl_vector *vec, unsigned int n
     if (!size)
         size = sizeof(void *);
 
-    vec->av_vector = s->ai_calloc_fn(nmemb, size);
+    vec->av_vector = akl_calloc(vec->av_state, nmemb, size);
     vec->av_size = nmemb;
     vec->av_count = 0;
     vec->av_msize = size;
+    vec->av_state = s;
 }
 
 bool_t akl_vector_is_empty(struct akl_vector *vec)
@@ -115,6 +115,7 @@ void akl_vector_push_vec(struct akl_vector *vec, struct akl_vector *v)
     }
 
     ptr = akl_vector_at(vec, vec->av_count+1);
+
     memcpy(ptr, v->av_vector, v->av_count);
     vec->av_count += v->av_count;
 }
@@ -151,7 +152,8 @@ void akl_vector_grow(struct akl_vector *vec)
         vec->av_size = vec->av_size + (vec->av_size/2);
     else
         vec->av_size = vec->av_size * 2;
-    vec->av_vector = REALLOC_FUNCTION(vec->av_vector, vec->av_size*vec->av_msize);
+    vec->av_vector = akl_realloc(vec->av_state, vec->av_vector
+                                    , vec->av_size*vec->av_msize);
 }
 
 /* The user should zero out the removed memory */
@@ -196,15 +198,15 @@ akl_vector_count(struct akl_vector *vec)
     return vec->av_count;
 }
 
-void akl_vector_destroy(struct akl_vector *vec)
+void akl_vector_destroy(struct akl_state *s, struct akl_vector *vec)
 {
-    FREE_FUNCTION(vec->av_vector);
+    akl_free(s, vec->av_vector, vec->av_size);
 }
 
-void akl_vector_free(struct akl_vector *vec)
+void akl_vector_free(struct akl_state *s, struct akl_vector *vec)
 {
-    akl_vector_destroy(vec);
-    FREE_FUNCTION(vec);
+    akl_vector_destroy(s, vec);
+    AKL_FREE(s, vec);
 }
 
 /* ~~~===### Stack handling ###===~~~ */
@@ -212,20 +214,21 @@ void akl_stack_init(struct akl_state *s)
 {
     assert(s);
     if (s->ai_stack.av_vector == NULL) {
-        akl_vector_init(s->ai_stack, 50, sizeof(struct akl_value *));
+        akl_vector_init(s, &s->ai_stack, 50, sizeof(struct akl_value *));
     }
 }
 /* Attention: The stack contains pointer to value pointers */
 void akl_stack_push(struct akl_state *s, struct akl_value *value)
 {
     assert(s);
-    akl_vector_push(s->ai_stack, &value);
+    akl_vector_push(&s->ai_stack, &value);
 }
 
 struct akl_value *akl_stack_pop(struct akl_state *s)
 {
     assert(s);
-    return *akl_vector_pop(s);
+    void **p = (void **)akl_vector_pop(&s->ai_stack);
+    return (struct akl_value *)*p;
 }
 
 /* These functions do not check the type of the stack top */
@@ -297,13 +300,13 @@ struct akl_value *akl_to_number(struct akl_state *in, struct akl_value *v)
     return NULL;
 }
 
-char *akl_num_to_str(struct akl_state *in, double number)
+char *akl_num_to_str(struct akl_state *s, double number)
 {
     int strsize = 30;
-    char *str = (char *)akl_malloc(in, strsize);
+    char *str = (char *)akl_alloc(s, strsize);
     while (snprintf(str, strsize, "%g", number) >= strsize) {
         strsize += strsize/2;
-        str = realloc(str, strsize);
+        str = (char *)akl_realloc(s, str, strsize);
     }
     return str;
 }
@@ -442,26 +445,24 @@ akl_register_type(struct akl_state *s, const char *name, akl_gc_destructor_t de_
 
 void akl_deregister_type(struct akl_state *s, unsigned int type)
 {
-    AKL_FREE(akl_vector_remove(&s->ai_utypes, type));
+    // TODO: Rewrite it as list
+    //AKL_FREE(akl_vector_remove(&s->ai_utypes, type));
 }
 
 
-static bool_t utype_finder_name(void *t, void *name)
+static int utype_finder_name(void *t, void *name)
 {
     struct akl_utype *type = (struct akl_utype *)t;
-    if (t && name
-        && (strcmp(type->ut_name, (const char *)name) == 0))
-        return TRUE;
-
-    return FALSE;
+    int cmp;
+    return strcmp(type->ut_name, (const char *)name);
 }
 
 int akl_get_typeid(struct akl_state *in, const char *tname)
 {
     struct akl_utype *utype = NULL;
     unsigned int ind;
-    utype = akl_vector_find(&in->ai_utypes, utype_finder_name
-                                        , (void *)tname, &ind);
+    utype = (struct akl_utype *)
+        akl_vector_find(&in->ai_utypes, utype_finder_name, (void *)tname, &ind);
     if (utype)
         return ind;
 

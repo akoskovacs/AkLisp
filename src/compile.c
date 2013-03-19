@@ -23,20 +23,6 @@
 #include "aklisp.h"
 #include <stdint.h>
 
-struct akl_label *
-akl_new_branches(struct akl_state *s, struct akl_vector *v, unsigned int cnt)
-{
-    assert(cnt || s);
-    int i;
-    struct akl_label *br = akl_malloc(s, sizeof(struct akl_label)*cnt);
-    for (i = 0; i < cnt; i++) {
-        br[i].ab_branch = v;
-        br[i].ab_size = 0;
-        br[i].ab_start = 0;
-    }
-    return br;
-}
-
 void akl_build_store(struct akl_vector *ir, struct akl_value *arg)
 {
     struct akl_ir_instruction *store = akl_vector_reserve(ir);
@@ -79,25 +65,11 @@ void akl_build_call(struct akl_vector *ir, char *fname, int argc)
 }
 
 /* It can also mean 'jmp' if the second (the false branch is NULL) */
-void akl_build_branch(struct akl_vector *ir, struct akl_label *tb, struct akl_label *fb)
+void akl_build_jump(struct akl_vector *ir, akl_jump_t jt, struct akl_label *l)
 {
     struct akl_ir_instruction *branch = akl_vector_reserve(ir);
-    branch->in_op = AKL_IR_BRANCH;
-    branch->in_arg.arg[0] = (void *)tb; /* True branch */
-    branch->in_arg.arg[1] = (void *)fb; /* False branch */
-    if (fb == NULL)
-        branch->in_argc = 1;
-    else
-        branch->in_argc = 2;
-}
-
-void akl_build_cmp(struct akl_vector *ir, struct akl_value *a1, struct akl_value *a2)
-{
-    struct akl_ir_instruction *cmp = akl_vector_reserve(ir);
-    cmp->in_op = AKL_IR_CMP;
-    branch->in_arg[0] = a1;
-    branch->in_arg[1] = a2;
-    branch->in_argc = 2;
+    branch->in_op = (akl_ir_instruction_t)jt;
+    branch->in_arg.arg[0] = (void *)l; /* True branch */
 }
 
 #if 0
@@ -116,14 +88,6 @@ struct akl_vector *akl_compile(struct akl_state *s, struct akl_list *list)
 #endif
 struct akl_value *akl_build_value(struct akl_state *, struct akl_io_device *dev, akl_token_t);
 
-void akl_compile_branch(struct akl_state *s, struct akl_vector *ir
-                        , struct akl_io_device *dev, struct akl_label *br)
-{
-    assert(br || ir || dev || s);
-    br->ab_start = akl_vector_count(ir);
-    akl_compile_list(s, ir, dev);
-    br->ab_size = akl_vector_count(ir) - br->ab_start;
-}
 
 /* Build the intermediate representation for an unquoted list */
 void akl_compile_list(struct akl_state *s, struct akl_vector *ir, struct akl_io_device *dev)
