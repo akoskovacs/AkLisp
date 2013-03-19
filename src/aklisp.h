@@ -33,7 +33,7 @@
 #include "akl_tree.h"
 
 #define AKL_MALLOC(s, type) (type *)akl_alloc(s, sizeof(type))
-#define AKL_FREE(s, obj) (type *)akl_free(s, (void *)obj)
+#define AKL_FREE(s, obj) akl_free(s, (void *)obj, sizeof *obj)
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
 #define AKL_GET_VALUE_MEMBER_PTR(val, type, member) \
@@ -89,30 +89,26 @@ typedef int (*akl_cmp_fn_t)(void *, void *);
 /* Size of the GC pools, must be the power of 2 */
 #define AKL_GC_POOL_SIZE 64
 #define AKL_GC_DEFINE_OBJ       struct akl_gc_object gc_obj
-#define AKL_GC_MARKER(obj, m)   ((obj)->gc_obj.gc_mark_fun(obj, m))
 #define AKL_GC_SET_MARK(obj, m) ((obj)->gc_obj.gc_mark = m)
-#define AKL_GC_MARK(obj)        AKL_GC_MARKER(obj, TRUE)
-#define AKL_GC_UNMARK(obj)      AKL_GC_MARKER(obj, FALSE)
+#define AKL_GC_TYPE_ID(obj)     ((obj)->gc_obj.gc_type_id)
 #define AKL_GC_IS_MARKED(obj)   ((obj)->gc_obj.gc_mark == TRUE)
 #define AKL_GC_SET_STATIC(obj)  ((obj)->gc_obj.gc_static = TRUE)
-#define AKL_GC_INIT_OBJ(obj, de_fun, mk_fun) \
-    ((obj)->gc_obj.gc_de_fun = de_fun; (obj)->gc_obj.gc_mark_fun = mk_fun; \
-    (obj)->gc_obj.gc_mark = FALSE ; (obj)->gc_obj.gc_le_is_obj = FALSE;)
+#define AKL_GC_INIT_OBJ(obj, id) \
+    (obj)->gc_obj.gc_type_id = id; (obj)->gc_obj.gc_static = FALSE; \
+    (obj)->gc_obj.gc_mark = FALSE ; (obj)->gc_obj.gc_le_is_obj = FALSE;
 
 
 typedef void (*akl_gc_destructor_t)(struct akl_state *, void *obj);
 /* Mark and unmark GC'd objects */
-typedef void (*akl_gc_marker_t)(void *, bool_t);
+typedef void (*akl_gc_marker_t)(struct akl_state *, void *, bool_t);
 /*
  * Every structure, which is suitable for collection, have to
  * embed this structure as the first variable, with the name of 'gc_obj'.
  * BE AWARE: This is object oriented! :-)
 */
+typedef unsigned int akl_gc_type_t;
 struct akl_gc_object {
-    /* Destructor function for the object getting a pointer
-     of the active state and the object pointer as parameters. */
-    akl_gc_destructor_t gc_de_fun;
-    akl_gc_marker_t     gc_mark_fun;
+    akl_gc_type_t       gc_type_id;
     bool_t              gc_mark      : 1;
     /* Are the le_data field points to a GC-managed object? (Mostly used
      * for akl_list_entry structures) */
@@ -200,31 +196,11 @@ struct akl_io_device {
     size_t      iod_pos; /*  Only used for DEVICE_STRING */
 
     char *iod_buffer; /* Lexer buffer */
+    struct akl_state *iod_state;
     unsigned int iod_buffer_size;
     unsigned int iod_char_count;
     unsigned int iod_line_count;
     unsigned int iod_column;
-};
-
-/* NOTE: If you want to modify the following enumeration, you have
- * to modify the akl_gc_obj_sizes[] the same way,  too. */
-#define AKL_GC_NR_TYPE  6
-enum AKL_GC_OBJECT_TYPE {
-       AKL_GC_VALUE = 0,
-       AKL_GC_ATOM,
-       AKL_GC_LIST,
-       AKL_GC_LIST_ENTRY,
-       AKL_GC_FUNCTION,
-       AKL_GC_UDATA
-};
-
-const size_t akl_gc_obj_sizes[] = {
-        sizeof(struct akl_value)
-      , sizeof(struct akl_atom)
-      , sizeof(struct akl_list)
-      , sizeof(struct akl_list_entry)
-      , sizeof(struct akl_function)
-      , sizeof(struct akl_userdata)
 };
 
 struct akl_utype {
@@ -257,9 +233,10 @@ struct akl_module __module_desc = { \
 
 #define AKL_VECTOR_DEFSIZE 10
 #define AKL_VECTOR_NEW(s, type, count) akl_vector_new(s, sizeof(type), count)
-#define AKL_VECTOR_FOREACH(ind, ptr, vec) \
-    for ((ind) = 0, (ptr) = akl_vector_at(vec, 0) \
-        ;(ind) < akl_vector_count(vec); (ind)++, (ptr) = akl_vector_at(vec, ind))
+#define AKL_VECTOR_FOREACH(ind, ptr, vec)            \
+    for ( (ind) = 0, (ptr) = akl_vector_at(vec, 0)   \
+        ; (ind) < akl_vector_count(vec)              \
+        ; (ind)++, (ptr) = akl_vector_at(vec, ind))
 
 /* Foreach on all elements including the NULL ones */
 #define AKL_VECTOR_FOREACH_ALL(ind, ptr, vec) \
@@ -272,8 +249,8 @@ struct akl_vector {
     unsigned int av_size;   /* Size of the array */
     unsigned int av_msize;  /* Size of the members in the array */
     /* Full_size = av_size * av_msize; see calloc() */
+    struct akl_state *av_state; /* Need for memory management */
 };
-
 
 inline unsigned int akl_vector_size(struct akl_vector *);
 inline unsigned int akl_vector_count(struct akl_vector *);
@@ -296,11 +273,20 @@ void         akl_vector_free(struct akl_vector *);
 void         akl_vector_grow(struct akl_vector *);
 
 struct akl_gc_pool {
-    enum AKL_GC_OBJECT_TYPE gp_type;
     struct akl_vector       gp_pool;
     struct akl_gc_pool     *gp_next;
     /* Bitmap of the free slots */
     unsigned int            gp_freemap[AKL_GC_POOL_SIZE/(sizeof(unsigned int)*8)];
+};
+
+struct akl_gc_type {
+    akl_gc_type_t   gt_type_id;
+    size_t          gt_type_size;
+    akl_gc_marker_t gt_marker_fn;
+
+    akl_gc_pool    *gt_pool_last;
+    unsigned int    gt_pool_count;
+    akl_gc_pool     gt_pools;
 };
 
 void   akl_stack_push(struct akl_state *, struct akl_value *);
@@ -315,24 +301,31 @@ typedef enum {
     AKL_NM_TERMINATE, AKL_NM_TRYAGAIN, AKL_NM_RETNULL
 } akl_nomem_action_t;
 
+#define AKL_GC_NR_BASE_TYPES 6
+typedef enum {
+       AKL_GC_VALUE = 0,
+       AKL_GC_ATOM,
+       AKL_GC_LIST,
+       AKL_GC_LIST_ENTRY,
+       AKL_GC_FUNCTION,
+       AKL_GC_UDATA
+} akl_gc_base_type_t;
+
+
 /* An instance of the interpreter */
 struct akl_state {
     void *(*ai_malloc_fn)(size_t);
     void *(*ai_calloc_fn)(size_t, size_t);
     void (*ai_free_fn)(void *);
-    void (*ai_realloc_fn)(void *, size_t);
+    void *(*ai_realloc_fn)(void *, size_t);
     akl_nomem_action_t (*ai_nomem_fn)(struct akl_state *);
 
     struct akl_io_device *ai_device;
     struct akl_list *ai_contexts;
     RB_HEAD(ATOM_TREE, akl_atom) ai_atom_head;
     unsigned int ai_gc_malloc_size; /* Totally malloc()'d bytes */
-    /* Number of GC pools for diffrent types */
-    unsigned int ai_gc_pool_count[AKL_GC_NR_TYPE];
-    /* GC pool for each type */
-    struct akl_gc_pool ai_gc_pool[AKL_GC_NR_TYPE];
-    /* Last GC pool for the type */
-    struct akl_gc_pool *ai_gc_pool_last[AKL_GC_NR_TYPE];
+    struct akl_vector ai_gc_types;
+
     struct akl_list *ai_program;
     /* Loaded user-defined types */
     struct akl_vector ai_utypes;
@@ -471,7 +464,8 @@ typedef enum {
 void *akl_alloc(struct akl_state *, size_t);
 void *akl_calloc(struct akl_state *, size_t, size_t);
 void *akl_realloc(struct akl_state *, void *, size_t);
-void akl_free(struct akl_state *, void *);
+/* The third parameter of akl_free() is not mandatory. */
+void akl_free(struct akl_state *, void *, size_t);
 
 struct akl_state     *akl_new_file_interpreter(const char *, FILE *, void (*)(size_t));
 struct akl_state     *akl_new_string_interpreter(const char *, const char *, void (*)(size_t));
@@ -497,7 +491,7 @@ struct akl_value *akl_car(struct akl_list *);
 struct akl_list  *akl_cdr(struct akl_state *, struct akl_list *);
 
 /* Creating and destroying structures */
-void                  *akl_init_state(struct akl_state *s);
+void                   akl_init_state(struct akl_state *s);
 struct akl_state      *akl_new_state(void *(malloc_fn)(void *));
 void                   akl_init_list(struct akl_list *);
 struct akl_list       *akl_new_list(struct akl_state *);
@@ -514,19 +508,25 @@ struct akl_lex_info   *akl_new_lex_info(struct akl_state *, struct akl_io_device
 /* GC functions */
 
 void   akl_gc_init(struct akl_state *);
+akl_gc_type_t akl_gc_register_type(struct akl_state *, akl_gc_marker_t, size_t);
+//void akl_gc_deregister_type(struct akl_state *, akl_gc_type_t);
+struct akl_gc_type *akl_gc_get_type(struct akl_state *, akl_gc_type_t);
+
 void   akl_gc_mark(struct akl_state *);
-void   akl_gc_mark_list(void *, bool_t);
-void   akl_gc_mark_list_entry(void *, bool_t);
-void   akl_gc_mark_atom(void *, bool_t);
-void   akl_gc_mark_value(void *, bool_t);
+void   akl_gc_mark_object(struct akl_state *, void *, bool_t);
+void   akl_gc_mark_list(struct akl_state *, void *, bool_t);
+void   akl_gc_mark_list_entry(struct akl_state *, void *, bool_t);
+void   akl_gc_mark_atom(struct akl_state *, void *, bool_t);
+void   akl_gc_mark_value(struct akl_state *, void *, bool_t);
 void   akl_gc_sweep_pool(struct akl_gc_pool *);
 void   akl_gc_sweep(struct akl_state *);
 void   akl_gc_enable(struct akl_state *);
 void   akl_gc_disable(struct akl_state *);
-void   akl_gc_pool_add(struct akl_state *, void *, enum AKL_GC_OBJECT_TYPE);
-struct akl_gc_pool *akl_new_gc_pool(struct akl_state *, enum AKL_GC_OBJECT_TYPE);
+void   akl_gc_pool_add(struct akl_state *, void *, akl_gc_type_t);
+struct akl_gc_pool *akl_new_gc_pool(struct akl_state *, akl_gc_type_t);
 bool_t akl_gc_pool_is_empty(struct akl_gc_pool *);
 bool_t akl_gc_pool_tryfree(struct akl_state *);
+void   akl_gc_pool_free(struct akl_state *, struct akl_gc_pool *);
 
 char             *akl_num_to_str(struct akl_state *, double);
 struct akl_value *akl_to_number(struct akl_state *, struct akl_value *);
@@ -606,17 +606,6 @@ enum AKL_INIT_FLAGS {
     AKL_LIB_ALL = AKL_LIB_BASIC|AKL_LIB_NUMBERIC
         |AKL_LIB_CONDITIONAL|AKL_LIB_PREDICATE|AKL_LIB_DATA
         |AKL_LIB_SYSTEM|AKL_LIB_TIME|AKL_LIB_OS|AKL_LIB_LOGICAL|AKL_LIB_FILE
-};
-
-/* The GC must know the sizes for each
- collectable object */
-const size_t gc_obj_sizes[] = {
-    sizeof(struct akl_value),
-    sizeof(struct akl_atom),
-    sizeof(struct akl_list),
-    sizeof(struct akl_list_entry),
-    sizeof(struct akl_function),
-    sizeof(struct akl_userdata)
 };
 
 void akl_init_lib(struct akl_state *, enum AKL_INIT_FLAGS);
