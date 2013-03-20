@@ -1,6 +1,10 @@
 # AkLisp [![Build Status](https://secure.travis-ci.org/akoskovacs/AkLisp.png)](http://travis-ci.org/akoskovacs/AkLisp)
 AkLisp is a tiny, hobby Lisp dialect. It is embeddable, user-friendly and relatively fast.
 
+```
+NOTICE! This is an experimental (wip: Work in progress) branch of AkLisp. Most code will not work (or build). 
+```
+
 ## About Lisp/Scheme
 > [Lisp](http://en.wikipedia.org/wiki/Lisp_(programming_language\)) is a family of computer programming languages, with a long history and a distincitve parenthesized *Polish notation*.
 
