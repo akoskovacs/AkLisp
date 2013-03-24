@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Aklisp : A toy Lisp dialect" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Aklisp</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/akoskovacs/AkLisp">View on GitHub</a>
+
+          <h1 id="project_title">Aklisp</h1>
+          <h2 id="project_tagline">A toy Lisp dialect</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/akoskovacs/AkLisp/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/akoskovacs/AkLisp/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>AkLisp <a href="http://travis-ci.org/akoskovacs/AkLisp"><img src="https://secure.travis-ci.org/akoskovacs/AkLisp.png" alt="Build Status"></a>
+</h1>
+
+<p>AkLisp is a tiny, hobby Lisp dialect. It is embeddable, user-friendly and relatively fast.</p>
+
+<h2>About Lisp/Scheme</h2>
+
+<blockquote>
+<p><a href="http://en.wikipedia.org/wiki/Lisp_(programming_language)">Lisp</a> is a family of computer programming languages, with a long history and a distincitve parenthesized <em>Polish notation</em>.</p>
+</blockquote>
+
+<p>Every expression is written in the form of nested lists. In Lisp-style languages, the elements of the list is surrounded by parantheses, where the first element is the function and the other elements are the arguments of the function. The list elements are separated by whitespaces. Consider the following example in C:</p>
+
+<div class="highlight"><pre><span class="kt">int</span> <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="mi">10</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="mi">2</span><span class="p">;</span>
+</pre></div>
+
+<p>Which is written in Lisp as:</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="nv">set!</span> <span class="nv">a</span> <span class="p">(</span><span class="nb">*</span> <span class="mi">2</span> <span class="p">(</span><span class="nb">+</span> <span class="mi">10</span> <span class="mi">2</span><span class="p">)))</span>
+</pre></div>
+
+<p>Both set the <em>a</em> variable to 24</p>
+
+<p>Every list is automatically evaluated if they are not quoted. To quote a list, just write a \' before the list, like:</p>
+
+<div class="highlight"><pre><span class="o">'</span><span class="p">(</span><span class="nb">+</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span><span class="p">)</span> <span class="c1">; Will be threated as data</span>
+</pre></div>
+
+<p>Every list is implemented as a singly linked list in the interpreter. You can devide lists to a head and tail. The head is the first element. And the tail is a list of the subsequent elements.</p>
+
+<div class="highlight"><pre><span class="p">(</span><span class="nv">head</span> <span class="o">'</span><span class="p">(</span><span class="ss">:one</span> <span class="mi">2</span> <span class="mi">3</span> <span class="ss">:four</span><span class="p">))</span>            <span class="c1">; =&gt; :one, the first element</span>
+<span class="p">(</span><span class="nv">tail</span> <span class="o">'</span><span class="p">(</span><span class="ss">:one</span> <span class="mi">2</span> <span class="mi">3</span> <span class="ss">:four</span><span class="p">))</span>            <span class="c1">; =&gt; '(2 3 :four), the subsequent elements</span>
+<span class="c1">; Therefore the second element can be easy gathered with:</span>
+<span class="p">(</span><span class="nv">head</span> <span class="p">(</span><span class="nv">tail</span> <span class="o">'</span><span class="p">(</span><span class="ss">:one</span> <span class="mi">2</span> <span class="mi">3</span> <span class="ss">:four</span><span class="p">)))</span>     <span class="c1">; =&gt; 2, the second element</span>
+</pre></div>
+
+<h2>Binary packages</h2>
+
+<h3>Debian/Ubuntu</h3>
+
+<p>You can get the Debian package from <a href="https://dl.dropbox.com/u/10389667/AkLisp-0.1-alpha-Linux.deb">here</a></p>
+
+<h2>Building from source</h2>
+
+<p>These instructions only applies to unix-style systems. <strong>Windows builds are not supported at this time.</strong></p>
+
+<h3>Getting the code</h3>
+
+<ul>
+<li>with git: <code>git clone git://github.com/akoskovacs/AkLisp.git</code>
+</li>
+<li>or download the gzipped <a href="https://github.com/akoskovacs/AkLisp/archive/master.tar.gz">package</a> and unpack it.</li>
+</ul><h3>Compilation</h3>
+
+<p>Before you can compile the program, you must satisfy the build dependencies. AkLisp have three main dependencies:</p>
+
+<ul>
+<li>
+<em>dl</em>: The dynamic linking loader library (should be installed by default)</li>
+<li>
+<em>readline</em>: GNU ReadLine library (Install with <code>sudo apt-get install libreadline5-dev libreadline5</code> on Debian/Ubuntu)</li>
+<li>
+<em>GNU toolset</em>: GCC, and make (Install with <code>sudo apt-get install build-essential</code> on Debian/Ubuntu)</li>
+</ul><p>There are two ways to compile AkLisp from source.</p>
+
+<h4>Without CMake</h4>
+
+<p>This way is preferred when you only want to use the aklisp binary (no library will be builded).</p>
+
+<pre><code>$ make
+</code></pre>
+
+<p><em>This command will build the aklisp binary and the modules in the modules/ directory.</em></p>
+
+<h4>With CMake</h4>
+
+<p>For this, you must install the cmake package.</p>
+
+<pre><code>$ sudo apt-get install cmake     # on Debian/Ubuntu
+$ cmake .
+$ make
+</code></pre>
+
+<p><em>This will also build the aklisp binary libaklisp_static.a (static software library) libaklisp_shared.so (shared library).</em></p>
+
+<h2>Interesting things to try</h2>
+
+<h3>Interactive shell</h3>
+
+<p>When no arguments are given the executable will start an interactive shell. This is the most convenient way to try the interpreter. If the executable linked with the ReadLine library, you can also use tab-completition between the parentheses.</p>
+
+<div class="highlight"><pre><span class="nv">$</span> <span class="o">.</span><span class="nv">/aklisp</span>
+<span class="nv">Interactive</span> <span class="nv">AkLisp</span> <span class="nv">version</span> <span class="nv">0.1-alpha</span>
+<span class="nv">Copyleft</span> <span class="p">(</span><span class="nv">C</span><span class="p">)</span> <span class="mi">2012</span> <span class="nv">Akos</span> <span class="nv">Kovacs</span>
+
+<span class="nv">[1]&gt;</span> <span class="p">(</span><span class="nb">time</span><span class="p">)</span>
+<span class="p">(</span><span class="nv">TIME</span><span class="p">)</span>
+ <span class="nv">=&gt;</span> <span class="p">(</span><span class="mi">22</span> <span class="mi">3</span> <span class="mi">55</span><span class="p">)</span>
+<span class="nv">[2]&gt;</span> 
+</pre></div>
+
+<h3>Loadable modules</h3>
+
+<div class="highlight"><pre><span class="nv">$</span> <span class="o">.</span><span class="nv">/aklisp</span>
+<span class="nv">Interactive</span> <span class="nv">AkLisp</span> <span class="nv">version</span> <span class="nv">0.1-alpha</span>
+<span class="nv">Copyleft</span> <span class="p">(</span><span class="nv">C</span><span class="p">)</span> <span class="mi">2012</span> <span class="nv">Akos</span> <span class="nv">Kovacs</span>
+
+<span class="nv">[1]&gt;</span> <span class="p">(</span><span class="nb">load</span> <span class="s">"modules/dir.alm"</span><span class="p">)</span>
+<span class="p">(</span><span class="nv">LOAD</span> <span class="s">"modules/dir.alm"</span><span class="p">)</span>
+ <span class="nv">=&gt;</span> <span class="no">T</span>
+<span class="nv">[2]&gt;</span> <span class="p">(</span><span class="nv">glob</span> <span class="s">"*.txt"</span><span class="p">)</span>
+<span class="p">(</span><span class="nv">GLOB</span> <span class="s">"*.txt"</span><span class="p">)</span>
+ <span class="nv">=&gt;</span> <span class="o">'</span><span class="p">(</span><span class="s">"CMakeCache.txt"</span> <span class="s">"CMakeLists.txt"</span> <span class="s">"install_manifest.txt"</span><span class="p">)</span>
+<span class="nv">[3]&gt;</span> 
+</pre></div>
+
+<h2>Known issues</h2>
+
+<ul>
+<li>No way to define functions <a href="https://github.com/akoskovacs/AkLisp/issues/2">bug #2</a>
+</li>
+<li>Interpretatiton works just-in-time <em>(no, not JIT)</em> no bytecode emission or optimization is performed <a href="https://github.com/akoskovacs/AkLisp/issues/5">bug #5</a>
+</li>
+<li>Bugs, bugs, bugs...</li>
+</ul><h2>License</h2>
+
+<p>AkLisp is licensed under the permissive MIT license.</p>
+
+<pre><code>Copyright (c) 2012 Ákos Kovács - AkLisp Lisp dialect
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+</code></pre>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Aklisp maintained by <a href="https://github.com/akoskovacs">akoskovacs</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
