@@ -179,10 +179,10 @@ akl_gc_type_t akl_gc_register_type(struct akl_state *s, akl_gc_marker_t marker, 
     assert(s);
     struct akl_gc_type *t = (struct akl_gc_type *)akl_vector_reserve(&s->ai_gc_types);
     t->gt_marker_fn = marker;
+    t->gt_pool_count = 0;
+    t->gt_pool_last = NULL;
     t->gt_type_id = akl_vector_count(&s->ai_gc_types)-1;
-    t->gt_pool_count = 1;
-    akl_gc_init_pool(s, &t->gt_pools, t->gt_type_id);
-    t->gt_pool_last = &t->gt_pools;
+    akl_gc_pool_create(s, t);
     return t->gt_type_id;
 }
 
