@@ -483,7 +483,6 @@ void akl_gc_sweep_pool(struct akl_state *s, struct akl_gc_pool *p, akl_gc_marker
     struct akl_vector *v;
     void *p;
     struct akl_gc_generic_object *go;
-    akl_gc_destructor_t defun;
     int i;
     if (!p || !marker)
         return;
@@ -533,21 +532,18 @@ struct akl_gc_type *akl_gc_get_type(struct akl_state *s, akl_gc_type_t type)
     return (struct akl_gc_type *)akl_vector_at(&s->ai_gc_types, type);
 }
 
-static void akl_gc_init_pool(struct akl_state *s, struct akl_gc_pool *p
-                      , akl_gc_type_t type, size_t osize)
+struct akl_gc_pool *akl_gc_pool_create(struct akl_state *s, struct akl_gc_type *type)
 {
-    p->gp_next = NULL;
-    // p->gp_type = type;
-    akl_vector_init(s, &p->gp_pool, AKL_GC_POOL_SIZE, osize);
+    struct akl_gc_pool *pool = AKL_MALLOC(s, struct akl_gc_pool);
+    pool->gp_next = NULL;
+    akl_vector_init(s, &pool->gp_pool, AKL_GC_POOL_SIZE, type->gt_type_size);
     memset(p->gp_freemap, 0, AKL_GC_POOL_SIZE/BITS_IN_UINT);
-}
 
-struct akl_gc_pool *akl_new_gc_pool(struct akl_state *s
-                                    , enum AKL_GC_OBJECT_TYPE type)
-{
-    struct akl_gc_pool *pool;
-    pool = AKL_MALLOC(s, struct akl_gc_pool);
-    akl_gc_init_pool(s, pool, type);
+    if (type->gt_pool_last) 
+        type->gt_pool_last->gp_next = pool;
+
+    type->gt_pool_last = pool;
+    type->gt_pools++;
     return pool;
 }
 
@@ -574,6 +570,9 @@ const size_t base_type_sizes[] = {
 void akl_gc_init(struct akl_state *s)
 {
     int i;
+    s->ai_gc_last_was_mark = FALSE;
+    s->ai_gc_malloc_size = 0;
+
     akl_gc_disable(s);
     akl_vector_init(s, &s->ai_gc_types, sizeof(akl_gc_type), AKL_GC_NR_BASE_TYPES);
     for (i = 0; i < AKL_GC_NR_BASE_TYPES; i++) {
@@ -619,11 +618,10 @@ struct akl_state *akl_new_state(void *(*alloc)(size_t))
  * If the claim is not met, try to collect some memory or
  * create a new GC pool.
 */
-void *akl_gc_malloc(struct akl_state *s, akl_gc_type_t type)
+void *akl_gc_malloc(struct akl_state *s, akl_gc_type_t tid)
 {
     assert(s && type < akl_vector_count(&s->ai_gc_types));
-    static bool_t last_was_mark = FALSE;
-    struct akl_gc_type *t = akl_gc_get_type(s, type);
+    struct akl_gc_type *t = akl_gc_get_type(s, tid);
     struct akl_gc_pool *p;
     unsigned int ind;
     if (akl_gc_type_have_free(t, &p, &ind)) {
@@ -631,16 +629,19 @@ void *akl_gc_malloc(struct akl_state *s, akl_gc_type_t type)
         akl_gc_pool_use(p, ind);
         return akl_vector_at(&p->gp_pool, (unsigned int)ind);
     } else {
-        if (!last_was_mark && s->ai_gc_is_enabled) {
+        if (!s->ai_gc_last_was_mark && s->ai_gc_is_enabled) {
             akl_gc_mark(s);
             akl_gc_sweep(s);
-            last_was_mark = TRUE;
-            return akl_gc_malloc(s, type);
+            s->ai_gc_last_was_mark = TRUE;
+            return akl_gc_malloc(s, tid);
         } else {
-            p->gp_next = akl_new_gc_pool(s, type);
-            t->gt_pool_last = p->gp_next;
-            last_was_mark = FALSE;
-            return akl_gc_malloc(s, type);
+            /* We cannot collect enough memory :-( => we have to to some
+             * allocation. To do this we must also need to create the 
+             * container pool (just for that type). */
+            p = akl_gc_pool_create(s, t);
+            s->ai_gc_last_was_mark = FALSE;
+            akl_gc_pool_use(p, 0);
+            return akl_vector_at(&p->gp_pool, 0);
         }
     }
 }

@@ -336,6 +336,7 @@ struct akl_state {
     struct akl_vector ai_ir_code;
     bool_t ai_interactive : 1;
     bool_t ai_gc_is_enabled : 1;
+    bool_t ai_gc_last_was_mark : 1;
 };
 
 struct akl_label *akl_new_branches(struct akl_state *, struct akl_vector *v, unsigned int cnt);
@@ -522,8 +523,7 @@ void   akl_gc_sweep_pool(struct akl_gc_pool *);
 void   akl_gc_sweep(struct akl_state *);
 void   akl_gc_enable(struct akl_state *);
 void   akl_gc_disable(struct akl_state *);
-void   akl_gc_pool_add(struct akl_state *, void *, akl_gc_type_t);
-struct akl_gc_pool *akl_new_gc_pool(struct akl_state *, akl_gc_type_t);
+struct akl_gc_pool *akl_gc_pool_create(struct akl_state *, struct akl_gc_type *);
 bool_t akl_gc_pool_is_empty(struct akl_gc_pool *);
 bool_t akl_gc_pool_tryfree(struct akl_state *);
 void   akl_gc_pool_free(struct akl_state *, struct akl_gc_pool *);
