@@ -14,10 +14,14 @@ if [ ${#tests[@]} -eq 1 ] ; then
     fi
     exit 1
 else
+    ret=0
     for t in ${tests[@]} ; do
         ./$t
-        echo ""
+        if [ $? -eq 1 ] ; then
+            ret=1
+        fi
     done
 
     echo "${#tests[@]} tests completed."
+    exit $ret
 fi
