@@ -1,7 +1,7 @@
 /*
  * This is a simple test example.
  * They just show, how you can create AkLisp tests
- * It will be automatically include "aklisp.h" and link and also link itself
+ * It will be automatically include "aklisp.h" and also link itself
  * to the AkLisp shared library too. (libaklisp_shared.so)
 */
 
