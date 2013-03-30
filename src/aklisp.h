@@ -173,7 +173,7 @@ struct akl_function {
     struct akl_context *fn_ctx;
 };
 
-extern struct akl_value {
+static struct akl_value {
     AKL_GC_DEFINE_OBJ;
     struct akl_lex_info *va_lex_info;
     enum AKL_VALUE_TYPE  va_type;
@@ -468,11 +468,11 @@ void *akl_realloc(struct akl_state *, void *, size_t);
 /* The third parameter of akl_free() is not mandatory. */
 void akl_free(struct akl_state *, void *, size_t);
 
-struct akl_state     *akl_new_file_interpreter(const char *, FILE *, void (*)(size_t));
-struct akl_state     *akl_new_string_interpreter(const char *, const char *, void (*)(size_t));
-struct akl_io_device *akl_new_file_device(const char *, FILE *, void (*)(size_t));
-struct akl_io_device *akl_new_string_device(const char *, const char *, void (*)(size_t));
-struct akl_state     *akl_reset_string_interpreter(struct akl_state *, const char *, const char *, void (*)(size_t));
+struct akl_state     *akl_new_file_interpreter(const char *, FILE *, void *(*)(size_t));
+struct akl_state     *akl_new_string_interpreter(const char *, const char *, void *(*)(size_t));
+struct akl_io_device *akl_new_file_device(const char *, FILE *, void *(*)(size_t));
+struct akl_io_device *akl_new_string_device(const char *, const char *, void *(*)(size_t));
+struct akl_state     *akl_reset_string_interpreter(struct akl_state *, const char *, const char *, void *(*)(size_t));
 void                  akl_init_string_device(const char *name, const char *str);
 void                  akl_init_string_device(const char *name, const char *str);
 
@@ -493,7 +493,7 @@ struct akl_list  *akl_cdr(struct akl_state *, struct akl_list *);
 
 /* Creating and destroying structures */
 void                   akl_init_state(struct akl_state *s);
-struct akl_state      *akl_new_state(void *(malloc_fn)(void *));
+struct akl_state      *akl_new_state(void *(*)(size_t));
 void                   akl_init_list(struct akl_list *);
 struct akl_list       *akl_new_list(struct akl_state *);
 struct akl_atom       *akl_new_atom(struct akl_state *, char *);
@@ -519,14 +519,15 @@ void   akl_gc_mark_list(struct akl_state *, void *, bool_t);
 void   akl_gc_mark_list_entry(struct akl_state *, void *, bool_t);
 void   akl_gc_mark_atom(struct akl_state *, void *, bool_t);
 void   akl_gc_mark_value(struct akl_state *, void *, bool_t);
-void   akl_gc_sweep_pool(struct akl_gc_pool *);
+void   akl_gc_sweep_pool(struct akl_state *, struct akl_gc_pool *, akl_gc_marker_t);
 void   akl_gc_sweep(struct akl_state *);
 void   akl_gc_enable(struct akl_state *);
 void   akl_gc_disable(struct akl_state *);
 struct akl_gc_pool *akl_gc_pool_create(struct akl_state *, struct akl_gc_type *);
 bool_t akl_gc_pool_is_empty(struct akl_gc_pool *);
-bool_t akl_gc_pool_tryfree(struct akl_state *);
+bool_t akl_gc_tryfree(struct akl_state *);
 void   akl_gc_pool_free(struct akl_state *, struct akl_gc_pool *);
+void  *akl_gc_malloc(struct akl_state *, akl_gc_type_t);
 
 char             *akl_num_to_str(struct akl_state *, double);
 struct akl_value *akl_to_number(struct akl_state *, struct akl_value *);

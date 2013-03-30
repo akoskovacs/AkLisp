@@ -31,49 +31,17 @@
 #define BIT_SET(byte, bi) (byte) |= BIT_INDEX_MASK(bi)
 #define BIT_CLEAR(byte, bi) (byte) ^= BIT_INDEX_MASK(bi)
 
-static struct akl_gc_object vobj = { 
-    AKL_GC_VALUE
-   , FALSE, FALSE
-   , TRUE 
-};
-
-static struct akl_gc_object aobj = { 
-     AKL_GC_ATOM
-   , FALSE, FALSE
-   , FALSE 
-};
-
-#if _GNUC_
-struct akl_value TRUE_VALUE = {
-	.gc_obj = vobj,
-    .va_type = TYPE_TRUE,
-    .va_value.number = 1,
-    .is_quoted = TRUE,
-    .is_nil = FALSE,
-    .va_lex_info = NULL,
-};
-
-struct akl_value NIL_VALUE = {
-	.gc_obj = vobj,
-    .va_type = TYPE_NIL,
-    .va_value.number = 0,
-    .is_quoted = TRUE,
-    .is_nil = TRUE,
-    .va_lex_info = NULL,
-};
-#else
-struct akl_value TRUE_VALUE = { 
-	vobj
-  , NULL, TYPE_TRUE, (double)0
-  , FALSE, FALSE
-};
-
-struct akl_value FALSE_VALUE = { 
-	vobj
-  , NULL, TYPE_TRUE, (double)0
+static struct akl_value TRUE_VALUE = {
+    { AKL_GC_VALUE , FALSE, FALSE , TRUE }
+  , NULL, TYPE_TRUE, { (double)0 }
   , FALSE, TRUE
 };
-#endif // _GNU_
+
+struct akl_value FALSE_VALUE = {
+    { AKL_GC_VALUE , FALSE, FALSE , TRUE }
+  , NULL, TYPE_NIL, { (double)0 }
+  , FALSE, FALSE
+};
 
 static akl_nomem_action_t
 akl_def_nomem_handler(struct akl_state *s)
@@ -107,9 +75,8 @@ void *akl_alloc(struct akl_state *s, size_t size)
             case AKL_NM_RETNULL:
             return NULL;
         }
-    } else {
-        return ptr;
     }
+    return ptr;
 }
 
 void *akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
@@ -133,19 +100,18 @@ void *akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
             case AKL_NM_RETNULL:
             return NULL;
         }
-    } else {
-        return ptr;
     }
+    return ptr;
 }
 
 void *akl_realloc(struct akl_state *s, void *ptr, size_t size)
 {
-    void *ptr;
+    void *p;
     assert(s && s->ai_realloc_fn);
 
-    ptr = s->ai_realloc_fn(ptr, size);
+    p = s->ai_realloc_fn(ptr, size);
     s->ai_gc_malloc_size += size;
-    if (ptr == NULL) {
+    if (p == NULL) {
         if (!s->ai_nomem_fn)
             s->ai_nomem_fn = akl_def_nomem_handler;
 
@@ -159,9 +125,8 @@ void *akl_realloc(struct akl_state *s, void *ptr, size_t size)
             case AKL_NM_RETNULL:
             return NULL;
         }
-    } else {
-        return ptr;
     }
+    return p;
 }
 
 void akl_free(struct akl_state *s, void *ptr, size_t size)
@@ -189,9 +154,9 @@ akl_gc_type_t akl_gc_register_type(struct akl_state *s, akl_gc_marker_t marker, 
 struct akl_state *
 akl_new_file_interpreter(const char *file_name, FILE *fp, void *(*alloc)(size_t))
 {
-    struct akl_state *in = akl_new_state(alloc);
-    in->ai_device = akl_new_file_device(file_name, fp, alloc);
-    return in;
+    struct akl_state *s = akl_new_state(alloc);
+    s->ai_device = akl_new_file_device(file_name, fp, alloc);
+    return s;
 }
 
 struct akl_state *
@@ -203,7 +168,7 @@ akl_new_string_interpreter(const char *name, const char *str, void *(*alloc)(siz
 }
 
 struct akl_state *
-akl_reset_string_interpreter(struct akl_state *in, const char *name, const char *str, void (*alloc)(size_t))
+akl_reset_string_interpreter(struct akl_state *in, const char *name, const char *str, void *(*alloc)(size_t))
 {
    if (in == NULL) {
        return akl_new_string_interpreter(name, str, alloc);
@@ -311,6 +276,14 @@ void akl_gc_mark_list_entry(struct akl_state *s, void *obj, bool_t m)
     }
 }
 
+void akl_gc_mark_function(struct akl_state *s, void *obj, bool_t m)
+{
+}
+
+void akl_gc_mark_udata(struct akl_state *s, void *obj, bool_t m)
+{
+}
+
 /* NOTE: Only call with value lists! */
 void akl_gc_mark_list(struct akl_state *s, void *obj, bool_t m)
 {
@@ -328,10 +301,11 @@ void akl_gc_mark_all(struct akl_state *s)
     struct akl_atom *atom;
     if (!s->ai_gc_is_enabled)
         return;
-
+#if 0
     RB_FOREACH(atom, ATOM_TREE, &s->ai_atom_head) {
         akl_gc_mark_atom(atom, TRUE);
     }
+#endif
 
     /* Walk around the IR and the variables */
 }
@@ -349,7 +323,7 @@ bool_t akl_gc_pool_in_use(struct akl_gc_pool *p, unsigned int ind)
 {
     assert(p);
     ASSERT_INDEX(ind);
-    BIT_IS_SET(INT_INDEX(p->gp_freemap), ind);
+    return BIT_IS_SET(INT_INDEX(p->gp_freemap), ind);
 }
 
 void akl_gc_pool_use(struct akl_gc_pool *p, unsigned int ind)
@@ -481,7 +455,6 @@ bool_t akl_gc_tryfree(struct akl_state *s)
 void akl_gc_sweep_pool(struct akl_state *s, struct akl_gc_pool *p, akl_gc_marker_t marker)
 {
     struct akl_vector *v;
-    void *p;
     struct akl_gc_generic_object *go;
     int i;
     if (!p || !marker)
@@ -498,7 +471,7 @@ void akl_gc_sweep_pool(struct akl_state *s, struct akl_gc_pool *p, akl_gc_marker
             }
         }
     }
-    akl_gc_sweep_pool(p->gp_next);
+    akl_gc_sweep_pool(s, p->gp_next, marker);
 }
 
 void akl_gc_sweep(struct akl_state *s)
@@ -537,13 +510,13 @@ struct akl_gc_pool *akl_gc_pool_create(struct akl_state *s, struct akl_gc_type *
     struct akl_gc_pool *pool = AKL_MALLOC(s, struct akl_gc_pool);
     pool->gp_next = NULL;
     akl_vector_init(s, &pool->gp_pool, AKL_GC_POOL_SIZE, type->gt_type_size);
-    memset(p->gp_freemap, 0, AKL_GC_POOL_SIZE/BITS_IN_UINT);
+    memset(pool->gp_freemap, 0, AKL_GC_POOL_SIZE/BITS_IN_UINT);
 
     if (type->gt_pool_last) 
         type->gt_pool_last->gp_next = pool;
 
     type->gt_pool_last = pool;
-    type->gt_pools++;
+    type->gt_pool_count++;
     return pool;
 }
 
@@ -574,7 +547,7 @@ void akl_gc_init(struct akl_state *s)
     s->ai_gc_malloc_size = 0;
 
     akl_gc_disable(s);
-    akl_vector_init(s, &s->ai_gc_types, sizeof(akl_gc_type), AKL_GC_NR_BASE_TYPES);
+    akl_vector_init(s, &s->ai_gc_types, sizeof(struct akl_gc_type), AKL_GC_NR_BASE_TYPES);
     for (i = 0; i < AKL_GC_NR_BASE_TYPES; i++) {
         akl_gc_register_type(s, base_type_markers[i], base_type_sizes[i]);
     }
@@ -620,7 +593,7 @@ struct akl_state *akl_new_state(void *(*alloc)(size_t))
 */
 void *akl_gc_malloc(struct akl_state *s, akl_gc_type_t tid)
 {
-    assert(s && type < akl_vector_count(&s->ai_gc_types));
+    assert(s && tid < akl_vector_count(&s->ai_gc_types));
     struct akl_gc_type *t = akl_gc_get_type(s, tid);
     struct akl_gc_pool *p;
     unsigned int ind;
