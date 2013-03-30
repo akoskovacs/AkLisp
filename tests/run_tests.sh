@@ -16,6 +16,7 @@ if [ ${#tests[@]} -eq 1 ] ; then
 else
     for t in ${tests[@]} ; do
         ./$t
+        echo ""
     done
 
     echo "${#tests[@]} tests completed."
