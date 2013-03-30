@@ -4,7 +4,7 @@ export LD_LIBRARY_PATH=..:$LD_LIBRARY_PATH
 
 tests=(*.test)
 
-if [ ${#tests[@]} -eq 1 ] ; then
+if [ ${#tests[@]} -eq 0 ] ; then
     echo "There are no tests built."
     dname=$(basename `pwd`)
     if [ $dname = "tests" ] ; then
@@ -20,6 +20,7 @@ else
         if [ $? -eq 1 ] ; then
             ret=1
         fi
+        echo ""
     done
 
     echo "${#tests[@]} tests completed."
