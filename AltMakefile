@@ -13,9 +13,13 @@ aklisp:
 	$(CP) $(ALTCONF) $(CONF)	
 	cd src ; $(MAKE)
 
-mods:
+modules:
 	@echo "Building modules..."
 	cd modules ; $(MAKE)
+
+test:
+	@echo "Testing AkLisp..."	
+	cd tests ; $(MAKE)
 
 help:
 	@echo "AkLisp build help:"

@@ -26,6 +26,7 @@ if (UNIX)
     endif()
     add_definitions(-DAKL_MODULE_SEARCH_PATH="${CMAKE_INSTALL_PREFIX}/share/AkLisp/modules/" )
     add_custom_target(modules WORKING_DIRECTORY modules COMMAND ${CMAKE_BUILD_TOOL})
+    add_custom_target(test WORKING_DIRECTORY tests COMMAND ${CMAKE_BUILD_TOOL})
     add_custom_target(clean-modules WORKING_DIRECTORY modules COMMAND ${CMAKE_BUILD_TOOL} clean)
 endif()
 
