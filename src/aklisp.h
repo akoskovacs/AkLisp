@@ -121,6 +121,25 @@ struct akl_gc_generic_object {
     AKL_GC_DEFINE_OBJ;
 };
 
+struct akl_list_entry {
+    AKL_GC_DEFINE_OBJ;
+    struct akl_list_entry *le_next;
+    struct akl_list_entry *le_prev;
+    void                  *le_data;
+};
+
+struct akl_list {
+    AKL_GC_DEFINE_OBJ;
+    struct akl_list_entry *li_head;
+    struct akl_list_entry *li_last;
+    struct akl_list *li_parent; /* Parent (container) list */
+    unsigned int     li_elem_count;
+    bool_t is_quoted : 1;
+/* Yep element count == 0 can simply mean NIL, but
+  then we cannot use the AKL_IS_NIL() macro :-( */
+    bool_t is_nil    : 1;
+};
+
 struct akl_userdata {
     unsigned int ud_id; /* Exact user type */
     void        *ud_private; /* Arbitrary userdata */
@@ -254,7 +273,7 @@ struct akl_vector {
 
 inline unsigned int akl_vector_size(struct akl_vector *);
 inline unsigned int akl_vector_count(struct akl_vector *);
-struct akl_vector  *akl_vector_new(struct akl_state *, unsigned int);
+struct akl_vector  *akl_vector_new(struct akl_state *, unsigned int, unsigned int);
 void         akl_vector_init(struct akl_state *, struct akl_vector *, unsigned int, unsigned int);
 void        *akl_vector_reserve(struct akl_vector *);
 unsigned int akl_vector_add(struct akl_vector *, void *);
@@ -284,9 +303,9 @@ struct akl_gc_type {
     size_t          gt_type_size;
     akl_gc_marker_t gt_marker_fn;
 
-    akl_gc_pool    *gt_pool_last;
+    struct akl_gc_pool    *gt_pool_last;
     unsigned int    gt_pool_count;
-    akl_gc_pool     gt_pools;
+    struct akl_gc_pool     gt_pools;
 };
 
 void   akl_stack_push(struct akl_state *, struct akl_value *);
@@ -387,25 +406,6 @@ struct akl_atom *akl_add_global_atom(struct akl_state *, struct akl_atom *);
 void   akl_do_on_all_atoms(struct akl_state *, void (*fn)(struct akl_atom *));
 void   akl_remove_global_atom(struct akl_state *, struct akl_atom *);
 bool_t akl_is_equal_with(struct akl_atom *, const char **);
-
-struct akl_list_entry {
-    AKL_GC_DEFINE_OBJ;
-    struct akl_list_entry *le_next;
-    struct akl_list_entry *le_prev;
-    void                  *le_data;
-};
-
-struct akl_list {
-    AKL_GC_DEFINE_OBJ;
-    struct akl_list_entry *li_head;
-    struct akl_list_entry *li_last;
-    struct akl_list *li_parent; /* Parent (container) list */
-    unsigned int     li_elem_count;
-    bool_t is_quoted : 1;
-/* Yep element count == 0 can simply mean NIL, but
-  then we cannot use the AKL_IS_NIL() macro :-( */
-    bool_t is_nil    : 1;
-};
 
 #define AKL_LIST_FIRST(list) ((list)->li_head)
 #define AKL_LIST_LAST(list) ((list)->li_last)
@@ -651,6 +651,7 @@ void akl_init_file(struct akl_state *);
 #define PURPLE ""
 #define BRIGHT_GREEN ""
 #define START_COLOR(c)
+#define END_COLOR_MARK ""
 #define END_COLOR
 #endif
 
