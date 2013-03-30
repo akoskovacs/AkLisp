@@ -6,7 +6,7 @@ CP = cp
 ALTCONF = config.h.alt
 CONF = conf.h
 MAKE = make
-all: aklisp mods
+all: aklisp modules test
 
 aklisp: 
 	@echo "Building AkLisp..."
@@ -18,14 +18,15 @@ modules:
 	cd modules ; $(MAKE)
 
 test:
-	@echo "Testing AkLisp..."	
+	@echo "Testing AkLisp..."
 	cd tests ; $(MAKE)
 
 help:
 	@echo "AkLisp build help:"
 	@echo "make             - build aklisp and the modules"
 	@echo "make aklisp      - just build aklisp"
-	@echo "make mods        - just build the modules"
+	@echo "make modules     - just build the modules"
+	@echo "make test        - test the build"
 	@echo "make clean       - delete object files"
 	@echo "make clean-cmake - delete junk CMake files"
 
