@@ -64,21 +64,19 @@ void akl_ir_exec_store(struct akl_state *s, struct akl_ir_instruction *ir)
     akl_stack_push(s, v);
 }
 
-void akl_execute_ir(struct akl_state *s, struct akl_vector *ir)
+void akl_execute_ir(struct akl_state *s, struct akl_vector *ir, int ip)
 {
     struct akl_ir_instruction *in;
     struct akl_function *func;
     struct akl_vector *br;
     struct akl_value *v;
-    int ind;
-    AKL_VECTOR_FOREACH(ind, in, ir) {
+    struct akl_label *l;
+    const int inst_cnt = akl_vector_count(ir);
+    for (;ip < inst_cnt; ip++) {
+        in = akl_vector_at(ir, ip);
         switch (in->in_op) {
             case AKL_IR_NOP:
             continue;
-
-            case AKL_IR_LOAD:
-
-            break;
 
             case AKL_IR_STORE:
             akl_ir_exec_store(s, ir, in);
@@ -87,13 +85,35 @@ void akl_execute_ir(struct akl_state *s, struct akl_vector *ir)
             case AKL_IR_CALL:
             break;
 
-            case AKL_IR_BRANCH:
+            case AKL_IR_JMP:
+            l = (struct akl_label *)in->in_op.op[0];
+            akl_execute_ir(s, l->ab_branch, l->ab_code);
+            break;
+
+            case AKL_IR_JT:
             v = akl_stack_pop(s);
             /* If the last value was NIL, execute the false
               branch. */
-            brind = (AKL_IS_NIL(v)) ? 1 : 0;
-            br = (struct akl_vector *)in->in_op.op[brind];
-            akl_execute_ir(s, br);
+            if (AKL_IS_NIL(v))
+                break;
+
+            l = (struct akl_label *)in->in_op.op[0];
+            akl_execute_ir(s, l->ab_branch, l->ab_code);
+            break;
+
+            case AKL_IR_JF:
+            v = akl_stack_pop(s);
+            /* If the last value was NIL, execute the false
+              branch. */
+            if (AKL_IS_TRUE(v))
+                break;
+
+            l = (struct akl_label *)in->in_op.op[0];
+            akl_execute_ir(s, l->ab_branch, l->ab_code);
+            break;
+
+            case AKL_IR_CALL:
+            
             break;
         }
     }

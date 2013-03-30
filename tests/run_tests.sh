@@ -20,6 +20,7 @@ else
         if [ $? -eq 1 ] ; then
             ret=1
         fi
+        echo ""
     done
 
     echo "${#tests[@]} tests completed."
