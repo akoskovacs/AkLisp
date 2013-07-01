@@ -1,8 +1,8 @@
 project(AkLisp)
 cmake_minimum_required(VERSION 2.8)
 set(VER_MAJOR 0)
-set(VER_MINOR 1)
-set(VER_ADDITIONAL "alpha")
+set(VER_MINOR 2)
+set(VER_ADDITIONAL "pre-alpha")
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 
 set(SDIR "./src/")
