@@ -25,12 +25,11 @@
 /* Starting size of the buffer */
 #define DEF_BUFFER_SIZE 50
 
-static void init_lexer(struct akl_state *s, struct akl_io_device *dev)
+static void init_lexer(struct akl_io_device *dev)
 {
     assert(dev);
-    dev->iod_buffer = (char *)akl_alloc(s, DEF_BUFFER_SIZE);
+    dev->iod_buffer = (char *)akl_alloc(dev->iod_state, DEF_BUFFER_SIZE);
     dev->iod_buffer_size = DEF_BUFFER_SIZE;
-    dev->iod_state = s;
 }
 
 void akl_lex_free(struct akl_io_device *dev)
@@ -185,6 +184,8 @@ akl_token_t akl_lex(struct akl_io_device *dev)
       '(++ +5)' should be valid. */
     char op = 0;
     //assert(dev == NULL);
+    if (dev->iod_buffer == NULL)
+        init_lexer(dev);
     while ((ch = akl_io_getc(dev))) {
         /* We should avoid the interpretation of the Unix shebang */
         if (dev->iod_char_count == 1 && ch == '#') {
