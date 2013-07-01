@@ -23,110 +23,123 @@
 #include "aklisp.h"
 #include <stdint.h>
 
-void akl_build_store(struct akl_vector *ir, struct akl_value *arg)
+#define DEFINE_IR_INSTRUCTION(name, ctx) \
+    struct akl_ir_instruction * name = AKL_MALLOC((ctx)->cx_state \
+                                    , struct akl_ir_instruction); \
+    akl_list_append((ctx)->cx_state, (ctx)->cx_ir, name )
+
+void akl_build_store(struct akl_context *ctx, struct akl_value *arg)
 {
-    struct akl_ir_instruction *store = akl_vector_reserve(ir);
+    DEFINE_IR_INSTRUCTION(store, ctx);
     store->in_op = AKL_IR_STORE;
-    store->in_arg[0] = arg;
-    store->in_argc = 1;
+    store->in_arg[0].value = arg;
 }
 
-void akl_build_store_nil(struct akl_vector *ir, struct akl_lex_info *lex)
+int argument_finder(char **args, const char *arg)
 {
-    struct akl_ir_instruction *store = akl_vector_reserve(ir);
-    store->in_op = AKL_IR_STORE_NIL;
-    store->in_arg[0] = lex;
-    store->in_argc = 0;
+    int i = 0;
+    for (i = 0; args[i]; i++) {
+        if (strcmp(args[i], arg) == 0)
+            return i;
+    }
+        
+    return -1;
 }
 
-void akl_build_store_true(struct akl_vector *ir, struct akl_lex_info *lex)
+void akl_build_load(struct akl_context *ctx, char *name)
 {
-    struct akl_ir_instruction *store = akl_vector_reserve(ir);
-    store->in_op = AKL_IR_STORE_TRUE;
-    store->in_arg[0] = lex;
-    store->in_argc = 0;
-}
+    struct akl_function *fn = ctx->cx_func;
+    struct akl_ufun *ufun = NULL;
+    unsigned int ind;
+    DEFINE_IR_INSTRUCTION(load, ctx);
 
-void akl_build_load(struct akl_vector *ir, char *name)
-{
-    struct akl_ir_instruction *load = akl_vector_reserve(ir);
     load->in_op = AKL_IR_LOAD;
-    load->in_arg[0] = name;
-    load->in_argc = 1;
+
+    if (fn->fn_type == AKL_FUNC_USER) {
+        ufun = &fn->fn_body.ufun;
+        /* The 'name' must be an argument or a local variable */
+        if ((ind = argument_finder(ufun->uf_args, name)) != -1)
+            load->in_arg[0].ui_num = ind; // The found stack pointer
+        else
+            akl_add_error(ctx->cx_state, AKL_ERROR, ctx->cx_lex_info
+                , "'%s' parameter variable cannot found!", name);
+    }
 }
 
-void akl_build_call(struct akl_vector *ir, char *fname, int argc)
+/*
+ * If the function is not exist, the at_atom field of the 'fn' parameter is
+ * NIL, therefore we must bind the function at a later time
+*/
+void akl_build_call(struct akl_context *ctx, struct akl_atom *atm, int argc)
 {
-    struct akl_ir_instruction *call = akl_vector_reserve(ir);
+    DEFINE_IR_INSTRUCTION(call, ctx);
     call->in_op = AKL_IR_CALL;
-    call->in_arg[0] = fname;
-    /* Here we use argc, to represent the argument count _for the function_. */
-    call->in_argc = argc;
+    call->in_arg[0].atom = atm;
+    call->in_arg[1].ui_num = argc;
 }
 
 /* It can also mean 'jmp' if the second (the false branch is NULL) */
-void akl_build_jump(struct akl_vector *ir, akl_jump_t jt, struct akl_label *l)
+void akl_build_jump(struct akl_context *ctx, akl_jump_t jt, struct akl_label *l)
 {
-    struct akl_ir_instruction *branch = akl_vector_reserve(ir);
+    DEFINE_IR_INSTRUCTION(branch, ctx);
     branch->in_op = (akl_ir_instruction_t)jt;
-    branch->in_arg.arg[0] = (void *)l; /* True branch */
+    branch->in_arg[0].label = l;
 }
 
-#if 0
-struct akl_vector *akl_compile(struct akl_state *s, struct akl_list *list)
+struct akl_value *akl_build_value(struct akl_context *ctx, akl_token_t tok)
 {
-    struct akl_vector *instr = akl_vector_new(s, 20, sizeof(struct akl_instruction));
-    struct akl_value *val;
-    AKL_LIST_FOREACH(val, list) {
-        if (val->va_value == TYPE_LIST)
-            akl_compile_list(s, AKL_GET_LIST_VALUE(value), instr);
-        else
-            akl_compile_value(s, val, instr);
-    }
-    return instr;
+    return akl_parse_token(ctx->cx_state, ctx->cx_dev, tok, TRUE);
 }
-#endif
-struct akl_value *akl_build_value(struct akl_state *, struct akl_io_device *dev, akl_token_t);
-
 
 /* Build the intermediate representation for an unquoted list */
-void akl_compile_list(struct akl_state *s, struct akl_vector *ir, struct akl_io_device *dev)
+void akl_compile_list(struct akl_context *cx)
 {
-    char *atom_name = NULL;
     bool_t is_quoted = FALSE;
-    struct akl_list *l;
+    char *name;
     akl_token_t tok;
     int argc = 0;
-    struct akl_function *fun;
+    struct akl_atom *afn = NULL;
+    struct akl_function *fun = NULL;
+    struct akl_value *v;
 
-    while ((tok = akl_lex(dev))) {
-        if (tok = tQUOTE) {
+    while ((tok = akl_lex(cx->cx_dev))) {
+        if (tok == tQUOTE) {
             is_quoted = TRUE;
-            tok = akl_lex(dev);
+            tok = akl_lex(cx->cx_dev);
         }
 
         switch (tok) {
             case tATOM:
             if (is_quoted) {
                 /* It just used as a symbol, nothing special... */
-                akl_build_store(ir, akl_build_value(s, dev, tok));
+                akl_build_store(cx, akl_build_value(cx, tok));
                 argc++;
                 break;
             } else {
                 /* If this atom is at the first place (ie. NULL), it must
-                  be some sort of function. Find it out and if it really a
+                  be some sort of function. Find it out and if it is a
                   special form, execute it. */
-                if (!atom_name) {
-                    atom_name = akl_lex_get_atom(s);
-                    fun = akl_find_function(s, atom_name);
-                    if (fun && fun->fn_type == AKL_FUNC_SEPECIAL) {
-                        fun->fn_body.scfun(s, ir, dev);
-                        return;
-                    }
+                if (afn == NULL) {
+                    name = akl_lex_get_atom(cx->cx_dev);
+                    afn = akl_get_global_atom(cx->cx_state, name);
+                    /* The previous function copied the name. Must free it. */
+                    akl_free(cx->cx_state, name, 0);
+                    name = afn->at_name;
+
+                    /* If the function is a special form, we must execute it, now. */
+                    v = afn->at_value;
+                    if (AKL_CHECK_TYPE(v, TYPE_FUNCTION) && v->va_value.func != NULL) {
+                        fun = v->va_value.func;
+                        if (fun->fn_type == AKL_FUNC_SPECIAL) {
+                            fun->fn_body.scfun(cx);
+                            return;
+                        }
+                    } /* else: error */
                     break;
                 }
                 /* Not the first place, it must be a reference to a value */
-                akl_build_load(ir, akl_lex_get_atom(dev));
+                /* TODO: Global definitions */
+                akl_build_load(cx, akl_lex_get_atom(cx->cx_dev));
                 argc++;
             }
             break;
@@ -135,35 +148,45 @@ void akl_compile_list(struct akl_state *s, struct akl_vector *ir, struct akl_io_
             /* The following list can be quoted, then it will be handled
               as an ordinary value */
             if (is_quoted) {
-                akl_build_store(ir, akl_build_value(s, dev, tok));
+                akl_build_store(cx, akl_build_value(cx, tok));
                 argc++;
             } else {
                 /* Not quoted, compile it recursively. */
-                akl_compile_list(s, ir, dev);
+                akl_compile_list(cx);
             }
             break;
 
             case tRBRACE:
             /* We are run out of arguments, it's time for a function call */
-            akl_build_call(ir, atom_name, argc);
+            akl_build_call(cx, afn, argc);
             return;
 
-            case tNIL:
-            akl_build_store_nil(ir, akl_new_lex_info(s, dev));
-            argc++;
-            break;
-
-            case tTRUE:
-            akl_build_store_true(ir, akl_new_lex_info(s, dev));
-            argc++;
-            break;
-
-            /* tNUMBER, tSTRING */
+            /* tNUMBER, tSTRING, tETC... */
             default:
-            akl_build_store(ir, akl_build_value(s, dev, tok));
+            akl_build_store(cx, akl_build_value(cx, tok));
             argc++;
             break;
         }
         is_quoted = FALSE;
     }
+}
+
+struct akl_context *akl_compile(struct akl_state *s, struct akl_io_device *dev)
+{
+    struct akl_context *cx = akl_new_context(s);
+    akl_token_t tok;
+    cx->cx_ir = akl_new_list(s);
+
+    cx->cx_dev = dev;
+    cx->cx_frame = akl_new_list(s);
+    while ((tok = akl_lex(dev)) != tEOF) {
+        if (tok == tLBRACE) {
+            akl_compile_list(cx);
+        } else if (tok == tQUOTE) {
+            akl_parse_list(s, dev);
+        } else {
+            akl_build_store(cx, akl_build_value(cx, tok));
+        }
+    }
+    return cx;
 }

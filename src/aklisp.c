@@ -22,7 +22,102 @@
  ************************************************************************/
 #include "aklisp.h"
 
+#include <stdarg.h>
+
 static struct akl_atom *recent_value;
+
+/* ~~~===### Stack handling ###===~~~ */
+void akl_stack_init(struct akl_context *ctx)
+{
+    ctx->cx_frame = akl_new_list(ctx->cx_state);
+}
+
+struct akl_list_entry *akl_get_stack_pointer(struct akl_context *ctx)
+{
+    return AKL_LIST_LAST(ctx->cx_frame);
+}
+
+void
+akl_init_frame(struct akl_context *ctx, struct akl_list *frame, size_t size)
+{
+    frame->li_head = akl_list_index(ctx->cx_frame, -size);
+    frame->li_last = akl_get_stack_pointer(ctx);
+    frame->li_elem_count = size;
+}
+
+struct akl_list_entry *akl_get_frame_pointer(struct akl_context *ctx)
+{
+    return AKL_LIST_FIRST(ctx->cx_frame);
+}
+
+/* Attention: The stack contains pointer to value pointers */
+void akl_stack_push(struct akl_context *ctx, struct akl_value *value)
+{
+    assert(ctx);
+    akl_list_append_value(ctx->cx_state, ctx->cx_frame, value);
+}
+
+struct akl_value *akl_stack_shift(struct akl_context *ctx)
+{
+    return akl_list_shift(ctx->cx_frame);
+}
+
+struct akl_value *akl_stack_head(struct akl_context *ctx)
+{
+    return (struct akl_value *)AKL_LIST_FIRST(ctx->cx_frame)->le_data;
+}
+
+struct akl_value *akl_stack_pop(struct akl_context *ctx)
+{
+    assert(ctx);
+    struct akl_list_entry *sp = akl_get_stack_pointer(ctx);
+    akl_list_remove_entry(ctx->cx_frame, sp);
+    return (struct akl_value *)sp->le_data;
+}
+
+void akl_stack_clear(struct akl_context *ctx, size_t c)
+{
+    while (c--) {
+        (void)akl_stack_pop(ctx);
+    }
+}
+
+struct akl_value *
+akl_stack_top(struct akl_context *ctx)
+{
+    return (struct akl_value *)akl_get_stack_pointer(ctx)->le_data;
+}
+
+struct akl_lex_info *
+akl_stack_top_lex_info(struct akl_context *ctx)
+{
+    return akl_stack_top(ctx)->va_lex_info;
+}
+
+/* These functions do not check the type of the stack top */
+double akl_stack_pop_number(struct akl_context *ctx)
+{
+    struct akl_value *v = (ctx) ? akl_stack_pop(ctx) : NULL;
+    return (v) ? v->va_value.number : 0.0;
+}
+
+char *akl_stack_pop_string(struct akl_context *ctx)
+{
+    struct akl_value *v = (ctx) ? akl_stack_pop(ctx) : NULL;
+    return (v) ? v->va_value.string : NULL;
+}
+
+struct akl_list *akl_stack_pop_list(struct akl_context *ctx)
+{
+    struct akl_value *v = (ctx) ? akl_stack_pop(ctx) : NULL;
+    return (v) ? v->va_value.list : NULL;
+}
+
+enum AKL_VALUE_TYPE akl_stack_top_type(struct akl_context *ctx)
+{
+    struct akl_value *v = (ctx) ? akl_stack_pop(ctx) : NULL;
+    return (v) ? v->va_type : TYPE_NIL;
+}
 
 static void update_recent_value(struct akl_state *in, struct akl_value *val)
 {
@@ -37,71 +132,214 @@ static void update_recent_value(struct akl_state *in, struct akl_value *val)
     recent_value->at_value = val;
 }
 
-void akl_ir_exec_store(struct akl_state *s, struct akl_ir_instruction *ir)
+void akl_get_value_args(struct akl_context *ctx, int argc, ...)
 {
-    struct akl_value *v;
-    switch (ir->in_arg_type) {
-        case TYPE_STRING:
-        v = akl_new_string_value(s, ir->in_arg.arg[0]);
-        break;
+    assert(ctx && ctx->cx_state && ctx->cx_frame);
+    struct akl_value **vp;
+    struct akl_list *frame = ctx->cx_frame;
+    struct akl_list_entry *ent = AKL_LIST_FIRST(frame);
+    va_list ap;
+    if (argc <= 0)
+        return;
 
-        case TYPE_NUMBER:
-        v = akl_new_number_value(s, ir->in_arg.number);
-        break;
-
-        case TYPE_LIST:
-        v = akl_new_list_value(s, ir->in_arg.arg[0]);
-        break;
-
-        case TYPE_NIL:
-        v = &NIL_VALUE;
-        break;
-
-        case TYPE_TRUE:
-        v = &TRUE_VALUE;
-        break;
+    va_start(ap, argc);
+    while (argc--) {
+        assert(ent);
+        vp = va_arg(ap, struct akl_value **);
+        if (vp != NULL) {
+            *vp = AKL_ENTRY_VALUE(ent);
+        }
+        ent = AKL_LIST_NEXT(ent);
     }
-    akl_stack_push(s, v);
+    va_end(ap);
 }
 
-void akl_execute_ir(struct akl_state *s, struct akl_vector *ir)
+void akl_get_args_strict(struct akl_context *ctx, int argc, ...)
 {
+    assert(ctx && ctx->cx_state && ctx->cx_frame);
+    struct akl_value **vp;
+    enum AKL_VALUE_TYPE t;
+    struct akl_list *frame = ctx->cx_frame;
+    struct akl_list_entry *ent = AKL_LIST_FIRST(frame);
+
+    struct akl_atom **atom; struct akl_function **fun; struct akl_userdata **udata;
+    struct akl_list **list; double *num; bool_t *b; char **str;
+
+    va_list ap;
+    if (argc <= 0)
+        return;
+
+    va_start(ap, argc);
+    while (argc--) {
+        assert(ent);
+        t = va_arg(ap, enum AKL_VALUE_TYPE);
+        *vp = AKL_ENTRY_VALUE(ent);
+        /* The expected type must be the same with the current type,
+            unless if that is a nil or a true */
+        if ((t != TYPE_NIL || t != TYPE_TRUE) && t != (*vp)->va_type) {
+            akl_add_error(ctx->cx_state, AKL_ERROR, (*vp)->va_lex_info
+                  , "%s: Expected type '%s' but got type '%s'"
+                  , ctx->cx_func_name, akl_type_name[t], akl_type_name[(*vp)->va_type]);
+            ent = AKL_LIST_NEXT(ent);
+            continue;
+        }
+        /* Set the caller's pointer to the right value (with the right type) */
+        switch (t) {
+            case TYPE_ATOM:
+            atom = va_arg(ap, struct akl_atom **);
+            *atom = AKL_GET_ATOM_VALUE(*vp);
+            break;
+
+            case TYPE_FUNCTION:
+            fun = va_arg(ap, struct akl_function **);
+            *fun = (*vp)->va_value.func;
+            break;
+
+            case TYPE_LIST:
+            list = va_arg(ap, struct akl_list **);
+            *list = AKL_GET_LIST_VALUE(*vp);
+            break;
+
+            case TYPE_USERDATA:
+            udata = va_arg(ap, struct akl_userdata **);
+            *udata = akl_get_userdata_value(*vp);
+            break;
+
+            case TYPE_NUMBER:
+            num = va_arg(ap, double *);
+            *num = AKL_GET_NUMBER_VALUE(*vp);
+            break;
+
+            case TYPE_STRING:
+            str = va_arg(ap, char **);
+            *str = AKL_GET_STRING_VALUE(*vp);
+            break;
+
+            case TYPE_NIL:
+            b = va_arg(ap, bool_t *);
+            *b = AKL_IS_NIL(*vp) ? TRUE : FALSE;
+            break;
+
+            case TYPE_TRUE:
+            b = va_arg(ap, bool_t *);
+            *b = AKL_IS_NIL(*vp) ? FALSE : TRUE;
+            break;
+        }
+        ent = AKL_LIST_NEXT(ent);
+    }
+    va_end(ap);
+}
+
+void akl_call_function_bound(struct akl_context *ctx, struct akl_function *fn
+                                         , struct akl_list *frame, char *fname)
+{
+    assert(fn);
+    struct akl_context cx = *ctx;
+    struct akl_ufun *ufun;
+    cx.cx_func_name = fname;
+    cx.cx_func = fn;
+    cx.cx_frame = frame;
+
+    switch (fn->fn_type) {
+        case AKL_FUNC_CFUN:
+        akl_stack_push(&cx, fn->fn_body.cfun(&cx, frame->li_elem_count));
+        break;
+
+        case AKL_FUNC_USER:
+        ufun = &fn->fn_body.ufun;
+        cx.cx_lex_info = ufun->uf_info;
+        cx.cx_ir = &ufun->uf_body;
+        akl_execute_ir(&cx);
+        break;
+    }
+
+    /* Clean the stack, by invalidating it... */
+    frame->li_head = akl_get_stack_pointer(&cx); /* Only the last elem is valid */
+    frame->li_head->le_prev = NULL;
+}
+
+void akl_call_function(struct akl_context *ctx, struct akl_atom *atm, struct akl_list *frame)
+{
+    struct akl_value *v = atm->at_value;
+    if (!AKL_CHECK_TYPE(v, TYPE_FUNCTION))
+        return; /* TODO: Error */
+
+    akl_call_function_bound(ctx, v->va_value.func, frame, atm->at_name);
+}
+
+#define MOVE_IP(ip) ((ip) = AKL_LIST_NEXT(ip))
+
+void akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
+{
+    struct akl_list *ir = ctx->cx_ir;
+    struct akl_list frame;
+    struct akl_label *label;
     struct akl_ir_instruction *in;
-    struct akl_function *func;
-    struct akl_vector *br;
     struct akl_value *v;
-    int ind;
-    AKL_VECTOR_FOREACH(ind, in, ir) {
+    struct akl_list_entry *fp = akl_get_frame_pointer(ctx);
+    int argc;
+
+    if (ir == NULL || ip == NULL || AKL_LIST_LAST(ir) == ip)
+        return;
+
+    while (ip != NULL || AKL_LIST_LAST(ir) != ip) {
+        in = (struct akl_ir_instruction *)ip->le_data;
         switch (in->in_op) {
             case AKL_IR_NOP:
-            continue;
-
-            case AKL_IR_LOAD:
-
+            MOVE_IP(ip);
             break;
 
             case AKL_IR_STORE:
-            akl_ir_exec_store(s, ir, in);
+            akl_stack_push(ctx, in->in_arg[0].value);
+            MOVE_IP(ip);
+            break;
+
+            case AKL_IR_LOAD:
+            /* TODO: Error if ui_num < 0 */
+            v = akl_list_index_value(ctx->cx_frame, in->in_arg[0].ui_num);
+            akl_stack_push(ctx, v);
+            MOVE_IP(ip);
             break;
 
             case AKL_IR_CALL:
+            akl_init_frame(ctx, &frame, in->in_arg[1].ui_num);
+            akl_call_function(ctx, in->in_arg[0].atom, &frame);
             break;
 
-            case AKL_IR_BRANCH:
-            v = akl_stack_pop(s);
-            /* If the last value was NIL, execute the false
-              branch. */
-            brind = (AKL_IS_NIL(v)) ? 1 : 0;
-            br = (struct akl_vector *)in->in_op.op[brind];
-            akl_execute_ir(s, br);
+            case AKL_IR_JMP:
+            label = in->in_arg[0].label;
+            ir = label->la_ir;
+            ip = label->la_branch;
+            break;
+
+            case AKL_IR_JT:
+            label = in->in_arg[0].label;
+            v = akl_stack_top(ctx);
+            /* TODO: Error on other types */
+            if (AKL_IS_TRUE(v)) {
+                akl_stack_pop(ctx);
+                ir = label->la_ir;
+                ip = label->la_branch;
+            }
+            break;
+
+            case AKL_IR_JN:
+            label = in->in_arg[0].label;
+            v = akl_stack_top(ctx);
+            /* TODO: Error on other types */
+            if (AKL_IS_NIL(v)) {
+                akl_stack_pop(ctx);
+                ir = label->la_ir;
+                ip = label->la_branch;
+            }
             break;
         }
     }
 }
 
-void akl_execute(struct akl_state *s)
+void akl_execute_ir(struct akl_context *ctx)
 {
-    akl_execute_ir(s, &s->ai_ir_code);
+    akl_ir_exec_branch(ctx, AKL_LIST_FIRST(ctx->cx_ir));
 }
 
 static int compare_numbers(int n1, int n2)
@@ -150,130 +388,6 @@ int akl_compare_values(void *c1, void *c2)
         }
     }
     return -1;
-}
-
-struct akl_value *akl_eval_value(struct akl_state *s, struct akl_value *val, struct akl_context *ctx)
-{
-    struct akl_atom *aval;
-    char *fname;
-    if (val == NULL || AKL_IS_QUOTED(val)) {
-        update_recent_value(in, val);
-        return val;
-    }
-
-    switch (val->va_type) {
-        case TYPE_ATOM:
-        break;
-
-        case TYPE_LIST:
-        return akl_eval_list(in, AKL_GET_LIST_VALUE(val));
-
-        default:
-        update_recent_value(in, val);
-        return val;
-    }
-    return &NIL_VALUE;
-}
-
-struct akl_value *akl_eval_list(struct akl_state *s, struct akl_list *list)
-{
-    struct akl_value *fval;
-    struct akl_value *val;
-    struct akl_function *fn
-
-    fval = akl_eval_value(s, AKL_FIRST_VALUE(list));
-    if (AKL_IS_FUNCTION(fn)) {
-        fval = AKL_GET_FUNCTION_VALUE(fval);
-            switch (fval->va_type) {
-            case AKL_FUNC_SEPECIAL:
-            if (fn->fn_body.scfun)
-                val = fn->fn_body.scfun(s, list);
-            break;
-
-            case AKL_FUNC_CFUN:
-            break;
-        }
-    }
-}
-
-struct akl_value *akl_eval_list(struct akl_state *in, struct akl_list *list)
-{
-    akl_cfun_t cfun;
-    struct akl_list *args;
-    struct akl_atom *fatm = NULL, *aval;
-    struct akl_list_entry *ent;
-    struct akl_value *ret, *tmp, *a1;
-    assert(list);
-
-    if (AKL_IS_NIL(list) || list->li_elem_count == 0)
-        return &NIL_VALUE;
-
-    if (AKL_IS_QUOTED(list)) {
-        ret = akl_new_list_value(in, list);
-        ret->is_quoted = TRUE;
-        update_recent_value(in, ret);
-        return ret;
-    }
-
-    a1 = AKL_FIRST_VALUE(list);
-    if (AKL_CHECK_TYPE(a1, TYPE_ATOM)) {
-        if (fatm == NULL || fatm->at_value == NULL) {
-            akl_add_error(in, AKL_ERROR, a1->va_lex_info, "ERROR: Cannot find \'%s\' function!\n"
-                          , akl_get_atom_name_value(a1));
-            return &NIL_VALUE;
-        }
-        switch (fatm->at_value->va_type) {
-            case TYPE_LIST:
-            return akl_eval_list(in, AKL_GET_LIST_VALUE(fatm->at_value));
-
-            case TYPE_BUILTIN: case TYPE_CFUN:
-                cfun = fatm->at_value->va_value.cfunc;
-            break;
-
-            default:
-                akl_add_error(in, AKL_ERROR, a1->va_lex_info
-                , "ERROR: eval: The first element must be a function!\n");
-            return &NIL_VALUE;
-        }
-    } else {
-        akl_add_error(in, AKL_ERROR, a1->va_lex_info, "ERROR: eval: The first element must be a function!\n");
-        return &NIL_VALUE;
-    }
-
-    /* If the first atom is BUILTIN, i.e: it has full controll over
-      it's arguments, the other elements of the list will not be evaluated...*/
-    if (list->li_elem_count > 1
-            && fatm->at_value->va_type != TYPE_BUILTIN) {
-        /* Not quoted, so start the list processing
-            from the second element. */
-        AKL_LIST_FOREACH_SECOND(ent, list) {
-            tmp = AKL_ENTRY_VALUE(ent);
-            akl_stack_push(akl_eval_value(in, AKL_ENTRY_VALUE(ent)));
-        }
-    }
-
-    if (fatm != NULL) {
-        if (list->li_elem_count > 1)
-            args = akl_cdr(in, list);
-        else
-            args = NULL;
-
-        assert(cfun);
-        ret = cfun(in);
-    }
-    update_recent_value(in, ret);
-    return ret;
-}
-
-void akl_eval_program(struct akl_state *in)
-{
-    struct akl_list *list = in->ai_program;
-    struct akl_list_entry *ent;
-    struct akl_value *value;
-    AKL_LIST_FOREACH(ent, list) {
-        value = AKL_ENTRY_VALUE(ent);
-        akl_eval_value(in, value);
-    }
 }
 
 void akl_add_error(struct akl_state *in, enum AKL_ALERT_TYPE type
