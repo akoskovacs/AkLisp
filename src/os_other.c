@@ -22,6 +22,20 @@
  ************************************************************************/
 #include "aklisp.h"
 
-void akl_init_os(struct akl_instance *in __unused)
+void akl_init_os(struct akl_state *s __unused)
 {
+}
+
+void akl_free_module(struct akl_state *s, struct akl_module *mod)
+{
+}
+
+char *akl_get_module_path(struct akl_state *s, const char *modname)
+{
+    return NULL;
+}
+
+struct akl_module *akl_load_module_desc(struct akl_state *s, char *modpath)
+{
+    return NULL;
 }
