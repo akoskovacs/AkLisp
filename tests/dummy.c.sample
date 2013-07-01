@@ -14,7 +14,7 @@ test_res_t dummy_tester_one(void)
 
 test_res_t dummy_tester_two(void)
 {
-    return TEST_FAIL;
+    return TEST_OK;
 }
 
 int main()
