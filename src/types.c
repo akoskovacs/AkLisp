@@ -22,238 +22,320 @@
  ************************************************************************/
 #include "aklisp.h"
 
-/* ~~~===### VECTOR ###===~~~ */
-struct akl_vector *
-akl_vector_new(struct akl_state *s, unsigned int nmemb, unsigned int size)
+const char *akl_type_name[10] = {
+    "nil", "atom", "number", "string", "list", "true",
+    "function", "user-data", NULL
+};
+
+static struct akl_value TRUE_VALUE = {
+    { AKL_GC_VALUE , FALSE, FALSE , TRUE }
+  , NULL, TYPE_TRUE, { (double)0 }
+  , FALSE, TRUE
+};
+
+struct akl_value FALSE_VALUE = {
+    { AKL_GC_VALUE , FALSE, FALSE , TRUE }
+  , NULL, TYPE_NIL, { (double)0 }
+  , FALSE, FALSE
+};
+
+akl_nomem_action_t
+akl_def_nomem_handler(struct akl_state *s)
 {
-    struct akl_vector *vec = AKL_MALLOC(s, struct akl_vector);
-    akl_vector_init(s, vec, nmemb, size);
-    return vec;
-}
-
-void akl_vector_init(struct akl_state *s, struct akl_vector *vec, unsigned int nmemb, unsigned int size)
-{
-    assert(vec);
-    if (!nmemb)
-        nmemb = AKL_VECTOR_DEFSIZE;
-
-    if (!size)
-        size = sizeof(void *);
-
-    vec->av_vector = akl_calloc(vec->av_state, nmemb, size);
-    vec->av_size = nmemb;
-    vec->av_count = 0;
-    vec->av_msize = size;
-    vec->av_state = s;
-}
-
-bool_t akl_vector_is_empty(struct akl_vector *vec)
-{
-    return (!vec || !vec->av_vector || vec->av_count == 0);
-}
-
-/**
- @brief Remove and return with the last element of a vector
-*/
-void *akl_vector_pop(struct akl_vector *vec)
-{
-    assert(vec);
-    if (vec->av_count == 0)
-        return NULL;
-    return  akl_vector_at(vec, --vec->av_count);
-}
-
-/* Need to grow for the next push? */
-bool_t akl_vector_is_grow_need(struct akl_vector *vec)
-{
-   if (vec && vec->av_count+1 >= vec->av_size)
-       return TRUE;
-
-   return FALSE;
-}
-
-void *akl_vector_reserve(struct akl_vector *vec)
-{
-    if (akl_vector_is_grow_need(vec))
-        akl_vector_grow(vec);
-
-    return akl_vector_at(vec, vec->av_count++);
-}
-
-void *akl_vector_reserve_more(struct akl_vector *vec, int cnt)
-{
-    assert(cnt >= 0);
-    void *start = akl_vector_reserve(vec);
-    cnt--;
-    while (cnt--) {
-        /* I don't care. The space must be contignous */
-        (void)akl_vector_reserve(vec);
-    }
-    return start;
-}
-
-unsigned int
-akl_vector_push(struct akl_vector *vec, void *data)
-{
-    void *ptr;
-    assert(vec);
-    ptr = akl_vector_reserve(vec);
-    memcpy(ptr, data, vec->av_msize);
-    return vec->av_count-1;
-}
-
-void akl_vector_push_vec(struct akl_vector *vec, struct akl_vector *v)
-{
-    void *ptr;
-    if (vec->av_msize != v->av_msize)
-        return;
-
-    if (vec->av_count + v->av_count + 1 < vec->av_size) {
-        akl_vector_grow(vec);
-        akl_vector_push_vec(vec, v);
-        return;
-    }
-
-    ptr = akl_vector_at(vec, vec->av_count+1);
-
-    memcpy(ptr, v->av_vector, v->av_count);
-    vec->av_count += v->av_count;
-}
-
-/** @brief Find a specific element in a vector
-  * @param vec The vector
-  * @param cmp_fn Comparison function
-  * @param arg The argument second argument of the comparison function
-  * @param ind Pointer to an unsigned int, which will store the index
-*/
-void *akl_vector_find(struct akl_vector *vec
-      , akl_cmp_fn_t cmp_fn, void *arg, unsigned int *ind)
-{
-    unsigned int i;
-    void *at;
-    assert(vec);
-    for (i = 0; i < vec->av_size; i++) {
-        at = akl_vector_at(vec, i);
-        if (cmp_fn(at, arg)) {
-            if (ind != NULL)
-                *ind = i;
-            return at;
-        }
-    }
-    return NULL;
-}
-
-void akl_vector_grow(struct akl_vector *vec)
-{
-    assert(vec);
-    int osize = vec->av_size;
-    struct akl_byte_t *bmap;
-    if (vec->av_size > 30)
-        vec->av_size = vec->av_size + (vec->av_size/2);
+    if (akl_gc_tryfree(s))
+        return AKL_NM_TRYAGAIN;
     else
-        vec->av_size = vec->av_size * 2;
-    vec->av_vector = akl_realloc(vec->av_state, vec->av_vector
-                                    , vec->av_size*vec->av_msize);
+        fprintf(stderr, "ERROR! No memory left!\n");
+
+    return AKL_NM_TERMINATE;
 }
 
-/* The user should zero out the removed memory */
-void *akl_vector_remove(struct akl_vector *vec, unsigned int ind)
+void akl_init_state(struct akl_state *s)
 {
-    /* TODO */
+    s->ai_malloc_fn = malloc;
+    s->ai_realloc_fn = realloc;
+    s->ai_calloc_fn = calloc;
+    s->ai_free_fn = free;
+    s->ai_nomem_fn = akl_def_nomem_handler;
+    akl_gc_init(s);
+
+    RB_INIT(&s->ai_atom_head);
+    s->ai_device = NULL;
+    akl_init_list(&s->ai_modules);
+    akl_vector_init(s, &s->ai_utypes, sizeof(struct akl_module *), 5);
+    s->ai_program  = NULL;
+    s->ai_errors   = NULL;
 }
 
-inline void *
-akl_vector_at(struct akl_vector *vec, unsigned int ind)
+struct akl_state *akl_new_state(void *(*alloc)(size_t))
 {
-    assert(vec);
-    if (ind < vec->av_count) {
-        return vec->av_vector + (ind * vec->av_msize);
+    struct akl_state *s;
+    if (!alloc) {
+         alloc = malloc;
     }
-    return NULL;
+    s = (struct akl_state *)alloc(sizeof(struct akl_state));
+    akl_init_state(s);
+    s->ai_malloc_fn = alloc;
+    return s;
 }
 
-inline void *
-akl_vector_last(struct akl_vector *vec)
+void akl_init_list(struct akl_list *list)
 {
-    return akl_vector_at(vec, vec->av_count);
+    AKL_GC_INIT_OBJ(list, AKL_GC_LIST);
+    list->li_head   = NULL;
+    list->li_last   = NULL;
+    list->is_quoted = FALSE;
+    list->is_nil    = FALSE;
+    list->li_parent = NULL;
+    list->li_elem_count  = 0;
 }
 
-inline void *
-akl_vector_first(struct akl_vector *vec)
+struct akl_list *akl_new_list(struct akl_state *s)
 {
-    return akl_vector_at(vec, 0);
+    struct akl_list *list = (struct akl_list *)akl_gc_malloc(s, AKL_GC_LIST);
+    akl_init_list(list);
+    return list;
 }
 
-inline unsigned int
-akl_vector_size(struct akl_vector *vec)
+void akl_init_context(struct akl_context *ctx)
 {
-    assert(vec);
-    return vec->av_size;
+    ctx->cx_state     = NULL;
+    ctx->cx_dev       = NULL;
+    ctx->cx_frame     = NULL;
+    ctx->cx_func      = NULL;
+    ctx->cx_func_name = NULL;
+    ctx->cx_ir        = NULL;
+    ctx->cx_lex_info  = NULL;
 }
 
-inline unsigned int
-akl_vector_count(struct akl_vector *vec)
+struct akl_context *akl_new_context(struct akl_state *s)
 {
-    assert(vec);
-    return vec->av_count;
+    struct akl_context *ctx = AKL_MALLOC(s, struct akl_context);
+    akl_init_context(ctx);
+    ctx->cx_state = s;
+    return ctx;
 }
 
-void akl_vector_destroy(struct akl_state *s, struct akl_vector *vec)
+struct akl_atom *akl_new_atom(struct akl_state *s, char *name)
 {
-    akl_free(s, vec->av_vector, vec->av_size);
+    struct akl_atom *atom = (struct akl_atom *)akl_gc_malloc(s, AKL_GC_ATOM);
+    AKL_GC_INIT_OBJ(atom, AKL_GC_ATOM);
+    assert(name);
+    atom->at_value = NULL;
+    atom->at_name  = name;
+    atom->at_desc  = NULL;
+    return atom;
 }
 
-void akl_vector_free(struct akl_state *s, struct akl_vector *vec)
+struct akl_list_entry *akl_new_list_entry(struct akl_state *s)
 {
-    akl_vector_destroy(s, vec);
-    AKL_FREE(s, vec);
+    struct akl_list_entry *ent =
+            (struct akl_list_entry *)akl_gc_malloc(s, AKL_GC_LIST_ENTRY);
+    AKL_GC_INIT_OBJ(ent, AKL_GC_LIST_ENTRY);
+    ent->le_data = NULL;
+    ent->le_next = NULL;
+    ent->le_prev = NULL;
+    return ent;
 }
 
-/* ~~~===### Stack handling ###===~~~ */
-void akl_stack_init(struct akl_state *s)
+struct akl_lex_info *akl_new_lex_info(struct akl_state *in, struct akl_io_device *dev)
 {
-    assert(s);
-    if (s->ai_stack.av_vector == NULL) {
-        akl_vector_init(s, &s->ai_stack, 50, sizeof(struct akl_value *));
+    struct akl_lex_info *info = AKL_MALLOC(in, struct akl_lex_info);
+    if (dev) {
+        info->li_line = dev->iod_line_count;
+        /* The column, where the token start */
+        info->li_count = dev->iod_column;
+        info->li_name = dev->iod_name;
     }
+    return info;
 }
-/* Attention: The stack contains pointer to value pointers */
-void akl_stack_push(struct akl_state *s, struct akl_value *value)
+
+struct akl_value *akl_new_value(struct akl_state *s)
+{
+    struct akl_value *val = (struct akl_value *)akl_gc_malloc(s, AKL_GC_VALUE);
+    AKL_GC_INIT_OBJ(val, AKL_GC_VALUE);
+    val->is_nil      = FALSE;
+    val->is_quoted   = FALSE;
+    val->va_lex_info = NULL;
+    return val;
+}
+
+struct akl_value *akl_new_string_value(struct akl_state *in, char *str)
+{
+    struct akl_value *val = akl_new_value(in);
+    val->va_type = TYPE_STRING;
+    val->va_value.string = str;
+    val->is_nil = FALSE;
+    return val;
+}
+
+struct akl_value *akl_new_number_value(struct akl_state *in, double num)
+{
+    struct akl_value *val = akl_new_value(in);
+    val->va_type = TYPE_NUMBER;
+    val->va_value.number = num;
+    return val;
+}
+
+struct akl_value *akl_new_list_value(struct akl_state *s, struct akl_list *lh)
+{
+    struct akl_value *val = akl_new_value(s);
+    assert(lh != NULL);
+    val->va_type = TYPE_LIST;
+    val->va_value.list = lh;
+    return val;
+}
+
+struct akl_value *akl_new_nil_value(struct akl_state *s)
+{
+    struct akl_value *nil = akl_new_value(s);
+    *nil = NIL_VALUE;
+    return nil;
+}
+
+struct akl_value *akl_new_true_value(struct akl_state *s)
+{
+    struct akl_value *t = akl_new_value(s);
+    *t = TRUE_VALUE;
+    return t;
+}
+
+struct akl_value *akl_new_user_value(struct akl_state *s, unsigned int type, void *data)
+{
+    struct akl_userdata *udata;
+    struct akl_value    *value;
+    /* We should stop now, since the requested type does not exist */
+    assert(akl_vector_at(&s->ai_utypes, type));
+    udata = (struct akl_userdata *)akl_gc_malloc(s, AKL_GC_UDATA);
+    value = akl_new_value(s);
+    udata->ud_id = type;
+    udata->ud_private = data;
+    value->va_type = TYPE_USERDATA;
+    value->va_value.udata = udata;
+    return value;
+}
+
+struct akl_value *
+akl_new_atom_value(struct akl_state *s, char *name)
+{
+    assert(name);
+    struct akl_value *val = akl_new_value(s);
+    struct akl_atom *atm = akl_new_atom(s, name);
+    val->va_type = TYPE_ATOM;
+    val->va_value.atom = atm;
+    return val;
+}
+
+struct akl_function *
+akl_new_function(struct akl_state *s /*, enum AKL_FUNCTION_TYPE ftype*/)
+{
+    struct akl_function *f;
+    f = (struct akl_function *)akl_gc_malloc(s, AKL_GC_FUNCTION);
+    AKL_GC_INIT_OBJ(f, AKL_GC_FUNCTION);
+//    f->fn_type = ftype;
+    f->fn_body.cfun = NULL;
+    return f;
+}
+
+struct akl_value *
+akl_new_function_value(struct akl_state *s, struct akl_function *f)
+{
+    struct akl_value *v = akl_new_value(s);
+    v->va_type = TYPE_FUNCTION;
+    v->va_value.func = f;
+    return v;
+}
+
+struct akl_io_device *
+akl_new_file_device(struct akl_state *s, const char *file_name, FILE *fp)
 {
     assert(s);
-    akl_vector_push(&s->ai_stack, &value);
+    struct akl_io_device *dev;
+
+    dev = AKL_MALLOC(s, struct akl_io_device);
+    dev->iod_type        = DEVICE_FILE;
+    dev->iod_source.file = fp;
+    dev->iod_pos         = 0;
+    dev->iod_line_count  = 1;
+    dev->iod_name        = file_name;
+    dev->iod_buffer      = NULL;
+    dev->iod_buffer_size = 0;
+    dev->iod_state       = s;
+    return dev;
 }
 
-struct akl_value *akl_stack_pop(struct akl_state *s)
+struct akl_io_device *
+akl_new_string_device(struct akl_state *s, const char *name, const char *str)
 {
     assert(s);
-    void **p = (void **)akl_vector_pop(&s->ai_stack);
-    return (struct akl_value *)*p;
+    struct akl_io_device *dev;
+
+    dev = AKL_MALLOC(s, struct akl_io_device);
+    dev->iod_type        = DEVICE_STRING;
+    dev->iod_source.string = str;
+    dev->iod_pos         = 0;
+    dev->iod_line_count  = 1;
+    dev->iod_char_count  = 0;
+    dev->iod_name        = name;
+    dev->iod_buffer      = NULL;
+    dev->iod_buffer_size = 0;
+    dev->iod_state       = s;
+    return dev;
 }
 
-/* These functions do not check the type of the stack top */
-double akl_stack_pop_number(struct akl_state *s)
+struct akl_state *
+akl_new_file_interpreter(const char *file_name, FILE *fp, void *(*alloc)(size_t))
 {
-    struct akl_value *v = (s) ? akl_stack_pop(s) : NULL;
-    return (v) ? v->va_value.number : NULL;
+    struct akl_state *s = akl_new_state(alloc);
+    s->ai_device = akl_new_file_device(s, file_name, fp);
+    return s;
 }
 
-char *akl_stack_pop_string(struct akl_state *s)
+struct akl_state *
+akl_new_string_interpreter(const char *name, const char *str, void *(*alloc)(size_t))
 {
-    struct akl_value *v = (s) ? akl_stack_pop(s) : NULL;
-    return (v) ? v->va_value.string : NULL;
+    struct akl_state *s = akl_new_state(alloc);
+    s->ai_device = akl_new_string_device(s, name, str);
+    return s;
 }
 
-struct akl_list *akl_stack_pop_list(struct akl_state *s)
+struct akl_state *
+akl_reset_string_interpreter(struct akl_state *in, const char *name, const char *str, void *(*alloc)(size_t))
 {
-    struct akl_value *v = (s) ? akl_stack_pop(s) : NULL;
-    return (v) ? v->va_value.list : NULL;
+   if (in == NULL) {
+       return akl_new_string_interpreter(name, str, in->ai_malloc_fn);
+   } else if (in->ai_device == NULL) {
+       in->ai_device = akl_new_string_device(in, name, str);
+       return in;
+   } else {
+       in->ai_device->iod_type = DEVICE_STRING;
+       in->ai_device->iod_source.string = str;
+       in->ai_device->iod_pos        = 0;
+       in->ai_device->iod_char_count = 0;
+       in->ai_device->iod_line_count = 0;
+//       if (in->ai_program)
+//           akl_free_list(in, in->ai_program);
+       return in;
+   }
 }
 
-enum AKL_VALUE_TYPE akl_stack_top_type(struct akl_state *s)
+/* Won't call fclose() */
+struct akl_state *
+akl_reset_file_interpreter(struct akl_state *in, const char *name, FILE *fp)
 {
-    struct akl_value *v = (s) ? akl_stack_pop(s) : NULL;
-    return (v) ? v->va_type : TYPE_NIL;
+   if (in && in->ai_device == NULL) {
+       in->ai_device = akl_new_file_device(in, name, fp);
+       return in;
+   } else {
+       in->ai_device->iod_type = DEVICE_FILE;
+       in->ai_device->iod_source.string = name;
+       in->ai_device->iod_pos        = 0;
+       in->ai_device->iod_char_count = 0;
+       in->ai_device->iod_line_count = 0;
+//       if (in->ai_program)
+//           akl_free_list(in, in->ai_program);
+       return in;
+   }
 }
 
 /* ~~~===### Some getter and conversion functions ###===~~~ */
@@ -262,6 +344,12 @@ char *akl_get_atom_name_value(struct akl_value *val)
 {
     struct akl_atom *atom = AKL_GET_ATOM_VALUE(val);
     return (atom != NULL) ? atom->at_name : NULL;
+}
+
+bool_t akl_atom_is_function(struct akl_atom *atm)
+{
+    struct akl_value *v = (atm != NULL) ? atm->at_value : NULL;
+    return (v != NULL && v->va_type == TYPE_FUNCTION) ? TRUE : FALSE;
 }
 
 /* NOTE: These functions give back a NULL pointer, if the conversion
@@ -414,6 +502,7 @@ bool_t akl_check_user_type(struct akl_value *v, akl_utype_t type)
     return FALSE;
 }
 
+#if 0
 struct akl_module *akl_get_module_descriptor(struct akl_state *in, struct akl_value *v)
 {
     struct akl_userdata *data;
@@ -423,6 +512,7 @@ struct akl_module *akl_get_module_descriptor(struct akl_state *in, struct akl_va
     }
     return NULL;
 }
+#endif
 
 unsigned int akl_get_utype_value(struct akl_value *value)
 {
@@ -436,11 +526,11 @@ unsigned int akl_get_utype_value(struct akl_value *value)
 unsigned int
 akl_register_type(struct akl_state *s, const char *name, akl_gc_destructor_t de_fun)
 {
-    struct akl_utype *type = AKL_MALLOC(s, struct akl_utype);
+    struct akl_utype *type = (struct akl_utype *)akl_vector_reserve(&s->ai_utypes);
     type->ut_name = name;
     type->ut_de_fun = de_fun;
 
-    return akl_vector_add(&s->ai_utypes, type);
+    return akl_vector_count(&s->ai_utypes);
 }
 
 void akl_deregister_type(struct akl_state *s, unsigned int type)

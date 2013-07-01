@@ -31,29 +31,6 @@
 #define BIT_SET(byte, bi) (byte) |= BIT_INDEX_MASK(bi)
 #define BIT_CLEAR(byte, bi) (byte) ^= BIT_INDEX_MASK(bi)
 
-static struct akl_value TRUE_VALUE = {
-    { AKL_GC_VALUE , FALSE, FALSE , TRUE }
-  , NULL, TYPE_TRUE, { (double)0 }
-  , FALSE, TRUE
-};
-
-struct akl_value FALSE_VALUE = {
-    { AKL_GC_VALUE , FALSE, FALSE , TRUE }
-  , NULL, TYPE_NIL, { (double)0 }
-  , FALSE, FALSE
-};
-
-static akl_nomem_action_t
-akl_def_nomem_handler(struct akl_state *s)
-{
-    if (akl_gc_tryfree(s))
-        return AKL_NM_TRYAGAIN;
-    else
-        fprintf(stderr, "ERROR! No memory left!\n");
-
-    return AKL_NM_TERMINATE;
-}
-
 void *akl_alloc(struct akl_state *s, size_t size)
 {
     void *ptr;
@@ -85,7 +62,7 @@ void *akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
     assert(s && s->ai_calloc_fn);
 
     ptr = s->ai_calloc_fn(nmemb, size);
-    s->ai_gc_malloc_size += size;
+    s->ai_gc_malloc_size += size*nmemb;
     if (ptr == NULL) {
         if (!s->ai_nomem_fn)
             s->ai_nomem_fn = akl_def_nomem_handler;
@@ -146,64 +123,11 @@ akl_gc_type_t akl_gc_register_type(struct akl_state *s, akl_gc_marker_t marker, 
     t->gt_marker_fn = marker;
     t->gt_pool_count = 0;
     t->gt_pool_last = NULL;
-    t->gt_type_id = akl_vector_count(&s->ai_gc_types)-1;
+    t->gt_pool_head = NULL;
+    t->gt_type_id = s->ai_gc_types.av_count-1;
+    t->gt_type_size = objsize;
     akl_gc_pool_create(s, t);
     return t->gt_type_id;
-}
-
-struct akl_state *
-akl_new_file_interpreter(const char *file_name, FILE *fp, void *(*alloc)(size_t))
-{
-    struct akl_state *s = akl_new_state(alloc);
-    s->ai_device = akl_new_file_device(file_name, fp, alloc);
-    return s;
-}
-
-struct akl_state *
-akl_new_string_interpreter(const char *name, const char *str, void *(*alloc)(size_t))
-{
-    struct akl_state *s = akl_new_state(alloc);
-    s->ai_device = akl_new_string_device(name, str, alloc);
-    return s;
-}
-
-struct akl_state *
-akl_reset_string_interpreter(struct akl_state *in, const char *name, const char *str, void *(*alloc)(size_t))
-{
-   if (in == NULL) {
-       return akl_new_string_interpreter(name, str, alloc);
-   } else if (in->ai_device == NULL) {
-       in->ai_device = akl_new_string_device(name, str, alloc);
-       return in;
-   } else {
-       in->ai_device->iod_type = DEVICE_STRING;
-       in->ai_device->iod_source.string = str;
-       in->ai_device->iod_pos        = 0;
-       in->ai_device->iod_char_count = 0;
-       in->ai_device->iod_line_count = 0;
-//       if (in->ai_program)
-//           akl_free_list(in, in->ai_program);
-       return in;
-   }
-}
-
-/* Won't call fclose() */
-struct akl_state *
-akl_reset_file_interpreter(struct akl_state *in, const char *name, FILE *fp)
-{
-   if (in && in->ai_device == NULL) {
-       in->ai_device = akl_new_file_device(name, fp, in->ai_malloc_fn);
-       return in;
-   } else {
-       in->ai_device->iod_type = DEVICE_FILE;
-       in->ai_device->iod_source.string = name;
-       in->ai_device->iod_pos        = 0;
-       in->ai_device->iod_char_count = 0;
-       in->ai_device->iod_line_count = 0;
-//       if (in->ai_program)
-//           akl_free_list(in, in->ai_program);
-       return in;
-   }
 }
 
 void akl_free_state(struct akl_state *in)
@@ -296,6 +220,11 @@ void akl_gc_mark_list(struct akl_state *s, void *obj, bool_t m)
     AKL_GC_SET_MARK(list, m);
 }
 
+void akl_gc_mark(struct akl_state *s)
+{
+    /* Walk around the IR and the variables */
+}
+
 void akl_gc_mark_all(struct akl_state *s)
 {
     struct akl_atom *atom;
@@ -307,7 +236,6 @@ void akl_gc_mark_all(struct akl_state *s)
     }
 #endif
 
-    /* Walk around the IR and the variables */
 }
 
 void akl_gc_unmark_all(struct akl_state *s)
@@ -360,7 +288,7 @@ int akl_gc_pool_find_free(struct akl_gc_pool *p)
     int cnt = akl_vector_count(&p->gp_pool);
     if (cnt < AKL_GC_POOL_SIZE && akl_gc_pool_in_use(p, cnt))
         return cnt;
-    
+
     /* Nope... */
     for (i = 0; i < AKL_GC_POOL_SIZE/BITS_IN_UINT; i++) {
         if (p->gp_freemap[i] != UINT_MAX) {
@@ -375,7 +303,7 @@ int akl_gc_pool_find_free(struct akl_gc_pool *p)
 
 bool_t akl_gc_type_have_free(struct akl_gc_type *t, struct akl_gc_pool **pool, unsigned int *ind)
 {
-    struct akl_gc_pool *p = &t->gt_pools;
+    struct akl_gc_pool *p = t->gt_pool_head;
     /* The last pool should have some free room (small optimization) */
     if (akl_gc_pool_have_free(t->gt_pool_last)) {
         *ind = akl_gc_pool_find_free(t->gt_pool_last);
@@ -403,11 +331,11 @@ bool_t akl_gc_pool_is_empty(struct akl_gc_pool *p)
         s += p->gp_freemap[i];
     }
     return s == 0;
-} 
+}
 
 void akl_gc_pool_free(struct akl_state *s, struct akl_gc_pool *p)
 {
-    akl_vector_destroy(&p->gp_pool);
+    akl_vector_destroy(s, &p->gp_pool);
     akl_free(s, p->gp_freemap, AKL_GC_POOL_SIZE/BITS_IN_UINT);
     AKL_FREE(s, p);
 }
@@ -418,7 +346,7 @@ bool_t akl_gc_type_tryfree(struct akl_state *s, struct akl_gc_type *t)
     struct akl_gc_pool *prev = NULL;
     struct akl_gc_pool *next;
     /* Must start from the second pool. */
-    struct akl_gc_pool *p = t->gt_pools.gp_next;
+    struct akl_gc_pool *p = t->gt_pool_head;
     bool_t succeed = FALSE;
 
     while (p) {
@@ -444,7 +372,7 @@ bool_t akl_gc_tryfree(struct akl_state *s)
 {
     assert(s);
     bool_t succeed = FALSE;
-    int i; 
+    int i;
     for (i = 0; i < akl_vector_count(&s->ai_gc_types); i++) {
         if (akl_gc_type_tryfree(s, akl_gc_get_type(s, i)))
             succeed = TRUE;
@@ -481,7 +409,7 @@ void akl_gc_sweep(struct akl_state *s)
     if (s->ai_gc_is_enabled) {
         for (i = 0; i < akl_vector_count(&s->ai_gc_types); i++) {
             t = akl_gc_get_type(s, i);
-            akl_gc_sweep_pool(s, &t->gt_pools, t->gt_marker_fn);
+            akl_gc_sweep_pool(s, t->gt_pool_head, t->gt_marker_fn);
         }
     }
 }
@@ -509,30 +437,24 @@ struct akl_gc_pool *akl_gc_pool_create(struct akl_state *s, struct akl_gc_type *
 {
     struct akl_gc_pool *pool = AKL_MALLOC(s, struct akl_gc_pool);
     pool->gp_next = NULL;
-    akl_vector_init(s, &pool->gp_pool, AKL_GC_POOL_SIZE, type->gt_type_size);
+    akl_vector_init(s, &pool->gp_pool, type->gt_type_size, AKL_GC_POOL_SIZE);
     memset(pool->gp_freemap, 0, AKL_GC_POOL_SIZE/BITS_IN_UINT);
 
-    if (type->gt_pool_last) 
+    if (type->gt_pool_last)
         type->gt_pool_last->gp_next = pool;
+
+    if (type->gt_pool_head == NULL)
+        type->gt_pool_head = pool;
 
     type->gt_pool_last = pool;
     type->gt_pool_count++;
     return pool;
 }
 
-struct akl_function *akl_new_function(struct akl_state *s)
-{
-    struct akl_function *func = (struct akl_function *)
-                        akl_gc_malloc(s, AKL_GC_FUNCTION);
-    //func->fn_argc = 0;
-    //func->fn_body = NULL;
-    return func;
-}
-
 // TODO: Implement akl_gc_mark_function and akl_gc_mark_udata
 const akl_gc_marker_t base_type_markers[] = {
     akl_gc_mark_value, akl_gc_mark_atom, akl_gc_mark_list
-  , akl_gc_mark_list_entry, akl_gc_mark_function, akl_gc_mark_udata 
+  , akl_gc_mark_list_entry, akl_gc_mark_function, akl_gc_mark_udata
 };
 
 const size_t base_type_sizes[] = {
@@ -552,37 +474,6 @@ void akl_gc_init(struct akl_state *s)
         akl_gc_register_type(s, base_type_markers[i], base_type_sizes[i]);
     }
 }
-
-void akl_init_state(struct akl_state *s)
-{
-    RB_INIT(&s->ai_atom_head);
-    s->ai_device = NULL;
-    akl_init_list(&s->ai_modules);
-    akl_vector_init(s, &s->ai_utypes, sizeof(struct akl_module *), 5);
-    s->ai_program  = NULL;
-    s->ai_errors   = NULL;
-
-    s->ai_malloc_fn = malloc;
-    s->ai_realloc_fn = realloc;
-    s->ai_calloc_fn = calloc;
-    s->ai_free_fn = free;
-    s->ai_nomem_fn = akl_def_nomem_handler;
-
-    akl_gc_init(s);
-}
-
-struct akl_state *akl_new_state(void *(*alloc)(size_t))
-{
-    struct akl_state *s;
-    if (!alloc) {
-         alloc = malloc;
-    }
-    s = (struct akl_state *)alloc(sizeof(struct akl_state));
-    akl_init_state(s);
-    s->ai_malloc_fn = alloc;
-    return s;
-}
-
 /**
  * @brief Request memory from the GC
  * @param s An instance of the interpreter (cannot be NULL)
@@ -600,7 +491,7 @@ void *akl_gc_malloc(struct akl_state *s, akl_gc_type_t tid)
     if (akl_gc_type_have_free(t, &p, &ind)) {
         /* This was too easy... */
         akl_gc_pool_use(p, ind);
-        return akl_vector_at(&p->gp_pool, (unsigned int)ind);
+        return akl_vector_at(&p->gp_pool, ind);
     } else {
         if (!s->ai_gc_last_was_mark && s->ai_gc_is_enabled) {
             akl_gc_mark(s);
@@ -609,7 +500,7 @@ void *akl_gc_malloc(struct akl_state *s, akl_gc_type_t tid)
             return akl_gc_malloc(s, tid);
         } else {
             /* We cannot collect enough memory :-( => we have to to some
-             * allocation. To do this we must also need to create the 
+             * allocation. To do this we must also need to create the
              * container pool (just for that type). */
             p = akl_gc_pool_create(s, t);
             s->ai_gc_last_was_mark = FALSE;
@@ -617,157 +508,6 @@ void *akl_gc_malloc(struct akl_state *s, akl_gc_type_t tid)
             return akl_vector_at(&p->gp_pool, 0);
         }
     }
-}
-
-void akl_init_list(struct akl_list *list)
-{
-    AKL_GC_INIT_OBJ(list, AKL_GC_LIST);
-    list->li_head   = NULL;
-    list->li_last   = NULL;
-    list->is_quoted = FALSE;
-    list->is_nil    = FALSE;
-    list->li_parent = NULL;
-    list->li_elem_count  = 0;
-}
-
-struct akl_list *akl_new_list(struct akl_state *s)
-{
-    struct akl_list *list = (struct akl_list *)akl_gc_malloc(s, AKL_GC_LIST);
-    akl_init_list(list);
-    return list;
-}
-
-struct akl_atom *akl_new_atom(struct akl_state *s, char *name)
-{
-    struct akl_atom *atom = (struct akl_atom *)akl_gc_malloc(s, AKL_GC_ATOM);
-    AKL_GC_INIT_OBJ(atom, AKL_GC_ATOM);
-    assert(name);
-    atom->at_value = NULL;
-    atom->at_name  = name;
-    atom->at_desc  = NULL;
-    return atom;
-}
-
-struct akl_list_entry *akl_new_list_entry(struct akl_state *s)
-{
-    struct akl_list_entry *ent =
-            (struct akl_list_entry *)akl_gc_malloc(s, AKL_GC_LIST_ENTRY);
-    AKL_GC_INIT_OBJ(ent, AKL_GC_LIST_ENTRY);
-    ent->le_data = NULL;
-    ent->le_next = NULL;
-    ent->le_prev = NULL;
-    return ent;
-}
-
-struct akl_lex_info *akl_new_lex_info(struct akl_state *in, struct akl_io_device *dev)
-{
-    struct akl_lex_info *info = AKL_MALLOC(in, struct akl_lex_info);
-    if (dev) {
-        info->li_line = dev->iod_line_count;
-        /* The column, where the token start */
-        info->li_count = dev->iod_column;
-        info->li_name = dev->iod_name;
-    }
-    return info;
-}
-
-struct akl_value *akl_new_value(struct akl_state *s)
-{
-    struct akl_value *val = (struct akl_value *)akl_gc_malloc(s, AKL_GC_VALUE);
-    AKL_GC_INIT_OBJ(val, AKL_GC_VALUE);
-    val->is_nil    = FALSE;
-    val->is_quoted = FALSE;
-    val->va_lex_info = NULL;
-    return val;
-}
-
-struct akl_value *akl_new_string_value(struct akl_state *in, char *str)
-{
-    struct akl_value *val = akl_new_value(in);
-    val->va_type = TYPE_STRING;
-    val->va_value.string = str;
-    val->is_nil = FALSE;
-    return val;
-}
-
-struct akl_value *akl_new_number_value(struct akl_state *in, double num)
-{
-    struct akl_value *val = akl_new_value(in);
-    val->va_type = TYPE_NUMBER;
-    val->va_value.number = num;
-    return val;
-}
-
-struct akl_value *akl_new_list_value(struct akl_state *s, struct akl_list *lh)
-{
-    struct akl_value *val = akl_new_value(s);
-    assert(lh != NULL);
-    val->va_type = TYPE_LIST;
-    val->va_value.list = lh;
-    return val;
-}
-
-struct akl_value *akl_new_user_value(struct akl_state *in, unsigned int type, void *data)
-{
-    struct akl_userdata *udata;
-    struct akl_value    *value;
-    /* We should stop now, since the requested type does not exist */
-    assert(akl_vector_at(&in->ai_utypes, type));
-    udata = (struct akl_userdata *)akl_gc_malloc(in, AKL_GC_UDATA);
-    value = akl_new_value(in);
-    udata->ud_id = type;
-    udata->ud_private = data;
-    value->va_type = TYPE_USERDATA;
-    value->va_value.udata = udata;
-    return value;
-}
-
-struct akl_value *
-akl_new_atom_value(struct akl_state *in, char *name)
-{
-    assert(name);
-    struct akl_value *val = akl_new_value(in);
-    struct akl_atom *atm = akl_new_atom(in, name);
-    val->va_type = TYPE_ATOM;
-    val->va_value.atom = atm;
-    return val;
-}
-
-struct akl_io_device *
-akl_new_file_device(const char *file_name, FILE *fp, void *(*alloc)(size_t))
-{
-    struct akl_io_device *dev;
-    if (!alloc)
-        alloc = malloc;
-
-    dev = (struct akl_io_device *)alloc(sizeof(struct akl_io_device));
-    dev->iod_type = DEVICE_FILE;
-    dev->iod_source.file = fp;
-    dev->iod_pos = 0;
-    dev->iod_line_count = 1;
-    dev->iod_name = file_name;
-    dev->iod_buffer = NULL;
-    dev->iod_buffer_size = 0;
-    return dev;
-}
-
-struct akl_io_device *
-akl_new_string_device(const char *name, const char *str, void *(*alloc)(size_t))
-{
-    struct akl_io_device *dev;
-    if (!alloc)
-        alloc = malloc;
-
-    dev = (struct akl_io_device *)alloc(sizeof(struct akl_io_device));
-    dev->iod_type = DEVICE_STRING;
-    dev->iod_source.string = str;
-    dev->iod_pos = 0;
-    dev->iod_line_count = 1;
-    dev->iod_char_count = 0;
-    dev->iod_name = name;
-    dev->iod_buffer = NULL;
-    dev->iod_buffer_size = 0;
-    return dev;
 }
 
 /* ~~~===### Free functions ###===~~~ */
