@@ -10,6 +10,7 @@ size_t term_width;
 
 int get_term_width(void)
 {
+#ifdef USE_TPUT
     FILE *tput = popen("tput cols", "r");
     int cols = 0;
     if (!tput)
@@ -17,6 +18,9 @@ int get_term_width(void)
 
     fscanf(tput, "%d", &cols);
     return cols;
+#else
+    return 80;
+#endif
 }
 
 void print_status(const char *desc, test_res_t res)
