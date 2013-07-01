@@ -28,6 +28,7 @@ if (UNIX)
     add_custom_target(modules WORKING_DIRECTORY modules COMMAND ${CMAKE_BUILD_TOOL})
     add_custom_target(test WORKING_DIRECTORY tests COMMAND ${CMAKE_BUILD_TOOL})
     add_custom_target(clean-modules WORKING_DIRECTORY modules COMMAND ${CMAKE_BUILD_TOOL} clean)
+    add_custom_target(clean-test WORKING_DIRECTORY tests COMMAND ${CMAKE_BUILD_TOOL} clean)
 endif()
 
 if (!UNIX)
@@ -35,16 +36,20 @@ if (!UNIX)
 endif ()
 
 set(SOURCES 
-    ${SDIR}${PLATSRC}
+#    ${SDIR}${PLATSRC}
+    ${SDIR}os_other.c
     ${SDIR}aklisp.c
     ${SDIR}lib.c
     ${SDIR}gc.c
     ${SDIR}parser.c
     ${SDIR}list.c
-    ${SDIR}lib_file.c
+#    ${SDIR}lib_file.c
     ${SDIR}lib_spec.c
     ${SDIR}types.c
     ${SDIR}compile.c
+    ${SDIR}vector.c
+    ${SDIR}module.c
+    ${SDIR}util.c
     ${SDIR}lexer.c)
 
 option(USE_COLORS "Use standard terminal colors" ON)
