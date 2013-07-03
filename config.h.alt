@@ -2,5 +2,5 @@
 #define HAVE_EXECINFO_H 0
 #define VER_MAJOR 0
 #define VER_MINOR 2
-#define VER_ADDITIONAL "pre-alpha"
+#define VER_ADDITIONAL "prealpha"
 #define AKL_MODULE_SEARCH_PATH "/usr/local/AkLisp/modules/"
