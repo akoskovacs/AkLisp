@@ -41,10 +41,10 @@ akl_generator(const char *text, int state)
     /* If this is the first run, initialize the 'atom' with
       the first element of the red black tree. */
     if (!state) {
-        atom = RB_MIN(ATOM_TREE, &in->ai_atom_head);
+        atom = RB_MIN(ATOM_TREE, &in.ai_atom_head);
         tlen = strlen(text);
     } else {
-        atom = RB_NEXT(ATOM_TREE, &in->ai_atom_head, atom);
+        atom = RB_NEXT(ATOM_TREE, &in.ai_atom_head, atom);
     }
 
     while (atom != NULL) {
@@ -116,6 +116,8 @@ static void interactive_mode(void)
     int lnum = 1;
     struct akl_value *value;
     char *line;
+    struct akl_io_device *dev;
+    struct akl_context *ctx;
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
     printf("Copyleft (C) 2012 Akos Kovacs\n\n");
@@ -128,16 +130,17 @@ static void interactive_mode(void)
         line = readline(prompt);
         if (line == NULL || strcmp(line, "exit") == 0) {
             printf("Bye!\n");
-            AKL_FREE(line);
+            free(line);
             return;
         }
         if (line && *line) {
             add_history(line);
-            value = akl_parse_string(&in, "stdin", line);
-            akl_print_value(in, value);
+            dev = akl_new_string_device(&in, "stdio", line);
             /*akl_list_append(in, inst->ai_program, il);*/
-            printf("\n => ");
-            akl_print_value(&in, akl_eval_value(&in, value));
+            ctx = akl_compile(&in, dev);
+            akl_execute_ir(ctx);
+            printf(" => ");
+            akl_print_value(&in, akl_stack_pop(ctx));
             akl_print_errors(&in);
             akl_clear_errors(&in);
             printf("\n");
@@ -156,17 +159,19 @@ int main(int argc, const char *argv[])
             return -1;
         }
         // TODO...
-        in = akl_new_file_interpreter(argv[1], fp);
-        in->ai_interactive = FALSE;
+    //    in = akl_new_file_interpreter(argv[1], fp);
+        in.ai_interactive = FALSE;
     } else {
         interactive_mode();
         return 0;
     }
+#if 0
     akl_init_lib(in, AKL_LIB_ALL);
     akl_parse(in);
     akl_eval_program(in);
     akl_print_errors(in);
     akl_clear_errors(in);
 //    akl_free_state(in);
+#endif
     return 0;
 }

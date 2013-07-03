@@ -22,86 +22,6 @@
  ************************************************************************/
 #include "aklisp.h"
 
-RB_GENERATE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
-
-struct akl_atom *akl_add_global_atom(struct akl_state *in, struct akl_atom *atom)
-{
-    AKL_GC_SET_STATIC(atom);
-    return ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
-}
-
-void akl_remove_global_atom(struct akl_state *in, struct akl_atom *atom)
-{
-    ATOM_TREE_RB_REMOVE(&in->ai_atom_head, atom);
-}
-
-void akl_remove_function(struct akl_state *in, akl_cfun_t fn)
-{
-    struct akl_atom *atom;
-    RB_FOREACH(atom, ATOM_TREE, &in->ai_atom_head) {
-        if (atom->at_value && atom->at_value->va_value.cfunc == fn)
-            akl_remove_global_atom(in, atom);
-    }
-}
-
-struct akl_atom *
-akl_add_global_cfun(struct akl_state *in, const char *name
-        , akl_cfun_t fn, const char *desc)
-{
-    assert(name);
-    assert(fn);
-    struct akl_atom *atom = akl_new_atom(in, (char *)name);
-    if (desc != NULL)
-        atom->at_desc = (char *)desc;
-    atom->at_value = akl_new_value(in);
-    atom->at_value->va_type = TYPE_ATOM;
-    atom->at_value->va_value.cfunc = fn;
-    akl_add_global_atom(in, atom);
-    return atom;
-}
-
-struct akl_atom *
-akl_add_builtin(struct akl_state *in, const char *name
-        , akl_cfun_t fn, const char *desc)
-{
-    assert(name);
-    assert(fn);
-    struct akl_atom *atom = akl_add_global_cfun(in, name, fn, desc);
-    atom->at_value->va_type = TYPE_BUILTIN;
-    return atom;
-}
-
-struct akl_atom *
-akl_get_global_atom(struct akl_state *in, const char *name)
-{
-    struct akl_atom *atm, *res;
-    if (name == NULL)
-        return NULL;
-
-    atm = akl_new_atom(in, strdup(name));
-    res = ATOM_TREE_RB_FIND(&in->ai_atom_head, atm);
-//    akl_free_atom(in, atm);
-    return res;
-}
-
-void akl_do_on_all_atoms(struct akl_state *in, void (*fn) (struct akl_atom *))
-{
-    struct akl_atom *atm;
-    RB_FOREACH(atm, ATOM_TREE, &in->ai_atom_head) {
-       fn(atm);
-    }
-}
-
-akl_cfun_t akl_get_global_cfun(struct akl_state *in, const char *name)
-{
-    struct akl_atom *atm = akl_get_global_atom(in, name);
-    if (atm != NULL && name != NULL && atm->at_value != NULL) {
-        if (atm->at_value->va_type == TYPE_CFUN)
-            return atm->at_value->va_value.cfunc;
-    }
-    return NULL;
-}
-
 struct akl_list_entry 
 *akl_list_append(struct akl_state *s, struct akl_list *list, void *data)
 {
@@ -156,7 +76,8 @@ akl_list_insert_head_value(struct akl_state *s, struct akl_list *list, struct ak
     return ent;
 }
 
-void *akl_list_shift(struct akl_list *list)
+struct akl_value *
+akl_list_shift(struct akl_list *list)
 {
     assert(list);
     struct akl_list_entry *ohead = list->li_head;
@@ -195,7 +116,7 @@ struct akl_value *akl_duplicate_value(struct akl_state *in, struct akl_value *ov
         case TYPE_STRING:
         return akl_new_string_value(in, AKL_GET_STRING_VALUE(oval));
 
-        case TYPE_BUILTIN: case TYPE_CFUN:
+        case TYPE_FUNCTION:
         nval = akl_new_value(in);
         *nval = *oval;
         return nval;
@@ -227,31 +148,37 @@ struct akl_list *akl_list_duplicate(struct akl_state *in, struct akl_list *list)
 }
 
 struct akl_list_entry *
-akl_list_find(struct akl_list *list, akl_cmp_fn_t cmp_fn, void *data)
+akl_list_find(struct akl_list *list, akl_cmp_fn_t cmp_fn, void *data, unsigned int *ind)
 {
     assert(list);
     assert(cmp_fn);
     struct akl_list_entry *ent;
     void *ptr;
+    unsigned int i = 0;
     AKL_LIST_FOREACH(ent, list) {
        if (cmp_fn(ent->le_data, data) == 0)
+           if (ind != NULL)
+               *ind = i;
            return ent;
+       i++;
     }
     return NULL;
 }
 
 struct akl_list_entry *
-akl_list_find_value(struct akl_list *list, struct akl_value *val)
+akl_list_find_value(struct akl_list *list, struct akl_value *val, unsigned int *ind)
 {
-    return akl_list_find(list, akl_compare_values, val);
+    return akl_list_find(list, akl_compare_values, val, ind);
 }
 
-struct akl_value *akl_list_index(struct akl_list *list, int index)
+struct akl_list_entry *
+akl_list_index(struct akl_list *list, int index)
 {
-    void *ptr = NULL;
+    assert(list && !AKL_IS_NIL(list));
     struct akl_list_entry *ent;
-    if (list == NULL || list->li_head == NULL || AKL_IS_NIL(list))
-        return (struct akl_value *)ptr;
+
+    if (list->li_head == NULL)
+        return NULL;
 
     if (index < 0) {
         ent = list->li_last;
@@ -259,21 +186,26 @@ struct akl_value *akl_list_index(struct akl_list *list, int index)
             if ((ent = AKL_LIST_PREV(ent)) == NULL)
                 return NULL;
         }
-        ptr = ent->le_data;
     } else if (index == 0) {
         if (list->li_head)
-            return (struct akl_value *)list->li_head->le_data;
+            return ent;
     } else {
         ent = list->li_head;
         while (index--) {
             if ((ent = AKL_LIST_NEXT(ent)) == NULL)
                 return NULL;
         }
-        ptr = ent->le_data;
     }
-    return (struct akl_value *)ptr;
+    return ent;
 }
 
+struct akl_value *akl_list_index_value(struct akl_list *list, int index)
+{
+    struct akl_list_entry *ent = akl_list_index(list, index);
+    return ent ? (struct akl_value *)ent->le_data : NULL;
+}
+
+/* NOTICE: Will not free the data */
 void akl_list_remove_entry(struct akl_list *list, struct akl_list_entry *ent)
 {
     struct akl_list_entry *prev, *next;
@@ -307,7 +239,7 @@ akl_list_remove(struct akl_list *list, akl_cmp_fn_t cmp_fn, void *ptr)
     assert(list);
     assert(cmp_fn);
     assert(ptr);
-    struct akl_list_entry *ent = akl_list_find(list, cmp_fn, ptr);
+    struct akl_list_entry *ent = akl_list_find(list, cmp_fn, ptr, NULL);
     /* NOTE: The removed entry is still pointing to it's original neighbours. */
     akl_list_remove_entry(list, ent);
     return ent;
@@ -412,7 +344,7 @@ void akl_print_value(struct akl_state *in, struct akl_value *val)
         END_COLOR;
         break;
 
-        case TYPE_NIL:
+        case TYPE_NIL: case TYPE_FUNCTION:
         //case TYPE_CFUN: case TYPE_BUILTIN:
         /* Nothing to do... */
         break;

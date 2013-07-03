@@ -1,6 +1,6 @@
 #define HAVE_UCONTEXT_H 1
 #define HAVE_EXECINFO_H 0
 #define VER_MAJOR 0
-#define VER_MINOR 1
-#define VER_ADDITIONAL "alpha"
+#define VER_MINOR 2
+#define VER_ADDITIONAL "pre-alpha"
 #define AKL_MODULE_SEARCH_PATH "/usr/local/AkLisp/modules/"

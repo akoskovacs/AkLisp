@@ -25,12 +25,11 @@
 /* Starting size of the buffer */
 #define DEF_BUFFER_SIZE 50
 
-static void init_lexer(struct akl_state *s, struct akl_io_device *dev)
+static void init_lexer(struct akl_io_device *dev)
 {
     assert(dev);
-    dev->iod_buffer = (char *)akl_alloc(s, DEF_BUFFER_SIZE);
+    dev->iod_buffer = (char *)akl_alloc(dev->iod_state, DEF_BUFFER_SIZE);
     dev->iod_buffer_size = DEF_BUFFER_SIZE;
-    dev->iod_state = s;
 }
 
 void akl_lex_free(struct akl_io_device *dev)
@@ -49,10 +48,6 @@ static void put_buffer(struct akl_io_device *dev, int pos, char ch)
         dev->iod_buffer_size = dev->iod_buffer_size
                 + (dev->iod_buffer_size / 2);
         dev->iod_buffer = (char *)akl_realloc(dev->iod_state, dev->iod_buffer, dev->iod_buffer_size);
-        if (dev->iod_buffer == NULL) {
-            fprintf(stderr, "ERROR! No memory left!\n");
-            exit(1);
-        }
     }
     dev->iod_buffer[pos]   = ch;
     /* XXX: Take this serious! */
@@ -107,6 +102,7 @@ bool_t akl_io_eof(struct akl_io_device *dev)
         case DEVICE_STRING:
         return dev->iod_source.string[dev->iod_pos] == '\0' ? TRUE : FALSE;
     }
+    return TRUE; 
 }
 
 size_t copy_number(struct akl_io_device *dev, char op)
@@ -186,8 +182,10 @@ akl_token_t akl_lex(struct akl_io_device *dev)
       and etc. style functions. Moreover the
       positive and negative numbers must also work:
       '(++ +5)' should be valid. */
-    char op = 0
-    assert(dev);
+    char op = 0;
+    //assert(dev == NULL);
+    if (dev->iod_buffer == NULL)
+        init_lexer(dev);
     while ((ch = akl_io_getc(dev))) {
         /* We should avoid the interpretation of the Unix shebang */
         if (dev->iod_char_count == 1 && ch == '#') {

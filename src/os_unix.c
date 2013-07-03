@@ -109,24 +109,18 @@ AKL_CFUN_DEFINE(getenv, in, args)
     return &NIL_VALUE;
 }
 
-AKL_CFUN_DEFINE(setenv, in, args)
+AKL_CFUN_DEFINE(setenv, ctx, argc)
 {
-    struct akl_value *a1 = AKL_FIRST_VALUE(args);
-    struct akl_value *a2 = AKL_SECOND_VALUE(args);
-    if (AKL_CHECK_TYPE(a1, TYPE_STRING)
-        && AKL_CHECK_TYPE(a2, TYPE_STRING)) {
-        if (!setenv(AKL_GET_STRING_VALUE(a1)
-                , AKL_GET_STRING_VALUE(a2), 1))
-            return &TRUE_VALUE;
-    }
+    char *ename, *evalue;
+    akl_get_args_strict(ctx, 2, TYPE_STRING, &ename, TYPE_STRING, &evalue);
+    if (!ename || !evalue || !setenv(ename, evalue, 1))
+        return &TRUE_VALUE;
     return &NIL_VALUE;
 }
 
 extern char **environ;
-AKL_CFUN_DEFINE(env, in, args)
+AKL_CFUN_DEFINE(env, ctx, argc)
 {
-    struct akl_list *vars = akl_new_list(in);
-    struct akl_value *v;
     char **var = environ;
     while (*var) {
        v = akl_new_string_value(in, strdup(*var)); 
@@ -137,77 +131,16 @@ AKL_CFUN_DEFINE(env, in, args)
     return akl_new_list_value(in, vars);
 }
 
-int module_finder_path(void *ptr, void *name)
+struct akl_module *akl_load_module_desc(struct akl_state *s, char *modpath)
 {
-    struct akl_module *mod = (struct akl_module *)ptr;
-    if (strcmp(mod->am_path, (const char *)name) == 0)
-        return TRUE;
-
-    return FALSE;
-}
-
-AKL_CFUN_DEFINE(load, in, args)
-{
-   void *handle;
-   char *modname, *error;
-   struct akl_value *a1 = AKL_FIRST_VALUE(args); 
-   struct akl_module *mod_desc;
-   char *mod_path;
-   int i, errcode = 0;
-
-   if (!AKL_CHECK_TYPE(a1, TYPE_STRING)) {
-       akl_add_error(in, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: First argument must be a string.\n");
-       return &NIL_VALUE;
-   }
-
-   modname = AKL_GET_STRING_VALUE(a1);
-   mod_path = (char *)akl_malloc(in
-       , sizeof(AKL_MODULE_SEARCH_PATH) + strlen(modname) + 5); /* must be enough */
-   strcpy(mod_path, AKL_MODULE_SEARCH_PATH);
-   strcat(mod_path, modname);
-   /* Ok try to figure out where is this tiny module */
-   /* Firstly, start with the standard module search path (mostly the
-     '/usr/share/AkLisp/modules/') */
-   if (access(mod_path, R_OK) == 0) { /* Got it! */
-       modname = mod_path;
-   } else {
-       /* Try with the .alm extension */
-       strcat(mod_path, ".alm");
-       if (access(mod_path, R_OK) == 0) {
-           modname = mod_path;
-       } else {
-           /* No way! Assume that the user gave a relative or an absolute path...*/
-           modname = realpath(modname, NULL); /* Get it's absolute path */
-           if (access(modname, R_OK) != 0) { /* No access, give up! */
-               akl_add_error(in, AKL_ERROR, a1->va_lex_info
-                   , "ERROR: load: Module '%s' is not found.\n"
-                   , AKL_GET_STRING_VALUE(a1));
-               FREE_FUNCTION((void *)mod_path);
-               return &NIL_VALUE;
-           }
-       }
-   }
-
-   /* Are there any of this module already loaded in? */
-   /* NOTE: Just the paths are examined here. */
-   mod_desc = (struct akl_module *)akl_list_find(&in->ai_modules
-                                       , module_finder_path, modname)->li_data;
-   /* TODO: Compare the basename()'s of the paths */
-   if (mod_desc) {
-       akl_add_error(in, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: Module '%s' is already loaded.\n", mod_desc->am_name);
-       FREE_FUNCTION((void *)mod_path);
-       return &NIL_VALUE;
-   }
-   
    /* We are on our way, lazy load */
-   handle = dlopen(modname, RTLD_LAZY);
+   void *handle = dlopen(modname, RTLD_LAZY);
+   struct akl_module *mod_desc;
    if (!handle) {
-       akl_add_error(in, AKL_ERROR, a1->va_lex_info
+       akl_add_error(s, AKL_ERROR, a1->va_lex_info
            , "ERROR: load: Cannot load '%s': %s\n", modname, dlerror());
-       FREE_FUNCTION((void *)mod_path);
-       return &NIL_VALUE;
+       AKL_FREE(s, mod_path);
+       return NULL;
    }
 
    dlerror(); /* Clear last errors (if any) */
@@ -216,102 +149,47 @@ AKL_CFUN_DEFINE(load, in, args)
    if (mod_desc == NULL || ((error = dlerror()) != NULL)) {
        akl_add_error(in, AKL_ERROR, a1->va_lex_info
            , "ERROR: load: No way to get back the module descriptor: %d.\n", error);
-       FREE_FUNCTION((void *)mod_path);
-       return &NIL_VALUE;
+       AKL_FREE(s, mod_path);
+       return NULL;
    }
-
-   /* Assign some value to the important fields */
    mod_desc->am_handle = handle;
    mod_desc->am_path = modname;
-   if (mod_desc->am_load && mod_desc->am_unload && mod_desc->am_name) {
-       /* Start the loader... */
-       errcode = mod_desc->am_load(in);
-       if (errcode != AKL_LOAD_OK) {
-           akl_add_error(in, AKL_ERROR, a1->va_lex_info
-               , "ERROR: load: Module loader gave error code: %d.\n", errcode);
-           FREE_FUNCTION((void *)mod_path);
-           dlclose(handle);
-           return &NIL_VALUE;
-       }
+   return mod_desc;
+}
+
+char *akl_get_module_path(struct akl_state *s, const char *modname)
+{
+   char *mod_path = (char *)akl_malloc(in
+       , sizeof(AKL_MODULE_SEARCH_PATH) + strlen(modname) + 5); /* must be enough */
+   strcpy(mod_path, AKL_MODULE_SEARCH_PATH);
+   strcat(mod_path, modname);
+   /* Ok try to figure out where is this tiny module */
+   /* Firstly, start with the standard module search path (mostly the
+     '/usr/share/AkLisp/modules/') */
+   if (access(mod_path, R_OK) == 0) { /* Got it! */
+       return mod_path;
    } else {
-       akl_add_error(in, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: Module descriptor is invalid.\n");
-       FREE_FUNCTION((void *)mod_path);
-       dlclose(handle);
-       return &NIL_VALUE;
+       /* Try with the .alm extension */
+       strcat(mod_path, ".alm");
+       if (access(mod_path, R_OK) == 0) {
+           return mod_path;
+       } else {
+           /* No way! Assume that the user gave a relative or an absolute path...*/
+           modname = realpath(modname, NULL); /* Get it's absolute path */
+           if (access(modname, R_OK) != 0) { /* No access, give up! */
+               akl_free(s, mod_path);
+               return &NIL_VALUE;
+           }
+       }
    }
-
-   akl_list_append(in, &in->ai_modules, (void *)mod_desc);
-   return &TRUE_VALUE;
 }
 
-int module_finder_name(void *m, void *name)
+void akl_module_free(struct akl_state *s, struct akl_module *mod)
 {
-    struct akl_module *mod = (struct akl_module *)m;
-    if (mod && mod->am_name 
-        && (strcmp(mod->am_name, (const char *)name) == 0))
-        return TRUE;
-    return FALSE;
-}
-
-AKL_CFUN_DEFINE(unload, in, args)
-{
-    struct akl_value *a1 = AKL_FIRST_VALUE(args);
-    struct akl_value *a2;
-    struct akl_list_entry *ent;
-    char *modname;
-    struct akl_module *mod = NULL;
-    int ind, errcode;
-    if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
-        modname = AKL_GET_STRING_VALUE(a1);
-    } else {
-        return &NIL_VALUE;
-    }
-    ent = akl_list_find(&in->ai_modules, module_finder_name, modname);
-    /* We can only search by name */
-    mod = (struct akl_module *)ent->li_data;
-    if (mod) {
-        if (mod->am_unload) {
-            errcode = mod->am_unload(in);
-            if (errcode != AKL_LOAD_OK) {
-               if (args->li_elem_count < 2) {
-                   akl_add_error(in, AKL_ERROR, a1->va_lex_info
-                   , "ERROR: unload: Module unloader gave error code: %d.\n", errcode);
-                   akl_add_error(in, AKL_WARNING, a1->va_lex_info
-                   , "Use :force symbol as the second argument to force unload.\n");
-                   return &NIL_VALUE;
-               } else {
-                   a2 = AKL_SECOND_VALUE(args);
-                   if (AKL_CHECK_TYPE(a2, TYPE_ATOM) && AKL_IS_QUOTED(a2)) {
-                       if (strcmp(a2->va_value.atom->at_name, "FORCE") != 0) {
-                           akl_add_error(in, AKL_ERROR, a2->va_lex_info
-                           , "ERROR: unload: Unknown option.\n");
-                           return &NIL_VALUE;
-                       }
-                       /* Force unload */
-                   } else {
-                       akl_add_error(in, AKL_ERROR, a2->va_lex_info
-                       , "ERROR: unload: Unknown option.\n");
-                       return &NIL_VALUE;
-                   }
-               }
-            }
-        } else {
-           akl_add_error(in, AKL_ERROR, a1->va_lex_info
-               , "ERROR: unload: Cannot call '%s' module's unload code\n"
-               , mod->am_name);
-           return &NIL_VALUE;
-        }
-        FREE_FUNCTION((void *)mod->am_path);
+    if (mod->am_handle)
         dlclose(mod->am_handle);
-        akl_list_remove_entry(&in->ai_modules, ent);
-        return &TRUE_VALUE;
-    }
-
-    akl_add_error(in, AKL_ERROR, a1->va_lex_info
-       , "ERROR: unload: '%s' module not found.\n"
-       , modname);
-    return &NIL_VALUE;
+    AKL_FREE(s, mod);
+    akl_free(s, mod->am_path);
 }
 
 void akl_init_os(struct akl_state *in)

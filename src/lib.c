@@ -26,6 +26,71 @@
 
 #include "aklisp.h"
 
+AKL_CFUN_DEFINE(plus, cx, argc)
+{
+    double sum = 0.0;
+    struct akl_list_entry *ent;
+    AKL_STACK_FOREACH(ent, cx) {
+       sum += AKL_GET_NUMBER_VALUE(AKL_ENTRY_VALUE(ent)); 
+    }
+    return akl_new_number_value(cx->cx_state, sum);
+}
+
+AKL_CFUN_DEFINE(hello, cx, argc)
+{
+    printf("This is a hello world function!\n");
+    return akl_new_nil_value(cx->cx_state);
+}
+
+AKL_CFUN_DEFINE(dump_stack, cx, argc)
+{
+    struct akl_list_entry *ent;
+    int n = 0;
+    printf("stack contents:\n");
+    AKL_LIST_FOREACH(ent, cx->cx_frame) {
+        akl_print_value(cx->cx_state, AKL_ENTRY_VALUE(ent));
+        n++;
+    }
+    return akl_new_number_value(cx->cx_state, (double)n);
+}
+
+AKL_CFUN_DEFINE(minus, ctx, argc)
+{
+    int sum = 0;
+    struct akl_value *v;
+    while ((v = akl_stack_shift(ctx))) {
+        if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
+
+
+        }
+    }
+}
+
+AKL_CFUN_DEFINE(map, ctx, argc)
+{
+    struct akl_function *f;
+    struct akl_list *lp;
+    struct akl_list frame;
+    akl_get_args_strict(ctx, 2, TYPE_FUNCTION, &f, TYPE_LIST, &lp);
+    akl_call_function_bound(ctx, f, &frame, NULL);
+    return NULL;
+}
+
+AKL_CFUN_DEFINE(load, ctx, argc)
+{
+    char *modname;
+    akl_get_args_strict(ctx, 1, TYPE_STRING, &modname);
+    return akl_load_module(ctx->cx_state, modname) ? &TRUE_VALUE : &NIL_VALUE;
+}
+
+AKL_CFUN_DEFINE(unload, ctx, argc)
+{
+    char *modname;
+    akl_get_args_strict(ctx, 1, TYPE_STRING, &modname);
+    return akl_unload_module(ctx->cx_state, modname, FALSE) ? &TRUE_VALUE : &NIL_VALUE;
+}
+
+#if 0
 AKL_CFUN_DEFINE(plus, in, args)
 {
     struct akl_list_entry *ent;
@@ -1002,8 +1067,13 @@ AKL_CFUN_DEFINE(progn, in, args)
         return &NIL_VALUE;
 }
 
+#endif
 void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
 {
+        AKL_ADD_CFUN(in, plus,  "+", "Arithmetic addition and string concatenation");
+        AKL_ADD_CFUN(in, hello,  "hello", "A hello function");
+        AKL_ADD_CFUN(in, dump_stack,  "dump-stack", "Dump the stack contents");
+#if 0
     if (flags & AKL_LIB_BASIC) {
         AKL_ADD_BUILTIN(in, quote, "QUOTE", "Quote listame like as \'");
         AKL_ADD_BUILTIN(in, setq,  "SET!", "Bound (set) a variable to a value");
@@ -1064,7 +1134,6 @@ void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
     if (flags & AKL_LIB_NUMBERIC) {
         AKL_ADD_BUILTIN(in, incf, "++", "Increase a number value by 1");
         AKL_ADD_BUILTIN(in, decf, "--", "Decrease a number value by 1");
-        AKL_ADD_CFUN(in, plus,  "+", "Arithmetic addition and string concatenation");
         AKL_ADD_CFUN(in, minus, "-", "Artihmetic subtraction");
         AKL_ADD_CFUN(in, times, "*", "Arithmetic multiplication");
         AKL_ADD_CFUN(in, div,   "/",  "Arithmetic division");
@@ -1112,4 +1181,5 @@ void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
     if (flags & AKL_LIB_OS) {
         akl_init_os(in);
     }
+#endif
 }

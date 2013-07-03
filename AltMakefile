@@ -6,7 +6,7 @@ CP = cp
 ALTCONF = config.h.alt
 CONF = conf.h
 MAKE = make
-all: test 
+all: aklisp modules test
 
 aklisp: 
 	@echo "Building AkLisp..."
@@ -17,7 +17,7 @@ modules: aklisp
 	@echo "Building modules..."
 	cd modules ; $(MAKE)
 
-test: aklisp modules 
+test: aklisp
 	@echo "Testing AkLisp..."
 	cd tests ; $(MAKE)
 
