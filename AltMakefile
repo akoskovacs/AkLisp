@@ -6,18 +6,18 @@ CP = cp
 ALTCONF = config.h.alt
 CONF = conf.h
 MAKE = make
-all: aklisp modules test
+all: test 
 
 aklisp: 
 	@echo "Building AkLisp..."
 	$(CP) $(ALTCONF) $(CONF)	
 	cd src ; $(MAKE)
 
-modules:
+modules: aklisp
 	@echo "Building modules..."
 	cd modules ; $(MAKE)
 
-test:
+test: aklisp modules 
 	@echo "Testing AkLisp..."
 	cd tests ; $(MAKE)
 
