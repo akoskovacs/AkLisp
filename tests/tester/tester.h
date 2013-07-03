@@ -5,7 +5,7 @@
 #include <aklisp.h>
 
 typedef enum {
-   TEST_OK, TEST_FAIL
+   TEST_FAIL, TEST_OK
 } test_res_t;
 
 typedef test_res_t (*test_fn_t)(void);
