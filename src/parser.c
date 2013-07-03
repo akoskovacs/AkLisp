@@ -109,7 +109,7 @@ struct akl_list *akl_parse_list(struct akl_state *in, struct akl_io_device *dev)
 
 struct akl_list *akl_parse_string(struct akl_state *s, const char *name, const char *str)
 {
-    struct akl_io_device *dev = akl_new_string_device(name, str, malloc);
+    struct akl_io_device *dev = akl_new_string_device(s, name, str);
     struct akl_list *l = akl_parse_list(s, dev);
     AKL_FREE(s,dev);
     return l;
