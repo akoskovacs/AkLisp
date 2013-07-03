@@ -279,10 +279,10 @@ void akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
     struct akl_list_entry *fp = akl_get_frame_pointer(ctx);
     int argc;
 
-    if (ir == NULL || ip == NULL || AKL_LIST_LAST(ir) == ip)
+    if (ir == NULL || ip == NULL)
         return;
 
-    while (ip != NULL || AKL_LIST_LAST(ir) != ip) {
+    while (ip) {
         in = (struct akl_ir_instruction *)ip->le_data;
         switch (in->in_op) {
             case AKL_IR_NOP:
