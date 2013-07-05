@@ -124,6 +124,9 @@ void akl_compile_list(struct akl_context *cx)
                     afn = akl_get_global_atom(cx->cx_state, name);
                     /* The previous function copied the name. Must free it. */
                     akl_free(cx->cx_state, name, 0);
+                    if (afn == NULL)
+                        break;
+
                     name = afn->at_name;
 
                     /* If the function is a special form, we must execute it, now. */
@@ -149,11 +152,11 @@ void akl_compile_list(struct akl_context *cx)
               as an ordinary value */
             if (is_quoted) {
                 akl_build_store(cx, akl_build_value(cx, tok));
-                argc++;
             } else {
                 /* Not quoted, compile it recursively. */
                 akl_compile_list(cx);
             }
+            argc++;
             break;
 
             case tRBRACE:
