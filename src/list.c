@@ -180,19 +180,16 @@ akl_list_index(struct akl_list *list, int index)
     if (list->li_head == NULL)
         return NULL;
 
-    if (index < 0) {
-        ent = list->li_last;
-        while (index++) {
-            if ((ent = AKL_LIST_PREV(ent)) == NULL)
-                return NULL;
-        }
-    } else if (index == 0) {
-        if (list->li_head)
-            return ent;
-    } else {
+    if (index >= 0) {
         ent = list->li_head;
         while (index--) {
             if ((ent = AKL_LIST_NEXT(ent)) == NULL)
+                return NULL;
+        }
+    } else {
+        ent = list->li_last;
+        while (++index) {
+            if ((ent = AKL_LIST_PREV(ent)) == NULL)
                 return NULL;
         }
     }
