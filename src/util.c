@@ -44,35 +44,35 @@ void akl_remove_function(struct akl_state *in, akl_cfun_t fn)
     }
 }
 
-struct akl_atom *
-akl_add_global_cfun(struct akl_state *in, const char *name
-        , akl_cfun_t fn, const char *desc)
+static struct akl_function *
+akl_add_global_function(struct akl_state *s, const char *name
+    , const char *desc)
 {
-    assert(name);
-    assert(fn);
-    struct akl_atom *atom = akl_new_atom(in, (char *)name);
-    struct akl_function *f = akl_new_function(in);
+    struct akl_atom *atom = akl_new_atom(s, (char *)name);
+    struct akl_function *f = akl_new_function(s);
     if (desc != NULL)
         atom->at_desc = (char *)desc;
-    atom->at_value = akl_new_function_value(in, f);
-    f->fn_type = AKL_FUNC_CFUN;
-    f->fn_body.cfun = fn;
+    atom->at_value = akl_new_function_value(s, f);
 
-    akl_add_global_atom(in, atom);
-    return atom;
+    akl_add_global_atom(s, atom);
+    return f;
 }
 
-struct akl_atom *
-akl_add_builtin(struct akl_state *in, const char *name
-        , akl_cfun_t fn, const char *desc)
+
+void akl_add_global_cfun(struct akl_state *s, akl_cfun_t fn
+    , const char *name, const char *desc)
 {
-    assert(name);
-    assert(fn);
-#if 0
-    struct akl_atom *atom = akl_add_global_cfun(in, name, fn, desc);
-    atom->at_value-> = TYPE_BUILTIN;
-#endif 
-    return NULL;
+    struct akl_function *fun = akl_add_global_function(s, name, desc);
+    fun->fn_type = AKL_FUNC_CFUN;
+    fun->fn_body.cfun = fn;
+}
+
+void akl_add_global_spec(struct akl_state *s, akl_scfun_t fn
+    , const char *name, const char *desc)
+{
+    struct akl_function *fun = akl_add_global_function(s, name, desc);
+    fun->fn_type = AKL_FUNC_SPECIAL;
+    fun->fn_body.scfun = fn;
 }
 
 struct akl_atom *
