@@ -76,7 +76,7 @@ typedef enum { DEVICE_FILE, DEVICE_STRING } device_type_t;
 /* Ordinary C functions a.k.a. normal S-expressions*/
 typedef struct akl_value*(*akl_cfun_t)(struct akl_context *, int);
 /* Special C functions a.k.a. special forms */
-typedef struct akl_value*(*akl_scfun_t)(struct akl_context *);
+typedef void (*akl_scfun_t)(struct akl_context *);
 typedef unsigned int akl_utype_t;
 typedef unsigned char akl_byte_t;
 typedef int (*akl_cmp_fn_t)(void *, void *);
@@ -220,6 +220,8 @@ struct akl_context {
 struct akl_context *akl_new_context(struct akl_state *);
 void akl_init_context(struct akl_context *);
 void akl_execute_ir(struct akl_context *);
+void akl_dump_ir(struct akl_context *);
+void akl_dump_stack(struct akl_context *);
 
 struct akl_utype {
     const char *ut_name;
@@ -469,8 +471,8 @@ static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
 
 RB_PROTOTYPE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
-struct akl_atom *akl_add_builtin(struct akl_state *, const char *, akl_cfun_t, const char *);
-struct akl_atom *akl_add_global_cfun(struct akl_state *, const char *, akl_cfun_t, const char *);
+void   akl_add_global_cfun(struct akl_state *, akl_cfun_t, const char *, const char *);
+void   akl_add_global_spec(struct akl_state *, akl_scfun_t, const char *, const char *);
 void   akl_remove_function(struct akl_state *, akl_cfun_t);
 struct akl_atom *akl_get_global_atom(struct akl_state *, const char *);
 struct akl_atom *akl_add_global_atom(struct akl_state *, struct akl_atom *);
@@ -479,8 +481,8 @@ void   akl_remove_global_atom(struct akl_state *, struct akl_atom *);
 bool_t akl_is_equal_with(struct akl_atom *, const char **);
 bool_t akl_atom_is_function(struct akl_atom *);
 
-#define AKL_LIST_FIRST(list) ((list)->li_head)
-#define AKL_LIST_LAST(list) ((list)->li_last)
+#define AKL_LIST_FIRST(list) ((list != NULL) ? (list)->li_head : NULL)
+#define AKL_LIST_LAST(list) ((list != NULL) ? (list)->li_last : NULL)
 #define AKL_LIST_NEXT(ent) ((ent)->le_next)
 #define AKL_LIST_PREV(ent) ((ent)->le_prev)
 #define AKL_LIST_SECOND(list) (AKL_LIST_NEXT(AKL_LIST_FIRST(list)))
@@ -497,12 +499,12 @@ bool_t akl_atom_is_function(struct akl_atom *);
  * }
 */
 #define AKL_LIST_FOREACH(elem, list)   \
-    for ((elem) = AKL_LIST_FIRST(list) \
+    for ((elem) = (list)->li_head \
        ; (elem)                        \
        ; (elem) = AKL_LIST_NEXT(elem))
 
 #define AKL_LIST_FOREACH_BACK(elem, list) \
-    for ((elem) = AKL_LIST_LAST(list)     \
+    for ((elem) = (list)->li_last     \
        ; (elem)                           \
        ; (elem) = AKL_LIST_PREV(elem))
 
@@ -708,6 +710,7 @@ bool_t akl_unload_module(struct akl_state *, const char *, bool_t);
 
 /* These function must be implemented in an os_*.c file */
 void akl_init_lib(struct akl_state *, enum AKL_INIT_FLAGS);
+void akl_init_lib_spec(struct akl_state *, enum AKL_INIT_FLAGS);
 void akl_init_os(struct akl_state *);
 void akl_init_file(struct akl_state *);
 char *akl_get_module_path(struct akl_state *, const char *);
@@ -719,10 +722,10 @@ void akl_free_module(struct akl_state *, struct akl_module *);
     struct akl_value * akl_fn_##fname(struct akl_context * cx, int argc)
 
 #define AKL_ADD_CFUN(in, fname, name, desc) \
-    akl_add_global_cfun((in), (name), akl_fn_##fname, (desc))
+    akl_add_global_cfun((in), akl_fn_##fname, (name), (desc))
 
-#define AKL_ADD_BUILTIN(in, bname, name, desc) \
-    akl_add_builtin((in), (name), bname##_builtin, (desc))
+#define AKL_ADD_SPEC(in, sname, name, desc) \
+    akl_add_global_spec((in), akl_spec_##sname, (name), (desc))
 
 #define AKL_REMOVE_CFUN(in, fname) \
     akl_remove_function((in), fname##_function)
