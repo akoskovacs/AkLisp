@@ -34,12 +34,14 @@ void akl_stack_init(struct akl_context *ctx)
 
 struct akl_list_entry *akl_get_stack_pointer(struct akl_context *ctx)
 {
-    return AKL_LIST_LAST(ctx->cx_frame);
+    return (ctx && ctx->cx_frame) ? AKL_LIST_LAST(ctx->cx_frame) : NULL;
 }
 
 void
 akl_init_frame(struct akl_context *ctx, struct akl_list *frame, size_t size)
 {
+    assert(ctx);
+    assert(frame);
     frame->li_head = akl_list_index(ctx->cx_frame, -size);
     frame->li_last = akl_get_stack_pointer(ctx);
     frame->li_elem_count = size;
@@ -47,7 +49,7 @@ akl_init_frame(struct akl_context *ctx, struct akl_list *frame, size_t size)
 
 struct akl_list_entry *akl_get_frame_pointer(struct akl_context *ctx)
 {
-    return AKL_LIST_FIRST(ctx->cx_frame);
+    return (ctx && ctx->cx_frame) ? AKL_LIST_FIRST(ctx->cx_frame) : NULL;
 }
 
 /* Attention: The stack contains pointer to value pointers */
@@ -64,7 +66,9 @@ struct akl_value *akl_stack_shift(struct akl_context *ctx)
 
 struct akl_value *akl_stack_head(struct akl_context *ctx)
 {
-    return (struct akl_value *)AKL_LIST_FIRST(ctx->cx_frame)->le_data;
+    assert(ctx);
+    struct akl_list_entry *fe = AKL_LIST_FIRST(ctx->cx_frame);
+    return (fe != NULL) ? (struct akl_value *)fe->le_data : NULL;
 }
 
 struct akl_value *akl_stack_pop(struct akl_context *ctx)
@@ -72,7 +76,7 @@ struct akl_value *akl_stack_pop(struct akl_context *ctx)
     assert(ctx);
     struct akl_list_entry *sp = akl_get_stack_pointer(ctx);
     akl_list_remove_entry(ctx->cx_frame, sp);
-    return (struct akl_value *)sp->le_data;
+    return (sp != NULL) ? (struct akl_value *)sp->le_data : NULL;
 }
 
 void akl_stack_clear(struct akl_context *ctx, size_t c)
@@ -304,6 +308,7 @@ void akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             case AKL_IR_CALL:
             akl_init_frame(ctx, &frame, in->in_arg[1].ui_num);
             akl_call_function(ctx, in->in_arg[0].atom, &frame);
+            MOVE_IP(ip);
             break;
 
             case AKL_IR_JMP:
@@ -334,6 +339,82 @@ void akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             }
             break;
         }
+    }
+}
+
+#define DUMP_JMP(jname, in) \
+    printf("%s <%p>", jname  \
+    , (in)->in_arg[0].label->la_branch);
+
+void akl_dump_ir(struct akl_context *ctx)
+{
+    struct akl_list *ir = ctx->cx_ir;
+    struct akl_list_entry *ent;
+    struct akl_ir_instruction *in;
+    struct akl_atom *atom;
+    printf("--- Instruction Dump ---\n");
+
+    AKL_LIST_FOREACH(ent, ir) {
+       in = (struct akl_ir_instruction *)ent->le_data;
+       if (in == NULL)
+           break;
+       printf("\t");
+       switch (in->in_op) {
+            case AKL_IR_NOP:
+            printf("nop");
+            break;
+
+            case AKL_IR_CALL:
+            atom = in->in_arg[0].atom;
+            if (atom == NULL || atom->at_name == NULL)
+                break;
+
+            printf("call %s, %d", atom->at_name, in->in_arg[1].ui_num);
+            break;
+
+            case AKL_IR_JMP:
+            DUMP_JMP("jmp", in);
+            break;
+
+            case AKL_IR_JN:
+            DUMP_JMP("jn", in);
+            break;
+
+            case AKL_IR_JT:
+            DUMP_JMP("jt", in);
+            break;
+
+            case AKL_IR_LOAD:
+            printf("load %%%d", in->in_arg[0].ui_num);
+            break;
+
+            case AKL_IR_STORE:
+            printf("store ");
+            akl_print_value(ctx->cx_state, in->in_arg[0].value);
+            break;
+       }
+       printf("\n");
+    }
+}
+
+void akl_dump_stack(struct akl_context *ctx)
+{
+    struct akl_list *stack = ctx->cx_frame;
+    struct akl_list_entry *ent;
+    struct akl_value *value;
+    unsigned int i = 0;
+
+    printf("--- Stack Dump ---\n");
+    AKL_LIST_FOREACH(ent, stack) {
+       printf("\t");
+       value = (ent != NULL) ? (struct akl_value *)ent->le_data : NULL;
+       if (value == NULL)
+           break;
+
+       printf("%%%d - ", i);
+       akl_print_value(ctx->cx_state, value);
+       printf("\n");
+       i++;
     }
 }
 
