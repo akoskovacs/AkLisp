@@ -3,7 +3,7 @@
 struct akl_state state;
 struct akl_list *list = NULL;
 int nums[] = { -13, 22, 33, 11, 44, 122, 42, 112, 331, 23 };
-#define NR_NUMS sizeof(nums)/sizeof(int)
+#define NR_NUMS (sizeof(nums)/sizeof(int))
 int ind42 = 6;
 
 test_res_t list_create(void)
@@ -38,7 +38,7 @@ test_res_t list_foreach(void)
 
 test_res_t list_size(void)
 {
-    return list->li_elem_count != NR_NUMS;
+    return list->li_elem_count == NR_NUMS;
 }
 
 test_res_t list_index(void)
@@ -48,8 +48,10 @@ test_res_t list_index(void)
     struct akl_list_entry *ent = akl_list_index(list, 5);
     right = ent->le_data == (void *)nums+5;
     ent = akl_list_index(list, -2);
-    right = right && ent->le_data == (void *)(nums+(NR_NUMS-2));
-    return !right;
+    right = right && (ent->le_data == (void *)nums+8);
+    ent = akl_list_index(list, 0);
+    right = right && (ent->le_data == (void *)nums);
+    return right;
 }
 
 int number_finder(void *p1, void *p2)
@@ -64,20 +66,20 @@ test_res_t list_find(void)
     int f = 42;
     int ind = 0;
     akl_list_find(list, number_finder, &f, &ind);
-    return ind != ind42;
+    return ind == ind42;
 }
 
 test_res_t list_first(void)
 {
     int *n = AKL_LIST_FIRST(list)->le_data;
-    return *n != nums[0];
+    return *n == nums[0];
 }
 
 test_res_t list_insert_head(void)
 {
     int n = 99;
     akl_list_insert_head(&state, list, (void *)&n);
-    return AKL_LIST_FIRST(list)->le_data != (void *)nums+0;
+    return *((int *)AKL_LIST_FIRST(list)->le_data) == 99;
 }
 
 
@@ -85,7 +87,7 @@ test_res_t list_remove(void)
 {
     struct akl_list_entry *h = AKL_LIST_FIRST(list);
     akl_list_remove_entry(list, h);
-    return AKL_LIST_FIRST(list)->le_data != (void *)nums+0;
+    return AKL_LIST_FIRST(list)->le_data == (void *)nums+0;
 }
 
 int main()
@@ -96,7 +98,7 @@ int main()
         { list_append, "akl_list_append() can add elements to a list" },
         { list_foreach, "AKL_LIST_FOREACH() can iterate through the elements" },
         { list_size, "list->li_elem_count gives back the size of the list" },
-        { list_index, "akl_list_find() can find an element" },
+        { list_index, "akl_list_index() can get back different elements" },
         { list_first, "AKL_LIST_FIRST() can get the first element" },
         { list_insert_head, "akl_insert_head() can insert a new first elemenet" },
         { list_remove, "akl_list_remove_entry() can remove arbitrary elements" },
