@@ -25,6 +25,7 @@
 #include "aklisp.h"
 
 #define BITS_IN_UINT (sizeof(unsigned int)*8)
+#define BIT_INDEX(ptr, ind) ((ptr)[(ind)/BITS_IN_UINT])
 
 #define SET_BIT(V, N) ((V) |= (1 << (N)))
 #define CLEAR_BIT(V, N) ((V) &= ~(1 << (N)))
@@ -252,26 +253,24 @@ bool_t akl_gc_pool_in_use(struct akl_gc_pool *p, unsigned int ind)
 {
     assert(p);
     ASSERT_INDEX(ind);
-    int i = (ind == 0) ? 0 : AKL_GC_POOL_SIZE/ind;
-    return IS_BIT_SET(p->gp_freemap[i], ind);
+//    int i = ind/BITS_IN_UINT;
+    return IS_BIT_SET(BIT_INDEX(p->gp_freemap, ind), ind);
 }
 
 void akl_gc_pool_use(struct akl_gc_pool *p, unsigned int ind)
 {
     assert(p);
     ASSERT_INDEX(ind);
-    int i = (ind == 0) ? 0 : AKL_GC_POOL_SIZE/ind;
     p->gp_pool.av_count++;
-    SET_BIT(p->gp_freemap[i], ind);
+    SET_BIT(BIT_INDEX(p->gp_freemap, ind), ind);
 }
 
 void akl_gc_pool_clear_use(struct akl_gc_pool *p, unsigned int ind)
 {
     assert(p);
     ASSERT_INDEX(ind);
-    int i = (ind == 0) ? 0 : AKL_GC_POOL_SIZE/ind;
     p->gp_pool.av_count--;
-    CLEAR_BIT(p->gp_freemap[i], ind);
+    CLEAR_BIT(BIT_INDEX(p->gp_freemap, ind), ind);
 }
 
 bool_t akl_gc_pool_have_free(struct akl_gc_pool *p)
