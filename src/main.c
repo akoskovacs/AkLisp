@@ -8,11 +8,11 @@
  * distribute, sublicense, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
  * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
@@ -25,33 +25,34 @@
 #include <string.h>
 
 #define PROMPT_MAX 10
-static struct akl_state in;
 
 #ifdef HAVE_READLINE
 #include <readline/readline.h>
 #include <readline/history.h>
 
+static struct akl_state state;
+
 /* Give back a possible completion of 'text', by traversing
  through the red black tree of all global atoms. */
 static char *
-akl_generator(const char *text, int state)
+akl_generator(const char *text, int st)
 {
     static struct akl_atom *atom;
     static size_t tlen = 0;
     /* If this is the first run, initialize the 'atom' with
       the first element of the red black tree. */
-    if (!state) {
-        atom = RB_MIN(ATOM_TREE, &in.ai_atom_head);
+    if (!st) {
+        atom = RB_MIN(ATOM_TREE, &state.ai_atom_head);
         tlen = strlen(text);
     } else {
-        atom = RB_NEXT(ATOM_TREE, &in.ai_atom_head, atom);
+        atom = RB_NEXT(ATOM_TREE, &state.ai_atom_head, atom);
     }
 
     while (atom != NULL) {
         if (strncasecmp(atom->at_name, text, tlen) == 0)
             return strdup(atom->at_name);
 
-        atom = RB_NEXT(ATOM_TREE, &in->ai_atom_head, atom);
+        atom = RB_NEXT(ATOM_TREE, &state->ai_atom_head, atom);
     }
     return NULL;
 }
@@ -103,13 +104,103 @@ static char *readline(char *prompt)
     printf("%s", prompt);
     while ((ch = getchar()) != '\n'
         && ind < INPUT_BUFSIZE) {
-        buffer[ind] = ch; 
+        buffer[ind] = ch;
         buffer[++ind] = '\0';
     }
     return buffer;
 }
 #endif //HAVE_READLINE
 
+/* Command Line parameter handling */
+typedef enum {
+    CMD_END,
+    CMD_ASSEMBLE,
+    CMD_EVAL,
+    CMD_COLOR,
+    CMD_COMPILE,
+    CMD_INTERACTIVE,
+    CMD_HELP,
+    CMD_VERSION,
+    CMD_UNKOWN,
+    CMD_OTHER
+} cmd_t;
+
+static struct cmd_option {
+    char        co_short;
+    const char *co_long;
+    const char *co_desc;
+    bool_t      co_has_param;
+    cmd_t       co_cmd;
+} akl_cmd_options[] = {
+    { 'a',  "assemble",    "Assemble a file",         TRUE,  CMD_ASSEMBLE },
+    { 'e',  "eval",        "Evaulate a singe line",   TRUE,  CMD_EVAL },
+    { 'n',  "no-color",    "Disable colors",          FALSE, CMD_COLOR },
+    { 'c',  "compile",     "Compile program to bytecode", FALSE, CMD_COMPILE },
+    { 'i',  "interactive", "Force interactive mode",  FALSE, CMD_INTERACTIVE },
+    { 'h',  "help",        "Print this help text",    FALSE, CMD_HELP },
+    { 'v',  "version",     "Print the version of the program", FALSE, CMD_VERSION },
+    { 0, NULL, NULL, FALSE, CMD_END}
+};
+
+static const char **my_argv = NULL; // Could be better
+static cmd_t cmd_parse(const char **args, const char **opt)
+{
+    const struct cmd_option *options = akl_cmd_options;
+    if (my_argv == NULL)
+        my_argv = ++args; /* Step over the executable name */
+
+    while (my_argv && *my_argv) {
+        /* Should be a long option, like '--help' */
+        if (*(*my_argv+1) == '-' && **my_argv == '-') {
+            /* Find the exact option. TODO: make it efficient */
+            while (options->co_cmd != CMD_END) {
+                if (strcmp(options->co_long, *my_argv+2) == 0) {
+                    /* Got it! */
+                    if (options->co_has_param)
+                        *opt = *++my_argv; /* Give back that parameter */
+                    my_argv++;
+                    return options->co_cmd;
+                }
+                options++;
+            }
+            *opt = *my_argv++;
+            return CMD_UNKOWN;
+        } else if (**my_argv == '-') {
+            /* Single dash, short option */
+            while (options->co_cmd != CMD_END) {
+                if (*(*my_argv+1) == options->co_short) {
+                    if (options->co_has_param) {
+                        *opt = *++my_argv;
+                    }
+                    my_argv++;
+                    return options->co_cmd;
+                }
+                options++;
+            }
+            *opt = *my_argv++;
+            return CMD_UNKOWN;
+        } else {
+            /* Not even an option */
+            *opt = *my_argv++;
+            return CMD_OTHER;
+        }
+        my_argv++;
+    }
+    return CMD_END;
+}
+
+void cmd_dump_help(void)
+{
+    struct cmd_option *opt = akl_cmd_options;
+    printf("AkLisp options:\n\n");
+    while (opt->co_cmd != CMD_END) {
+        printf("%5c%c%5s%-10s\t%5s\n", '-', opt->co_short, "--"
+            , opt->co_long, opt->co_desc);
+        opt++;
+    }
+}
+
+/* End of command line functions */
 static void interactive_mode(void)
 {
     char prompt[PROMPT_MAX];
@@ -121,9 +212,9 @@ static void interactive_mode(void)
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
     printf("Copyleft (C) 2012 Akos Kovacs\n\n");
-    akl_init_state(&in);
-    in.ai_interactive = TRUE;
-    akl_init_lib(&in, AKL_LIB_ALL);
+    akl_init_state(&state);
+    state.ai_interactive = TRUE;
+    akl_init_lib(&state, AKL_LIB_ALL);
     init_readline();
     while (1) {
         snprintf(prompt, PROMPT_MAX, "[%d]> ", lnum);
@@ -135,14 +226,16 @@ static void interactive_mode(void)
         }
         if (line && *line) {
             add_history(line);
-            dev = akl_new_string_device(&in, "stdio", line);
+            dev = akl_new_string_device(&state, "stdio", line);
             /*akl_list_append(in, inst->ai_program, il);*/
-            ctx = akl_compile(&in, dev);
+            ctx = akl_compile(&state, dev);
+            akl_dump_ir(ctx);
             akl_execute_ir(ctx);
+            akl_dump_stack(ctx);
             printf(" => ");
-            akl_print_value(&in, akl_stack_pop(ctx));
-            akl_print_errors(&in);
-            akl_clear_errors(&in);
+            akl_print_value(&state, akl_stack_pop(ctx));
+            akl_print_errors(&state);
+            akl_clear_errors(&state);
             printf("\n");
         }
         lnum++;
@@ -152,6 +245,9 @@ static void interactive_mode(void)
 int main(int argc, const char *argv[])
 {
     FILE *fp;
+    cmd_t cmd;
+    const char *opt = "(null)";
+#if 0
     if (argc > 1) {
         fp = fopen(argv[1], "r");
         if (fp == NULL) {
@@ -165,13 +261,40 @@ int main(int argc, const char *argv[])
         interactive_mode();
         return 0;
     }
-#if 0
-    akl_init_lib(in, AKL_LIB_ALL);
-    akl_parse(in);
-    akl_eval_program(in);
-    akl_print_errors(in);
-    akl_clear_errors(in);
-//    akl_free_state(in);
 #endif
+    while ((cmd = cmd_parse(argv, &opt)) != CMD_END) {
+        switch (cmd) {
+            case CMD_ASSEMBLE:
+            printf("Assembling %s\n", opt);
+            break;
+
+            case CMD_COLOR:
+            break;
+
+            case CMD_EVAL:
+            printf("Eval this line %s\n", opt);
+            break;
+
+            case CMD_INTERACTIVE:
+            interactive_mode();
+            break;
+
+            case CMD_HELP:
+            cmd_dump_help();
+            break;
+
+            case CMD_VERSION:
+            printf("AkLisp v%d.%d-%s\n", VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
+            break;
+
+            case CMD_OTHER:
+            printf("other: \'%s\'\n", opt);
+            break;
+
+            case CMD_UNKOWN:
+            fprintf(stderr, "Unkown option \'%s\'\n", opt);
+            break;
+        }
+    }
     return 0;
 }
