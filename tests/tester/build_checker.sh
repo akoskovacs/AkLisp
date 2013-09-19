@@ -12,5 +12,5 @@ if [ ! -e "../$libaklisp" ]; then
 #        ln -s "../$libaklisp" $libaklisp
 #    fi
 #else 
-        echo "You must first build AkLisp!" 
+        echo "You must build AkLisp first!" 
 fi
