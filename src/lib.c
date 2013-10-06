@@ -26,24 +26,57 @@
 
 #include "aklisp.h"
 
-AKL_CFUN_DEFINE(plus, cx, argc)
+AKL_DEFINE_FUN(exit, cx, argc)
+{
+    exit(0);
+}
+
+AKL_DEFINE_FUN(plus, cx, argc)
 {
     double sum = 0.0;
+    double *n;
     struct akl_list_entry *ent;
-    AKL_STACK_FOREACH(ent, cx) {
-       sum += AKL_GET_NUMBER_VALUE(AKL_ENTRY_VALUE(ent)); 
+    while ((n = akl_stack_pop_number(cx)) != NULL) {
+       sum += *n;
     }
+    printf("+ = %lf\n", sum);
+
     return akl_new_number_value(cx->cx_state, sum);
 }
 
-AKL_CFUN_DEFINE(hello, cx, argc)
+AKL_DEFINE_FUN(mul, cx, argc)
+{
+    double prod = 1.0;
+    double *n;
+    while ((n = akl_stack_pop_number(cx)) != NULL) {
+       prod *= *n;
+    }
+    printf("* = %lf\n", prod);
+
+    return akl_new_number_value(cx->cx_state, prod);
+}
+
+AKL_DEFINE_FUN(write_times, cx, argc)
+{
+    double **n;
+    int i;
+    char *str;
+    akl_get_args_strict(cx, 2, TYPE_NUMBER, &n, TYPE_STRING, &str);
+    for (i = 0; i < (int)**n; i++) {
+        printf("%s\n", str);    
+    }
+    return akl_new_nil_value(cx->cx_state);
+}
+
+AKL_DEFINE_FUN(hello, cx, argc)
 {
     printf("This is a hello world function!\n");
     return akl_new_nil_value(cx->cx_state);
 }
 
-AKL_CFUN_DEFINE(dump_stack, cx, argc)
+AKL_DEFINE_FUN(dump_stack, cx, argc)
 {
+#if 0
     struct akl_list_entry *ent;
     int n = 0;
     printf("stack contents:\n");
@@ -51,31 +84,81 @@ AKL_CFUN_DEFINE(dump_stack, cx, argc)
         akl_print_value(cx->cx_state, AKL_ENTRY_VALUE(ent));
         n++;
     }
-    return akl_new_number_value(cx->cx_state, (double)n);
+#endif
+    return akl_new_number_value(cx->cx_state, 0.0);
 }
 
-AKL_CFUN_DEFINE(minus, ctx, argc)
+AKL_DEFINE_FUN(gt, ctx, argc)
+{
+    struct akl_value *a1, *a2;
+    akl_get_value_args(ctx, 2, &a1, &a2);
+    if (akl_compare_values(a1, a2) == 1)
+        return akl_new_true_value(ctx->cx_state);
+    return akl_new_nil_value(ctx->cx_state);
+}
+
+AKL_DEFINE_FUN(lt, ctx, argc)
+{
+    struct akl_value *a1, *a2;
+    akl_get_value_args(ctx, 2, &a1, &a2);
+    if (akl_compare_values(a1, a2) == -1)
+        return akl_new_true_value(ctx->cx_state);
+    return akl_new_nil_value(ctx->cx_state);
+}
+
+AKL_DEFINE_FUN(eq, ctx, argc)
+{
+    struct akl_value *a1, *a2;
+    akl_get_value_args(ctx, 2, &a1, &a2);
+    if (akl_compare_values(a1, a2) == 0)
+        return akl_new_true_value(ctx->cx_state);
+    return akl_new_nil_value(ctx->cx_state);
+}
+
+AKL_DEFINE_FUN(minus, ctx, argc)
 {
     int sum = 0;
     struct akl_value *v;
     while ((v = akl_stack_shift(ctx))) {
         if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
-
-
         }
     }
-}
-
-AKL_CFUN_DEFINE(map, ctx, argc)
-{
-    struct akl_function *f;
-    struct akl_list *lp;
-    struct akl_list frame;
-    akl_get_args_strict(ctx, 2, TYPE_FUNCTION, &f, TYPE_LIST, &lp);
-    akl_call_function_bound(ctx, f, &frame, NULL);
     return NULL;
 }
 
+AKL_DEFINE_FUN(list, ctx, argc)
+{
+    struct akl_value *v;
+    struct akl_list *list = akl_new_list(ctx->cx_state);
+    while ((v = akl_stack_shift(ctx))) {
+        akl_list_append_value(ctx->cx_state, list, v);
+    }
+    return akl_new_list_value(ctx->cx_state, list);
+}
+
+AKL_DEFINE_FUN(map, ctx, argc)
+{
+    struct akl_atom *a;
+    struct akl_list *lp;
+    akl_get_args_strict(ctx, 2, TYPE_ATOM, &a, TYPE_LIST, &lp);
+    akl_call_atom(ctx, NULL, a);
+    return NULL;
+}
+
+AKL_DEFINE_FUN(disassemble, ctx, argc)
+{
+    struct akl_atom *a;
+    struct akl_value *v;
+    akl_get_args_strict(ctx, argc, TYPE_ATOM, &a);
+    a = akl_get_global_atom(ctx->cx_state, a->at_name);
+    v = a->at_value;
+    if (AKL_CHECK_TYPE(v, TYPE_FUNCTION)) {
+        akl_dump_ir(ctx, v->va_value.func);
+    }
+    return akl_new_nil_value(ctx->cx_state);
+}
+
+#if 0
 AKL_CFUN_DEFINE(load, ctx, argc)
 {
     char *modname;
@@ -90,7 +173,6 @@ AKL_CFUN_DEFINE(unload, ctx, argc)
     return akl_unload_module(ctx->cx_state, modname, FALSE) ? &TRUE_VALUE : &NIL_VALUE;
 }
 
-#if 0
 AKL_CFUN_DEFINE(plus, in, args)
 {
     struct akl_list_entry *ent;
@@ -1066,13 +1148,32 @@ AKL_CFUN_DEFINE(progn, in, args)
     else
         return &NIL_VALUE;
 }
-
 #endif
-void akl_init_lib(struct akl_state *in, enum AKL_INIT_FLAGS flags)
+
+AKL_DECLARE_FUNS(akl_basic_funs) {
+    AKL_FUN(plus, "+", "Arithmetic addition"),
+    AKL_FUN(mul,  "*", "Arithmetic product"),
+    AKL_FUN(write_times,  "write-times", "Write a string out n times"),
+    AKL_FUN(eq,  "=", "Compare to values for equality"),
+    AKL_FUN(gt,  ">", "Greater compare function"),
+    AKL_FUN(lt,  "<", "Less-than compare function"),
+    AKL_FUN(list,  "list", "Create a list from the given arguments"),
+    AKL_FUN(exit,  "exit", "Exit"),
+    AKL_END_FUNS()
+};
+
+AKL_DECLARE_FUNS(akl_debug_funs) {
+    AKL_FUN(dump_stack,  "dump-stack", "Dump the stack contents"),
+    AKL_FUN(disassemble,  "disassemble", "Disassemble a given function"),
+    AKL_FUN(hello,  "hello", "Hello function"),
+    AKL_END_FUNS()
+};
+
+void akl_library_init(struct akl_state *s, enum AKL_INIT_FLAGS flags)
 {
-        AKL_ADD_CFUN(in, plus,  "+", "Arithmetic addition and string concatenation");
-        AKL_ADD_CFUN(in, hello,  "hello", "A hello function");
-        AKL_ADD_CFUN(in, dump_stack,  "dump-stack", "Dump the stack contents");
+        akl_declare_functions(s, akl_basic_funs);
+        akl_declare_functions(s, akl_debug_funs);
+        akl_spec_library_init(s, flags);
 #if 0
     if (flags & AKL_LIB_BASIC) {
         AKL_ADD_BUILTIN(in, quote, "QUOTE", "Quote listame like as \'");

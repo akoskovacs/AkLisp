@@ -26,49 +26,36 @@
  * These functions are special forms. They build their own internal
  * representation, by parsing the tokens.
 */
-#define AKL_SPEC_DEFINE(name, ctx) \
-    static void akl_spec_##name(struct akl_context * ctx)
-
 void akl_build_label(struct akl_context *ctx, struct akl_label *l)
 {
     l->la_ir = ctx->cx_ir;
     l->la_branch = AKL_LIST_LAST(ctx->cx_ir);
 }
 
-struct akl_label *akl_new_labels(struct akl_context *ctx, int n)
-{
-    struct akl_ufun *fn = &ctx->cx_func->fn_body.ufun;
-    struct akl_label *labels = (struct akl_label *)
-        akl_vector_reserve_more(fn->uf_labels, n);
-            
-    return labels;
-}
-
-AKL_SPEC_DEFINE(if, ctx)
+AKL_DEFINE_SFUN(if, ctx)
 {
     /* Allocate the branch */
     struct akl_label *label = akl_new_labels(ctx, 3);
 
     /* Condition:*/
-    akl_compile_list(ctx);
-    akl_build_jump(ctx, AKL_JMP_TRUE, label+0);
-    akl_build_jump(ctx, AKL_JMP_FALSE, label+1);
+    akl_compile_next(ctx);
+    akl_build_branch(ctx, label+0, label+1);
 
     /* .L0: True branch: */
     akl_build_label(ctx, label+0);
-    akl_compile_list(ctx);
+    akl_compile_next(ctx);
     akl_build_jump(ctx, AKL_JMP, label+2);
 
     /* .L1: False branch: */
     akl_build_label(ctx, label+1);
-    akl_compile_list(ctx);
+    akl_compile_next(ctx);
     akl_build_jump(ctx, AKL_JMP, label+2);
 
     /* .L2: Continue... */
     akl_build_label(ctx, label+2);
 }
 
-AKL_SPEC_DEFINE(while, ctx)
+AKL_DEFINE_SFUN(while, ctx)
 {
     akl_token_t tok;
     struct akl_label *label = akl_new_labels(ctx, 3);
@@ -77,11 +64,8 @@ AKL_SPEC_DEFINE(while, ctx)
     }
     /* .L0: Condition: */
     akl_build_label(ctx, label+0);
-    akl_compile_list(ctx);
-    /* False condition, do not loop */
-    akl_build_jump(ctx, AKL_JMP_FALSE, label+1);
-    /* Exit from to loop */
-    akl_build_jump(ctx, AKL_JMP_TRUE, label+2);
+    akl_compile_next(ctx);
+    akl_build_branch(ctx, label+2, label+1);
 
     while ((tok = akl_lex(ctx->cx_dev)) != tRBRACE) {
         akl_compile_list(ctx);
@@ -114,7 +98,7 @@ char **akl_parse_params(struct akl_state *s, struct akl_io_device *dev)
     return args;
 }
 
-AKL_SPEC_DEFINE(defun, ctx)
+AKL_DEFINE_SFUN(defun, ctx)
 {
     struct akl_ufun *ufun;
     akl_token_t tok;
@@ -149,6 +133,16 @@ AKL_SPEC_DEFINE(defun, ctx)
     }
 
     akl_add_global_atom(ctx->cx_state, fatm);
+}
+
+AKL_DECLARE_FUNS(akl_spec_forms) {
+    AKL_SFUN(if, "if", "Conditional expression"),
+    AKL_SFUN(while, "while", "Conditional loop expression")
+};
+
+void akl_spec_library_init(struct akl_state *s, enum AKL_INIT_FLAGS flags)
+{
+    akl_declare_functions(s, akl_spec_forms);
 }
 
 #if 0

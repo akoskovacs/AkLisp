@@ -29,14 +29,14 @@ const char *akl_type_name[10] = {
 
 static struct akl_value TRUE_VALUE = {
     { AKL_GC_VALUE , FALSE, FALSE , TRUE }
-  , NULL, TYPE_TRUE, { (double)0 }
-  , FALSE, TRUE
+  , NULL, TYPE_TRUE, { (double)1 }
+  , FALSE, FALSE
 };
 
-struct akl_value FALSE_VALUE = {
+static struct akl_value NIL_VALUE = {
     { AKL_GC_VALUE , FALSE, FALSE , TRUE }
   , NULL, TYPE_NIL, { (double)0 }
-  , FALSE, FALSE
+  , FALSE, TRUE
 };
 
 akl_nomem_action_t
@@ -57,12 +57,14 @@ void akl_init_state(struct akl_state *s)
     s->ai_calloc_fn = calloc;
     s->ai_free_fn = free;
     s->ai_nomem_fn = akl_def_nomem_handler;
+    s->ai_use_colors = TRUE;
     akl_gc_init(s);
 
     RB_INIT(&s->ai_atom_head);
     s->ai_device = NULL;
     akl_init_list(&s->ai_modules);
-    akl_vector_init(s, &s->ai_utypes, sizeof(struct akl_module *), 5);
+    akl_init_vector(s, &s->ai_utypes, sizeof(struct akl_module *), 5);
+    akl_init_vector(s, &s->ai_stack, sizeof(struct akl_value *), 40);
     s->ai_program  = NULL;
     s->ai_errors   = NULL;
 }
@@ -101,7 +103,6 @@ void akl_init_context(struct akl_context *ctx)
 {
     ctx->cx_state     = NULL;
     ctx->cx_dev       = NULL;
-    ctx->cx_frame     = NULL;
     ctx->cx_func      = NULL;
     ctx->cx_func_name = NULL;
     ctx->cx_ir        = NULL;
@@ -113,6 +114,7 @@ struct akl_context *akl_new_context(struct akl_state *s)
     struct akl_context *ctx = AKL_MALLOC(s, struct akl_context);
     akl_init_context(ctx);
     ctx->cx_state = s;
+    ctx->cx_frame.af_stack = &s->ai_stack;
     return ctx;
 }
 
@@ -244,6 +246,36 @@ akl_new_function_value(struct akl_state *s, struct akl_function *f)
     v->va_type = TYPE_FUNCTION;
     v->va_value.func = f;
     return v;
+}
+
+struct akl_label *akl_new_label(struct akl_context *ctx)
+{
+    struct akl_ufun *uf;
+    struct akl_label *l;
+    assert(ctx && ctx->cx_state && ctx->cx_comp_func);
+
+    uf = &ctx->cx_comp_func->fn_body.ufun;
+    if (uf->uf_labels == NULL) {
+        uf->uf_labels = akl_new_vector(ctx->cx_state, 4, sizeof(struct akl_label));
+    }
+    l = akl_vector_reserve(uf->uf_labels);
+    l->la_ir     = NULL;
+    l->la_branch = NULL;
+    l->la_name   = NULL;
+    l->la_ind    = akl_vector_count(uf->uf_labels)-1;
+    return l;
+}
+
+struct akl_label *akl_new_labels(struct akl_context *ctx, int n)
+{
+    struct akl_label *labels;
+    assert(n >= 1);
+    labels = akl_new_label(ctx);
+    --n;
+    while (--n)
+        (void)akl_new_label(ctx);
+
+    return labels;
 }
 
 struct akl_io_device *

@@ -83,12 +83,14 @@ akl_list_shift(struct akl_list *list)
     struct akl_list_entry *ohead = list->li_head;
     struct akl_list_entry *nhead = (ohead) ? ohead->le_next : NULL;
     list->li_head = nhead;
-    nhead->le_prev = NULL;
+    if (nhead)
+        nhead->le_prev = NULL;
+
     if (ohead == list->li_last)
         list->li_last = nhead;
 
     /* TODO: Can explicitly free() the ohead */
-    return ohead->le_data;
+    return (ohead) ? ohead->le_data : NULL;
 }
 
 struct akl_value *akl_duplicate_value(struct akl_state *in, struct akl_value *oval)
@@ -180,19 +182,16 @@ akl_list_index(struct akl_list *list, int index)
     if (list->li_head == NULL)
         return NULL;
 
-    if (index < 0) {
-        ent = list->li_last;
-        while (index++) {
-            if ((ent = AKL_LIST_PREV(ent)) == NULL)
-                return NULL;
-        }
-    } else if (index == 0) {
-        if (list->li_head)
-            return ent;
-    } else {
+    if (index >= 0) {
         ent = list->li_head;
         while (index--) {
             if ((ent = AKL_LIST_NEXT(ent)) == NULL)
+                return NULL;
+        }
+    } else {
+        ent = list->li_last;
+        while (++index) {
+            if ((ent = AKL_LIST_PREV(ent)) == NULL)
                 return NULL;
         }
     }
@@ -206,7 +205,8 @@ struct akl_value *akl_list_index_value(struct akl_list *list, int index)
 }
 
 /* NOTICE: Will not free the data */
-void akl_list_remove_entry(struct akl_list *list, struct akl_list_entry *ent)
+struct akl_list_entry *
+akl_list_remove_entry(struct akl_list *list, struct akl_list_entry *ent)
 {
     struct akl_list_entry *prev, *next;
     if (ent) {
@@ -228,6 +228,7 @@ void akl_list_remove_entry(struct akl_list *list, struct akl_list_entry *ent)
         }
         list->li_elem_count--;
     }
+    return ent;
 }
 
 /**
@@ -255,6 +256,14 @@ akl_list_remove_value(struct akl_list *list, struct akl_value *val)
 struct akl_value *akl_car(struct akl_list *l)
 {
     return AKL_FIRST_VALUE(l);
+}
+
+void *akl_list_pop(struct akl_list *list)
+{
+    if (list == NULL || list->li_last == NULL)
+        return NULL;
+
+    return akl_list_remove_entry(list, list->li_last)->le_data;
 }
 
 struct akl_list *akl_cdr(struct akl_state *s, struct akl_list *l)
@@ -289,59 +298,59 @@ bool_t akl_is_equal_with(struct akl_atom *atom, const char **strs)
    return FALSE;
 }
 
-void akl_print_value(struct akl_state *in, struct akl_value *val)
+void akl_print_value(struct akl_state *s, struct akl_value *val)
 {
     if (val == NULL || AKL_IS_NIL(val)) {
-        START_COLOR(GRAY);
+        AKL_START_COLOR(s, AKL_GRAY);
         printf("NIL");
-        END_COLOR;
+        AKL_END_COLOR(s);
         return;
     }
 
     switch (val->va_type) {
         case TYPE_NUMBER:
-        START_COLOR(YELLOW);
+        AKL_START_COLOR(s, AKL_YELLOW);
         printf("%g", AKL_GET_NUMBER_VALUE(val));
-        END_COLOR;
+        AKL_END_COLOR(s);
         break;
 
         case TYPE_STRING:
-        START_COLOR(GREEN);
+        AKL_START_COLOR(s, AKL_GREEN);
         printf("\"%s\"", AKL_GET_STRING_VALUE(val));
-        END_COLOR;
+        AKL_END_COLOR(s);
         break;
 
         case TYPE_LIST:
-        akl_print_list(in, AKL_GET_LIST_VALUE(val));
+        akl_print_list(s, AKL_GET_LIST_VALUE(val));
         break;
 
         case TYPE_ATOM:
         if (AKL_IS_QUOTED(val)) {
-            START_COLOR(YELLOW);
+            AKL_START_COLOR(s, AKL_YELLOW);
             printf(":%s", akl_get_atom_name_value(val));
         } else {
-            START_COLOR(PURPLE);
+            AKL_START_COLOR(s, AKL_PURPLE);
             printf("%s", akl_get_atom_name_value(val));
         }
-        END_COLOR;
+        AKL_END_COLOR(s);
         break;
 
         case TYPE_TRUE:
-        START_COLOR(BRIGHT_GREEN);
+        AKL_START_COLOR(s, AKL_BRIGHT_GREEN);
         printf("T");
-        END_COLOR;
+        AKL_END_COLOR(s);
         break;
 
         case TYPE_USERDATA:
-        START_COLOR(YELLOW);
+        AKL_START_COLOR(s, AKL_YELLOW);
         struct akl_utype *type = NULL;
         akl_utype_t tid = akl_get_utype_value(val);
-        type = akl_vector_at(&in->ai_utypes, tid);
+        type = akl_vector_at(&s->ai_utypes, tid);
         if (type)
             printf("<USERDATA: %s>", type->ut_name);
         else
             printf("<USERDATA>");
-        END_COLOR;
+        AKL_END_COLOR(s);
         break;
 
         case TYPE_NIL: case TYPE_FUNCTION:
@@ -351,16 +360,16 @@ void akl_print_value(struct akl_state *in, struct akl_value *val)
     }
 }
 
-void akl_print_list(struct akl_state *in, struct akl_list *list)
+void akl_print_list(struct akl_state *s, struct akl_list *list)
 {
     struct akl_list_entry *ent;
     
     assert(list);
     if (list == NULL || AKL_IS_NIL(list)
         || list->li_elem_count == 0) {
-        START_COLOR(GRAY);
+        AKL_START_COLOR(s, AKL_GRAY);
         printf("NIL");
-        END_COLOR;
+        AKL_END_COLOR(s);
         return;
     }
 
@@ -368,7 +377,7 @@ void akl_print_list(struct akl_state *in, struct akl_list *list)
         printf("\'");
     printf("(");
     AKL_LIST_FOREACH(ent, list) {
-        akl_print_value(in, AKL_ENTRY_VALUE(ent));
+        akl_print_value(s, AKL_ENTRY_VALUE(ent));
         if (ent->le_next != NULL)
             printf(" ");
     }

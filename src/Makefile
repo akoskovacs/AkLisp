@@ -1,6 +1,12 @@
 # This is an alternative makefile, if you don't want to use CMake.
 # It will only generate the executable and will not check the header files...
-CC = gcc
+PREFIX := /usr/local
+VER_MAJOR := 0
+VER_MINOR := 2
+VER_ADDITIONAL := "prealpha"
+AKL_MODULE_SEARCH_PATH := $(PREFIX)/AkLisp/modules/
+
+CC = cc
 LD = ld
 RM = rm -rf
 CP = cp
@@ -9,18 +15,32 @@ CONF = conf.h
 CFLAGS = -ggdb # Default is debug build
 CD = cd
 MAKE = make
-OBJECTS := main.o aklisp.o lib.o lexer.o parser.o os_unix.o gc.o list.o lib_file.o
-DEFINES := -DVER_MAJOR=0 -DVER_MINOR=1 -DVER_ADDITIONAL=\"alpha\" -DUSE_COLORS -DHAVE_READLINE -include "../conf.h"
+OBJECTS := obj-y
 TARGET := ../aklisp
 CTARGET := akl.c
+CFLAGS = # -rdynamic -ldl -lreadline
+SH_LDFLAGS := -fPIC -shared -Wl -soname
 
-all: $(OBJECTS)
+DEFINES := -include "../conf.h" -DVER_MAJOR=$(VER_MAJOR) \
+	       -DVER_MINOR=$(VER_MINOR) -DVER_ADDITIONAL=$(VER_ADDITIONAL)
+
+include Makefile.objs
+
+CONFIG_UNIX := y
+
+all: aklisp
 	@echo "LINK aklisp"
-	@$(CC) $(OBJECTS) -rdynamic -ldl -lreadline -o $(TARGET)
+	$(CC) $(OBJECTS) $(CFLAGS) -o $(TARGET)
 
 %.o: %.c
 	@echo "CC $<"
-	@$(CC) $(CFLAGS) $(DEFINES) $< -c 
+	$(CC) $(CFLAGS) $(DEFINES) $< -c 
+
+libaklisp.so: libaklisp.so.$(VER_MAJOR).$(VER_MINOR)
+
+libaklisp.so$(VER_MAJOR).$(VER_MINOR): $(obj-lib-y)
+	@echo "LINK $@"
+	$(CC) $(SH_LDFLAGS) $@ $(obj-lib-y) 
 
 gen-file:
 	cat akl_tree.h > $(CTARGET)

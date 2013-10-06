@@ -24,14 +24,14 @@
 
 /* ~~~===### VECTOR ###===~~~ */
 struct akl_vector *
-akl_vector_new(struct akl_state *s, unsigned int nmemb, unsigned int size)
+akl_new_vector(struct akl_state *s, unsigned int nmemb, unsigned int size)
 {
     struct akl_vector *vec = AKL_MALLOC(s, struct akl_vector);
-    akl_vector_init(s, vec, nmemb, size);
+    akl_init_vector(s, vec, nmemb, size);
     return vec;
 }
 
-void akl_vector_init(struct akl_state *s, struct akl_vector *vec, unsigned int nmemb, unsigned int size)
+void akl_init_vector(struct akl_state *s, struct akl_vector *vec, unsigned int nmemb, unsigned int size)
 {
     assert(vec);
     if (!nmemb)
@@ -74,6 +74,7 @@ bool_t akl_vector_is_grow_need(struct akl_vector *vec)
 
 void *akl_vector_reserve(struct akl_vector *vec)
 {
+    assert(vec);
     if (akl_vector_is_grow_need(vec))
         akl_vector_grow(vec, 0);
 
