@@ -8,7 +8,7 @@ int ind42 = 6;
 test_res_t vector_create(void)
 {
     /* The vector must grow */
-    vec = akl_vector_new(&state, 8, sizeof(int));
+    vec = akl_new_vector(&state, 8, sizeof(int));
     return vec ? TEST_OK : TEST_FAIL;
 }
 
@@ -23,7 +23,7 @@ test_res_t vector_push(void)
            return TEST_FAIL;
     }
     np = akl_vector_at(vec, 4);
-    return *np != 44;
+    return *np == 44;
 }
 
 test_res_t vector_size(void)
@@ -57,13 +57,13 @@ test_res_t vector_find(void)
     int f = 42;
     unsigned int ind = 0;
     akl_vector_find(vec, number_finder, (void *)&f, &ind);
-    return ind != ind42;
+    return ind == ind42;
 }
 
 test_res_t vector_first(void)
 {
     int *n = (int *)akl_vector_first(vec);
-    return *n != nums[0];
+    return *n == nums[0];
 }
 
 test_res_t vector_reserve_test(int num)
@@ -72,7 +72,7 @@ test_res_t vector_reserve_test(int num)
     int *n = akl_vector_reserve(vec);
     *n=num;
     p = (int *)akl_vector_at(vec, akl_vector_count(vec)-1);
-    return *p != num;
+    return *p == num;
 }
 
 test_res_t vector_reserve(void)
@@ -84,6 +84,8 @@ test_res_t vector_pop(void)
 {
     int i;
     int *n;
+    akl_vector_pop(vec);
+    akl_vector_pop(vec);
     for (i = akl_vector_count(vec)-1; i >= 0; i--) {
         n = (int *)akl_vector_pop(vec);        
         if (*n != nums[i])
