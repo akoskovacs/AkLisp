@@ -49,6 +49,8 @@
 #define AKL_GET_STRING_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_STRING, string))
 #define AKL_GET_CFUN_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_CFUN, cfunc))
 #define AKL_GET_LIST_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_LIST, list))
+#define AKL_STACK_SIZE 10
+
 struct akl_list;
 struct akl_atom;
 struct akl_value;
@@ -76,7 +78,7 @@ typedef enum { DEVICE_FILE, DEVICE_STRING } device_type_t;
 /* Ordinary C functions a.k.a. normal S-expressions*/
 typedef struct akl_value*(*akl_cfun_t)(struct akl_context *, int);
 /* Special C functions a.k.a. special forms */
-typedef struct akl_value*(*akl_scfun_t)(struct akl_context *);
+typedef void (*akl_sfun_t)(struct akl_context *);
 typedef unsigned int akl_utype_t;
 typedef unsigned char akl_byte_t;
 typedef int (*akl_cmp_fn_t)(void *, void *);
@@ -174,6 +176,7 @@ static struct akl_value {
     bool_t is_quoted : 1;
     bool_t is_nil    : 1;
 } NIL_VALUE, TRUE_VALUE;
+#define AKL_NIL &NIL_VALUE
 
 struct akl_atom {
     AKL_GC_DEFINE_OBJ;
@@ -207,24 +210,61 @@ struct akl_io_device {
     unsigned int iod_column;
 };
 
+struct akl_frame {
+    /* 'Global' stack */
+    struct akl_vector *af_stack;
+    /* Current subroutine's stack start */
+    unsigned int       af_begin;
+    /* Current subroutine's stack end */
+    unsigned int       af_end;
+    /* The lower stack frame */
+    struct akl_frame  *af_parent;
+
+    /* Non-variable, final: */
+    unsigned int       af_abs_begin;
+    unsigned int       af_abs_count;
+};
+
 struct akl_context {
     /* Current context for different entities */
-    struct akl_state     *cx_state;
-    struct akl_list      *cx_ir;
-    struct akl_function  *cx_func;
-    struct akl_io_device *cx_dev;
-    struct akl_lex_info  *cx_lex_info;
-    struct akl_list      *cx_frame;
-    const char           *cx_func_name;
+    struct akl_state     *cx_state;     /* Current state */
+    struct akl_list      *cx_ir;        /* The current Internal Representation */
+    struct akl_function  *cx_func;      /* The called function's descriptor */
+    const char           *cx_func_name; /* The called function's name */
+    struct akl_function  *cx_comp_func; /* The function under compilation */
+    struct akl_io_device *cx_dev;       /* The current I/O device */
+    struct akl_lex_info  *cx_lex_info;  /* Current lexical information */
+    struct akl_frame      cx_frame;     /* Current stack frame */
 };
+
 struct akl_context *akl_new_context(struct akl_state *);
 void akl_init_context(struct akl_context *);
 void akl_execute_ir(struct akl_context *);
+void akl_dump_ir(struct akl_context *, struct akl_function *);
+void akl_dump_stack(struct akl_context *);
 
 struct akl_utype {
     const char *ut_name;
     akl_utype_t ut_id;
     akl_gc_destructor_t ut_de_fun; /* Destructor for the given type */
+};
+
+enum AKL_FUNCTION_TYPE {
+    AKL_FUNC_CFUN,
+    AKL_FUNC_SPECIAL,
+    AKL_FUNC_USER,
+    AKL_FUNC_LAMBDA
+};
+
+/* Used for declaration */
+struct akl_fun_decl {
+    enum AKL_FUNCTION_TYPE fd_type;
+    union {
+        akl_cfun_t cfun;
+        akl_sfun_t sfun;
+    } fd_fun;
+    const char *fd_name;
+    const char *fd_desc;
 };
 
 typedef int (*akl_mod_load_t)(struct akl_state *);
@@ -233,21 +273,26 @@ struct akl_module {
     const char *am_name;
     const char *am_desc; /* Text description of the module */
     const char *am_author;
+    struct akl_fun_decl *am_funs; /* Exported functions */
     void *am_handle; /* dlopen's handle */
     akl_mod_load_t am_load;
     akl_mod_load_t am_unload;
 };
 enum AKL_MOD_STATUS { AKL_LOAD_FAIL = 0, AKL_LOAD_OK  };
 /* The first three arguments cannot be NULL */
-#define AKL_MODULE_DEFINE(load, unload, name, desc, author) \
+#define AKL_MODULE_DEFINE(funs, load, unload, name, desc, author) \
 struct akl_module __module_desc = { \
+    .am_funs = funs, \
     .am_name = name, \
     .am_path = NULL, \
+    .am_handle = NULL \
     .am_author = author, \
     .am_desc = desc, \
     .am_load = load, \
     .am_unload = unload \
 }
+
+#define AKL_MODULE(mod_desc) struct akl_module __module_desc = mod_desc
 
 #define AKL_VECTOR_DEFSIZE 10
 #define AKL_VECTOR_NEW(s, type, count) akl_vector_new(s, sizeof(type), count)
@@ -272,13 +317,14 @@ struct akl_vector {
 
 unsigned int akl_vector_size(struct akl_vector *);
 unsigned int akl_vector_count(struct akl_vector *);
-struct akl_vector  *akl_vector_new(struct akl_state *, unsigned int, unsigned int);
-void         akl_vector_init(struct akl_state *, struct akl_vector *, unsigned int, unsigned int);
+struct akl_vector  *akl_new_vector(struct akl_state *, unsigned int, unsigned int);
+void         akl_init_vector(struct akl_state *, struct akl_vector *, unsigned int, unsigned int);
 void        *akl_vector_reserve(struct akl_vector *);
 void        *akl_vector_reserve_more(struct akl_vector *, int);
 //unsigned int akl_vector_add(struct akl_vector *, void *);
 unsigned int akl_vector_push(struct akl_vector *, void *);
-bool_t       akl_vector_is_grow_need(struct akl_vector *vec);
+bool_t		 akl_vector_is_empty(struct akl_vector *);
+bool_t       akl_vector_is_grow_need(struct akl_vector *);
 void        *akl_vector_remove(struct akl_vector *, unsigned int);
 void        *akl_vector_pop(struct akl_vector *);
 void        *akl_vector_find(struct akl_vector *, akl_cmp_fn_t, void *, unsigned int *);
@@ -291,13 +337,6 @@ bool_t       akl_vector_is_empty_at(struct akl_vector *, unsigned int);
 void         akl_vector_destroy(struct akl_state *, struct akl_vector *);
 void         akl_vector_free(struct akl_state *, struct akl_vector *);
 void         akl_vector_grow(struct akl_vector *, unsigned int);
-
-enum AKL_FUNCTION_TYPE {
-    AKL_FUNC_CFUN,
-    AKL_FUNC_SPECIAL,
-    AKL_FUNC_USER,
-    AKL_FUNC_LAMBDA
-};
 
 struct akl_ufun {
     /* Name of the arguments */
@@ -322,15 +361,17 @@ struct akl_function {
         /* C function (normal form) */
         akl_cfun_t  cfun;
         /* C function (special form) */
-        akl_scfun_t scfun;
+        akl_sfun_t scfun;
     } fn_body;
     /* Argument count */
 #define AKL_ARG_OPTIONAL -1
 #define AKL_ARG_REST     -2
 };
 
-void akl_call_function_bound(struct akl_context *, struct akl_function *, struct akl_list *, char *);
-void akl_call_function(struct akl_context *, struct akl_atom *, struct akl_list *);
+struct akl_value *akl_call_function_bound(struct akl_context *);
+/* The second argument is the function's own local context. */
+struct akl_value *akl_call_atom(struct akl_context *, struct akl_context *, struct akl_atom *);
+struct akl_value *akl_call_function(struct akl_context *, struct akl_context *, const char *);
 
 struct akl_gc_pool {
     struct akl_vector    gp_pool;
@@ -355,8 +396,9 @@ struct akl_gc_type {
  *   struct akl_value *a1, *a2, *a3;
  *   akl_get_value_args(ctx, 3, &a1, &a2, &a3);
  * ...
+ * Returns -1 on error
 */
-void akl_get_value_args(struct akl_context *, int, ...);
+int akl_get_value_args(struct akl_context *, int, ...);
 /*
  * Usage:
  * AKL_DEFINE_FUNCTION(testfn, ctx, argc) {
@@ -365,12 +407,14 @@ void akl_get_value_args(struct akl_context *, int, ...);
  *   bool_t is_nil;
  *   akl_get_value_args(ctx, 3, TYPE_NIL, &is_nil, TYPE_FUNCTION, &f, TYPE_NUMBER, &num);
  * ...
+ * Returns -1 on error
 */
-void akl_get_args_strict(struct akl_context *, int argc, ...);
+
+int akl_get_args_strict(struct akl_context *, int argc, ...);
 void   akl_stack_push(struct akl_context *, struct akl_value *);
 struct akl_value *akl_stack_pop(struct akl_context *);
-double akl_stack_pop_number(struct akl_context *);
-char * akl_stack_pop_string(struct akl_context *);
+double *akl_stack_pop_number(struct akl_context *);
+char   *akl_stack_pop_string(struct akl_context *);
 struct akl_list *akl_stack_pop_list(struct akl_context *);
 enum   AKL_VALUE_TYPE akl_stack_top_type(struct akl_context *);
 struct akl_value *akl_stack_top(struct akl_context *);
@@ -406,24 +450,31 @@ struct akl_state {
     unsigned int ai_gc_malloc_size; /* Totally malloc()'d bytes */
     struct akl_vector ai_gc_types;
 
-    struct akl_list *ai_program;
+    struct akl_list  *ai_program;
     /* Loaded user-defined types */
     struct akl_vector ai_utypes;
     /* Currently loaded modules */
-    struct akl_list ai_modules;
+    struct akl_list   ai_modules;
+    struct akl_vector ai_stack; /*  Global stack */
     struct akl_list *ai_errors; /* Collection of the errors (if any, default NULL) */
-    bool_t ai_interactive : 1;
-    bool_t ai_gc_is_enabled : 1;
+    bool_t ai_interactive      : 1;
+    bool_t ai_use_colors       : 1;
+    bool_t ai_gc_is_enabled    : 1;
     bool_t ai_gc_last_was_mark : 1;
 };
 
 struct akl_label *akl_new_branches(struct akl_state *, struct akl_context *);
+struct akl_label *akl_new_labels(struct akl_context *, int);
+struct akl_label *akl_new_label(struct akl_context *);
 
 struct akl_label {
     struct akl_list *la_ir;
     struct akl_list_entry *la_branch;
+    unsigned la_ind;
+    char *la_name; // Only used when assembling
 };
 
+#define AKL_NR_INSTRUCTIONS 11
 typedef enum {
     AKL_IR_NOP = 0,
     AKL_IR_STORE,
@@ -431,10 +482,16 @@ typedef enum {
     AKL_IR_CALL,
     AKL_IR_GET,
     AKL_IR_SET,
+    AKL_IR_BRANCH,
     AKL_IR_JMP, /* Unconditional jump */
     AKL_IR_JT,  /* Jump if true */
-    AKL_IR_JN   /* Jump if false, (not true, nil) */
- } akl_ir_instruction_t;
+    AKL_IR_JN,   /* Jump if false, (not true, nil) */
+    AKL_IR_HEAD,
+    AKL_IR_TAIL,
+    AKL_IR_RET
+} akl_ir_instruction_t;
+
+const char *akl_ir_instruction_set[AKL_NR_INSTRUCTIONS];
 
 typedef enum {
       AKL_JMP = AKL_IR_JMP
@@ -456,11 +513,13 @@ struct akl_ir_instruction {
 };
 
 void akl_compile_list(struct akl_context *);
-struct akl_context *akl_compile(struct akl_state *, struct akl_io_device *);
-void akl_build_jump(struct akl_context *, akl_jump_t jt, struct akl_label *);
+void akl_build_branch(struct akl_context *, struct akl_label *, struct akl_label *);
+void akl_build_jump(struct akl_context *, akl_jump_t, struct akl_label *);
 void akl_build_call(struct akl_context *, struct akl_atom *, int);
 void akl_build_load(struct akl_context *, char *);
 void akl_build_store(struct akl_context *, struct akl_value *);
+void akl_build_nop(struct akl_context *);
+void akl_build_ret(struct akl_context *);
 
 static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
 {
@@ -469,8 +528,8 @@ static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
 
 RB_PROTOTYPE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
-struct akl_atom *akl_add_builtin(struct akl_state *, const char *, akl_cfun_t, const char *);
-struct akl_atom *akl_add_global_cfun(struct akl_state *, const char *, akl_cfun_t, const char *);
+void   akl_add_global_cfun(struct akl_state *, akl_cfun_t, const char *, const char *);
+void   akl_add_global_sfun(struct akl_state *, akl_sfun_t, const char *, const char *);
 void   akl_remove_function(struct akl_state *, akl_cfun_t);
 struct akl_atom *akl_get_global_atom(struct akl_state *, const char *);
 struct akl_atom *akl_add_global_atom(struct akl_state *, struct akl_atom *);
@@ -479,8 +538,8 @@ void   akl_remove_global_atom(struct akl_state *, struct akl_atom *);
 bool_t akl_is_equal_with(struct akl_atom *, const char **);
 bool_t akl_atom_is_function(struct akl_atom *);
 
-#define AKL_LIST_FIRST(list) ((list)->li_head)
-#define AKL_LIST_LAST(list) ((list)->li_last)
+#define AKL_LIST_FIRST(list) ((list != NULL) ? (list)->li_head : NULL)
+#define AKL_LIST_LAST(list) ((list != NULL) ? (list)->li_last : NULL)
 #define AKL_LIST_NEXT(ent) ((ent)->le_next)
 #define AKL_LIST_PREV(ent) ((ent)->le_prev)
 #define AKL_LIST_SECOND(list) (AKL_LIST_NEXT(AKL_LIST_FIRST(list)))
@@ -497,12 +556,12 @@ bool_t akl_atom_is_function(struct akl_atom *);
  * }
 */
 #define AKL_LIST_FOREACH(elem, list)   \
-    for ((elem) = AKL_LIST_FIRST(list) \
+    for ((elem) = (list)->li_head \
        ; (elem)                        \
        ; (elem) = AKL_LIST_NEXT(elem))
 
 #define AKL_LIST_FOREACH_BACK(elem, list) \
-    for ((elem) = AKL_LIST_LAST(list)     \
+    for ((elem) = (list)->li_last     \
        ; (elem)                           \
        ; (elem) = AKL_LIST_PREV(elem))
 
@@ -525,9 +584,6 @@ bool_t akl_atom_is_function(struct akl_atom *);
        ; (elem) && (elem) != AKL_LIST_LAST(list) \
        ; (elem) = AKL_LIST_NEXT(elem))
 
-#define AKL_STACK_FOREACH(elem, ctx) \
-    AKL_LIST_FOREACH_STRICT(elem, ctx->cx_frame) 
-
 #define AKL_ENTRY_VALUE(elem) (struct akl_value *)((elem)->le_data)
 
 typedef enum {
@@ -541,6 +597,17 @@ typedef enum {
     tRBRACE,
     tQUOTE
 } akl_token_t;
+
+typedef enum {
+    tASM_EOF,
+    tASM_WORD=tATOM,
+    tASM_STRING=tSTRING,
+    tASM_NUMBER=tNUMBER,
+    tASM_DOT='.',
+    tASM_COMMA=',',
+    tASM_COLON=':',
+    tASM_PERC='%'
+} akl_asm_token_t;
 
 void *akl_alloc(struct akl_state *, size_t);
 void *akl_calloc(struct akl_state *, size_t, size_t);
@@ -557,26 +624,30 @@ void                  akl_init_string_device(const char *name, const char *str);
 void                  akl_init_string_device(const char *name, const char *str);
 
 akl_token_t akl_lex(struct akl_io_device *);
+akl_asm_token_t akl_asm_lex(struct akl_io_device *);
 void    akl_lex_free(struct akl_io_device *);
 char   *akl_lex_get_string(struct akl_io_device *);
 double  akl_lex_get_number(struct akl_io_device *);
 char   *akl_lex_get_atom(struct akl_io_device *);
 
+akl_token_t akl_compile_next(struct akl_context *);
 struct akl_value *
-akl_parse_token(struct akl_state *, struct akl_io_device *, akl_token_t, bool_t);
-struct akl_list  *akl_parse_list(struct akl_state *, struct akl_io_device *);
-struct akl_value *akl_parse_value(struct akl_state *, struct akl_io_device *);
+akl_parse_token(struct akl_context *, akl_token_t, bool_t);
+struct akl_list  *akl_parse_list(struct akl_context *);
+struct akl_value *akl_build_value(struct akl_context *, akl_token_t);
+struct akl_value *akl_parse_value(struct akl_context *);
 struct akl_list  *akl_parse_file(struct akl_state *, const char *, FILE *);
-struct akl_list  *akl_parse_string(struct akl_state *, const char *, const char *);
 struct akl_list  *akl_parse_io(struct akl_state *, struct akl_io_device *);
 struct akl_list  *akl_parse(struct akl_state *);
 struct akl_value *akl_car(struct akl_list *);
 struct akl_list  *akl_cdr(struct akl_state *, struct akl_list *);
 
-struct akl_value *akl_build_value(struct akl_context *, akl_token_t);
+void akl_asm_parse_instr(struct akl_context *);
+void akl_asm_parse_decl(struct akl_context *);
 
 /* Creating and destroying structures */
 void                   akl_init_state(struct akl_state *s);
+void                   akl_new_stack(struct akl_frame *);
 struct akl_state      *akl_new_state(void *(*)(size_t));
 struct akl_function   *akl_new_function(struct akl_state *);
 struct akl_value      *akl_new_function_value(struct akl_state *, struct akl_function *);
@@ -593,8 +664,6 @@ struct akl_value      *akl_new_list_value(struct akl_state *, struct akl_list *)
 struct akl_value      *akl_new_atom_value(struct akl_state *, char *);
 struct akl_value      *akl_new_user_value(struct akl_state *, akl_utype_t, void *);
 struct akl_lex_info   *akl_new_lex_info(struct akl_state *, struct akl_io_device *);
-void                   akl_set_lex_info(struct akl_state *
-                                    , struct akl_io_device *, struct akl_value *);
 
 /* GC functions */
 
@@ -605,10 +674,6 @@ struct akl_gc_type *akl_gc_get_type(struct akl_state *, akl_gc_type_t);
 
 void   akl_gc_mark(struct akl_state *);
 void   akl_gc_mark_object(struct akl_state *, void *, bool_t);
-void   akl_gc_mark_list(struct akl_state *, void *, bool_t);
-void   akl_gc_mark_list_entry(struct akl_state *, void *, bool_t);
-void   akl_gc_mark_atom(struct akl_state *, void *, bool_t);
-void   akl_gc_mark_value(struct akl_state *, void *, bool_t);
 void   akl_gc_sweep_pool(struct akl_state *, struct akl_gc_pool *, akl_gc_marker_t);
 void   akl_gc_sweep(struct akl_state *);
 void   akl_gc_enable(struct akl_state *);
@@ -648,12 +713,13 @@ struct akl_list_entry *akl_list_index(struct akl_list *, int);
 struct akl_list_entry *akl_list_find(struct akl_list *, akl_cmp_fn_t, void *, unsigned int *);
 struct akl_list_entry *
        akl_list_find_value(struct akl_list *, struct akl_value *, unsigned int *);
-void   akl_list_remove_entry(struct akl_list *, struct akl_list_entry *);
+struct akl_list_entry *
+       akl_list_remove_entry(struct akl_list *, struct akl_list_entry *);
 struct akl_list_entry *
        akl_list_remove(struct akl_list *, akl_cmp_fn_t, void *);
 struct akl_value *akl_duplicate_value(struct akl_state *, struct akl_value *);
 struct akl_list *akl_list_duplicate(struct akl_state *, struct akl_list *);
-
+void *akl_list_pop(struct akl_list *);
 
 int    akl_io_getc(struct akl_io_device *);
 int    akl_io_ungetc(int, struct akl_io_device *);
@@ -677,7 +743,7 @@ struct akl_error {
     const char *err_msg;
 };
 
-void akl_add_error(struct akl_state *, enum AKL_ALERT_TYPE, struct akl_lex_info *, const char *fmt, ...);
+void akl_raise_error(struct akl_context *, enum AKL_ALERT_TYPE, const char *fmt, ...);
 void akl_clear_errors(struct akl_state *);
 void akl_print_errors(struct akl_state *);
 
@@ -707,7 +773,9 @@ struct akl_module *akl_find_module(struct akl_state *, const char *);
 bool_t akl_unload_module(struct akl_state *, const char *, bool_t);
 
 /* These function must be implemented in an os_*.c file */
-void akl_init_lib(struct akl_state *, enum AKL_INIT_FLAGS);
+void akl_library_init(struct akl_state *, enum AKL_INIT_FLAGS);
+void akl_spec_library_init(struct akl_state *, enum AKL_INIT_FLAGS);
+void akl_declare_functions(struct akl_state *, const struct akl_fun_decl *);
 void akl_init_os(struct akl_state *);
 void akl_init_file(struct akl_state *);
 char *akl_get_module_path(struct akl_state *, const char *);
@@ -715,44 +783,53 @@ void akl_module_free(struct akl_state *, struct akl_module *);
 struct akl_module *akl_load_module_desc(struct akl_state *, char *);
 void akl_free_module(struct akl_state *, struct akl_module *);
 
-#define AKL_CFUN_DEFINE(fname, cx, argc) \
-    struct akl_value * akl_fn_##fname(struct akl_context * cx, int argc)
 
-#define AKL_ADD_CFUN(in, fname, name, desc) \
-    akl_add_global_cfun((in), (name), akl_fn_##fname, (desc))
+#ifndef AKL_CFUN_PREFIX
+#define AKL_CFUN_PREFIX akl_fn_
+#endif // AKL_CFUN_PREFIX
 
-#define AKL_ADD_BUILTIN(in, bname, name, desc) \
-    akl_add_builtin((in), (name), bname##_builtin, (desc))
+#ifndef AKL_SFUN_PREFIX
+#define AKL_SFUN_PREFIX akl_sfun_
+#endif // AKL_SFUN_PREFIX
 
-#define AKL_REMOVE_CFUN(in, fname) \
-    akl_remove_function((in), fname##_function)
+#define AKL_CAT_EXP(a, b) a ## b
+#define AKL_CAT(a, b) AKL_CAT_EXP(a, b)
 
-#define AKL_REMOVE_BUILTIN(in, bname) \
-    akl_remove_function((in), bname##_builtin)
+#define AKL_DEFINE_FUN(fname, ctx, argc) \
+    struct akl_value * AKL_CAT(AKL_CFUN_PREFIX, fname)(struct akl_context * ctx, int argc)
 
+#define AKL_DEFINE_SFUN(fname, ctx) \
+    static void AKL_CAT(AKL_SFUN_PREFIX, fname)(struct akl_context * ctx)
+
+#define AKL_DECLARE_FUNS(vname) \
+    static const struct akl_fun_decl vname[] =
+
+#define AKL_FUN(cfun, name, desc) { AKL_FUNC_CFUN, { AKL_CAT(AKL_CFUN_PREFIX, cfun) }, name, desc }
+#define AKL_SFUN(sfun, name, desc) { AKL_FUNC_SPECIAL, { AKL_CAT(AKL_SFUN_PREFIX, sfun) }, name, desc }
+#define AKL_END_FUNS() { 0, { NULL }, NULL, NULL }
 
 #if USE_COLORS
-#define GREEN  "\x1b[32m"
-#define YELLOW "\x1b[33m"
-#define GRAY   "\x1b[1;30m"
-#define BLUE   "\x1b[34m"
-#define RED    "\x1b[31m"
-#define PURPLE "\x1b[35m"
-#define BRIGHT_GREEN "\x1b[1;32m"
-#define START_COLOR(c) printf("%s", (c))
-#define END_COLOR_MARK "\x1b[0m"
-#define END_COLOR printf("\x1b[0m")
+#define AKL_GREEN  "\x1b[32m"
+#define AKL_YELLOW "\x1b[33m"
+#define AKL_GRAY   "\x1b[30m"
+#define AKL_BLUE   "\x1b[34m"
+#define AKL_RED    "\x1b[31m"
+#define AKL_PURPLE "\x1b[35m"
+#define AKL_BRIGHT_GREEN "\x1b[1;32m"
+#define AKL_START_COLOR(s,c) if ((s)->ai_use_colors) printf("%s", (c))
+#define AKL_END_COLOR_MARK "\x1b[0m"
+#define AKL_END_COLOR(s) if((s)->ai_use_colors) printf(AKL_END_COLOR_MARK)
 #else
-#define GREEN  ""
-#define YELLOW ""
-#define GRAY   ""
-#define BLUE   ""
-#define RED    ""
-#define PURPLE ""
-#define BRIGHT_GREEN ""
-#define START_COLOR(c)
-#define END_COLOR_MARK ""
-#define END_COLOR
+#define AKL_GREEN  ""
+#define AKL_YELLOW ""
+#define AKL_GRAY   ""
+#define AKL_BLUE   ""
+#define AKL_RED    ""
+#define AKL_PURPLE ""
+#define AKL_BRIGHT_GREEN ""
+#define AKL_START_COLOR(s,c)
+#define AKL_END_COLOR_MARK ""
+#define AKL_END_COLOR
 #endif
 
 #endif // AKLISP_H
