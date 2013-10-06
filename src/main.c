@@ -24,6 +24,10 @@
 #include <unistd.h>
 #include <string.h>
 
+#if HAVE_GETOPT_H
+#include <getopt.h>
+#endif // HAVE_GETOPT_H
+
 #define PROMPT_MAX 10
 static struct akl_state state;
 
@@ -110,105 +114,39 @@ static char *readline(char *prompt)
 }
 #endif //HAVE_READLINE
 
-/* Command Line parameter handling */
-typedef enum {
-    CMD_END,
-    CMD_ASSEMBLE,
-    CMD_DEFINE,
-    CMD_EVAL,
-    CMD_COLOR,
-    CMD_COMPILE,
-    CMD_INTERACTIVE,
-    CMD_HELP,
-    CMD_VERSION,
-    CMD_UNKOWN,
-    CMD_OTHER
-} cmd_t;
+#ifdef HAVE_GETOPT_H
 
-static struct cmd_option {
-    char        co_short;
-    const char *co_long;
-    const char *co_desc;
-    bool_t      co_has_param;
-    cmd_t       co_cmd;
-} akl_cmd_options[] = {
-    { 'a',  "assemble",    "Assemble a file",                  TRUE,  CMD_ASSEMBLE },
-    { 'D',  "define",      "Define a global variable",         TRUE,  CMD_DEFINE },
-    { 'e',  "eval",        "Evaluate the command line line",   TRUE,  CMD_EVAL },
-    { 'n',  "no-color",    "Disable colors",                   FALSE, CMD_COLOR },
-    { 'c',  "compile",     "Compile program to bytecode",      FALSE, CMD_COMPILE },
-    { 'i',  "interactive", "Force interactive mode",           FALSE, CMD_INTERACTIVE },
-    { 'h',  "help",        "Print this help text",             FALSE, CMD_HELP },
-    { 'v',  "version",     "Print the version of the program", FALSE, CMD_VERSION },
-    { 0, NULL, NULL, FALSE, CMD_END}
+int no_color_flag;
+static struct option akl_options[] = {
+    { "assemble"   , no_argument,       0, 'a' },
+    { "compile"    , no_argument,       0, 'c' },
+    { "eval"       , required_argument, 0, 'e' },
+    { "interactive", no_argument,       0, 'i' },
+    { "no-color"   , no_argument,       &no_color_flag,  1  },
+    { "help"       , no_argument,       0, 'h' },
+    { "version"    , no_argument,       0, 'v' },
+    { NULL         ,           0,       0, 0 }
 };
 
-static const char **my_argv = NULL; // Could be better
-static cmd_t cmd_parse(const char **args, const char **opt)
-{
-    const struct cmd_option *options = akl_cmd_options;
-    if (my_argv == NULL)
-        my_argv = ++args; /* Step over the executable name */
+const char *akl_option_desc[] = {
+    "Compile an AkLisp assembly file", "Compile an AkLisp program to bytecode"
+    , "Evaulate a command-line expression", "Force interactive mode"
+    , "Disable colors", "This help message"
+    , "Print the version number"
+};
 
-    while (my_argv && *my_argv) {
-        /* Should be a long option, like '--help' */
-        if (*(*my_argv+1) == '-' && **my_argv == '-') {
-            /* Find the exact option. TODO: make it efficient */
-            while (options->co_cmd != CMD_END) {
-                if (strcmp(options->co_long, *my_argv+2) == 0) {
-                    /* Got it! */
-                    if (options->co_has_param) {
-                        if (*(my_argv+1))
-                            *opt = *++my_argv; /* Give back that parameter */
-                        else
-                            *opt = NULL;
-                    }
-                    my_argv++;
-                    return options->co_cmd;
-                }
-                options++;
-            }
-            *opt = *++my_argv; 
-            return CMD_UNKOWN;
-        } else if (**my_argv == '-') {
-            /* Single dash, short option */
-            while (options->co_cmd != CMD_END) {
-                if (*(*my_argv+1) == options->co_short) {
-                    if (options->co_has_param) {
-                        /* Are there any next _character_? */
-                        if ((*my_argv)[2] != '\0')
-                            *opt = (*my_argv)+2; /* Assign that substring */
-                        /* Are there next _string_ argument? */
-                        else if (*(my_argv+1))
-                            *opt = *++my_argv;
-                        else
-                            *opt = NULL;
-                    }
-                    my_argv++;
-                    return options->co_cmd;
-                }
-                options++;
-            }
-            *opt = *my_argv++;
-            return CMD_UNKOWN;
+void print_help(void)
+{
+    int i;
+    printf("Usage: aklisp [options] [files] [args]\n");
+    for (i = 0; akl_options[i+1].name; i++) {
+        if (akl_options[i].val != 1) {
+            printf("\t--%-10s\t-%c\t%s\n", akl_options[i].name
+                   , akl_options[i].val, akl_option_desc[i]);
         } else {
-            /* Not even an option */
-            *opt = *my_argv++;
-            return CMD_OTHER;
+            printf("\t--%-15s\t%s\n", akl_options[i].name
+                   , akl_option_desc[i]);
         }
-        my_argv++;
-    }
-    return CMD_END;
-}
-
-static void cmd_print_help(void)
-{
-    struct cmd_option *opt = akl_cmd_options;
-    printf("usage: aklisp [switches] [programfiles] [arguments]\n");
-    while (opt->co_cmd != CMD_END) {
-        printf("%5c%c%5s%-10s\t%5s\n", '-', opt->co_short, "--"
-            , opt->co_long, opt->co_desc);
-        opt++;
     }
 }
 
@@ -224,6 +162,7 @@ static void cmd_parse_define(const char *opt)
     printf("define %s as %s\n", var, value);
     akl_add_global_atom(&state, atom);
 }
+#endif // HAVE_GETOPT_H
 
 /* End of command line functions */
 static void interactive_mode(void)
@@ -270,8 +209,8 @@ static void interactive_mode(void)
 int main(int argc, const char *argv[])
 {
     FILE *fp;
-    cmd_t cmd;
-    const char *opt;
+    int c;
+    int opt_index = 0;
 #if 0
     if (argc > 1) {
         fp = fopen(argv[1], "r");
@@ -296,49 +235,38 @@ int main(int argc, const char *argv[])
         return 0;
     }
 
-    while ((cmd = cmd_parse(argv, &opt)) != CMD_END) {
-        switch (cmd) {
-            case CMD_ASSEMBLE:
-            printf("Assembling %s\n", opt);
-            break;
-
-            case CMD_COLOR:
+#ifdef HAVE_GETOPT_H
+    while((c = getopt_long(argc, argv, "ae:chiv", akl_options, &opt_index)) != -1) {
+        if (no_color_flag)
             state.ai_use_colors = FALSE;
+
+        switch (c) {
+            case 'a':
+            printf("Assembling\n");
             break;
 
-            case CMD_EVAL:
-            printf("Eval this line %s\n", opt);
+            case 'e':
+            printf("Eval this line \'%s\'\n", optarg);
             break;
 
-            case CMD_HELP:
-            cmd_print_help();
+            case 'h':
+            print_help();
             break;
 
-            case CMD_VERSION:
+            case 'v':
             printf("AkLisp v%d.%d-%s\n", VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
             break;
 
-            case CMD_OTHER:
-            printf("other: \'%s\'\n", opt);
+            case 'D':
+                cmd_parse_define(optarg);
             break;
 
-            case CMD_UNKOWN:
-            fprintf(stderr, "Unkown option \'%s\'\n", opt);
-            break;
-
-            case CMD_INTERACTIVE:
-            interactive_mode();
-            break;
-
-            case CMD_DEFINE:
-            if (opt != NULL)
-                cmd_parse_define(opt);
-            break;
-
+            case 'i':
             default:
-//            interactive_mode();
+            interactive_mode();
             break;
         }
     }
+#endif // HAVE_GETOPT_H
     return 0;
 }
