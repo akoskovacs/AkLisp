@@ -7,20 +7,20 @@ ALTCONF = config.h.alt
 CONF = conf.h
 MAKE = make
 all: aklisp 
-#modules test
+DIRS = src modules tests
+
+$(foreach D $(DIRS) include $D)
 
 aklisp: 
 	@echo "Building AkLisp..."
 	$(CP) $(ALTCONF) $(CONF)
 	cd src ; $(MAKE)
 
-modules: aklisp
+modules: aklisp $(akl-mod-y)
 	@echo "Building modules..."
-	cd modules ; $(MAKE)
 
-test: aklisp
+test: aklisp $(akl-test-y)
 	@echo "Testing AkLisp..."
-	cd tests ; $(MAKE)
 
 help:
 	@echo "AkLisp build help:"
