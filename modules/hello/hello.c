@@ -38,7 +38,9 @@ AKL_DEFINE_FUN(string_times, ctx, argc)
     double t
     int i;
     const char *str;
-    akl_get_args_strict(ctx, 2, AKL_NUMBER, &t, AKL_STRING, &str);
+    if (akl_get_args_strict(ctx, 2, AKL_NUMBER, &t, AKL_STRING, &str))
+        /* Something didn't work, must return... */
+        return AKL_NIL;
 
     i = (unsigned int)t;
     while (i--) {
@@ -74,11 +76,12 @@ struct akl_module mod_hello {
     .am_name = "hello";
     .am_desc = "A simple hello module";
     .am_author = "Kovacs Akos <akoskovacs@gmx.com>"
-    /* These can be NULL, when no (de)initialization needed */
-    /*.am_depends_on = { "foo", "bar", NULL }; */
     .am_funs = akl_funs;
     .am_load = hello_load;
     .am_unload = hello_unload;
+    /* These can be NULL, when no (de)initialization needed */
+    /*.am_depends_on = { "foo", "bar", NULL }; */
+    .am_depends_on = NULL; /* A NULL-terminated array of other needed modules */
 };
 
 AKL_MODULE(mod_hello);

@@ -44,32 +44,38 @@ akl_load_module(struct akl_state *s, const char *modname)
     char *mod_path;
     struct akl_module *mod;
     int errcode;
+    const char **dp;
 
     if (akl_find_module(s, modname) != NULL) {
-       akl_raise_error(s, AKL_ERROR, NULL
-           , "ERROR: load: Module '%s' is already loaded.\n", modname);
        return NULL;
     }
 
     if ((mod_path = akl_get_module_path(s, modname)) == NULL) {
-        akl_raise_error(s, AKL_ERROR, NULL, "ERROR: load: Module '%s' is not found.\n"
-           , modname);
         return NULL;
     }
      
     mod = akl_load_module_desc(s, mod_path);
 
-    if (mod && mod->am_load && mod->am_unload && mod->am_name) {
-       /* Start the loader... */
-       errcode = mod->am_load(s);
-       if (errcode != AKL_LOAD_OK) {
-           akl_raise_error(s, AKL_ERROR, NULL
-               , "ERROR: load: Module loader gave error code: %d.\n", errcode);
-           goto unload_mod;
-       }
+    if (mod && mod->am_name) {
+        if (mod->am_depends_on) {
+            /* Load dependencies */
+            for (dp = mod->am_depends_on; dp != NULL; dp++) {
+                if (akl_load_module(s, *dp) == NULL)
+                   goto unload_mod;
+            }
+        }
+        /* Start the loader... */
+        if (mod->am_load) {
+            errcode = mod->am_load(s);
+            if (errcode != AKL_LOAD_OK) {
+               goto unload_mod;
+            }
+        }
+        if (mod->am_funs) {
+            akl_declare_functions(s, mod->am_funs);
+        }
+        assert(mod->am_load || mod->am_funs);
     } else {
-       akl_raise_error(s, AKL_ERROR, NULL
-           , "ERROR: load: Module descriptor is invalid.\n");
        goto unload_mod;
     }
 
@@ -91,22 +97,15 @@ bool_t akl_unload_module(struct akl_state *s, const char *modname, bool_t use_fo
     mod = ent ? (struct akl_module *)ent->le_data : NULL;
 
     if (!mod) {
-        akl_raise_error(s, AKL_ERROR, NULL, "ERROR: unload: '%s' module not found.\n"
-           , modname);
         return FALSE;
     }
 
     if (mod->am_unload == NULL) {
-        akl_raise_error(s, AKL_ERROR, NULL
-           , "ERROR: unload: Cannot call '%s' module's unload code\n"
-           , mod->am_name);
-        return FALSE;
+        goto delete_mod;
     }
 
     errcode = mod->am_unload(s);
     if (errcode == AKL_LOAD_FAIL) {
-        akl_raise_error(s, AKL_ERROR, NULL
-            , "ERROR: unload: Module unloader gave error code: %d.\n", errcode);
         if (use_force)
             goto delete_mod;
         return FALSE;
