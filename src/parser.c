@@ -126,12 +126,18 @@ static void akl_asm_parse_label(struct akl_context *ctx)
 {
     char *label_name = akl_lex_get_atom(ctx->cx_dev);
     struct akl_label *label = akl_new_label(ctx);
+    struct akl_function *fn = ctx->cx_comp_func;
+    struct akl_ufun *ufun;
+    if (fn == NULL)
+        return;
 
+    ufun = &fn->fn_body.ufun;
     if (label && label_name) {
         label->la_name = label_name;
         label->la_ir = ctx->cx_ir;
         label->la_branch = AKL_LIST_LAST(label->la_ir);
     }
+    akl_vector_push(ufun->uf_labels, label);
     if (akl_asm_lex(ctx->cx_dev) != tASM_COLON)
         ; /* Error */
 }
@@ -151,9 +157,37 @@ static int akl_mnemonic_to_instr(const char *mnemonic)
     return -1;
 }
 
-static struct akl_label *
-akl_asm_get_label(struct akl_context *ctx, const char *label_name)
+static int
+label_finder(void *f, void *s)
 {
+    struct akl_label *a,*b;
+    a = (struct akl_label *)f;
+    b = (struct akl_label *)s;
+
+    assert(a && a->la_name && b && b->la_name);
+    return strcmp(a->la_name, a->la_name);
+}
+
+struct akl_label *
+akl_get_or_create_label(struct akl_context *ctx, char *lname)
+{
+    int ind;
+    struct akl_function *fn = ctx->cx_comp_func;
+    struct akl_label fl, *label;
+    struct akl_ufun *ufun;
+    if (fn == NULL)
+        return NULL;
+
+    fl.la_name = lname;
+
+    ufun = &fn->fn_body.ufun;
+    akl_vector_find(ufun->uf_labels, label_finder, (void *)&fl, &ind);
+    if (ind == -1) {
+        label = akl_new_label(ctx);
+        label->la_name = lname;
+    }
+    label = akl_vector_at(ufun->uf_labels, ind);
+
 }
 
 /* Parses:
@@ -164,19 +198,21 @@ akl_asm_get_label(struct akl_context *ctx, const char *label_name)
 */
 void akl_asm_parse_branch(struct akl_context *ctx, int ind)
 {
-    akl_asm_token_t tok;
     struct akl_io_device *dev = ctx->cx_dev;
+    akl_asm_token_t tok = akl_asm_lex(dev);
+    if (tok != tASM_DOT)
+        return; /* Error */
+
+    tok = akl_asm_lex(dev);
+    if (tok != tASM_WORD)
+        return; /* Error */
+
     switch (ind) {
         case AKL_IR_JMP:
         case AKL_IR_JT:
         case AKL_IR_JN:
-        tok = akl_asm_lex(dev);
-        if (tok != tASM_DOT)
-            ; /* Error */
 
         tok = akl_asm_lex(dev);
-        if (tok != tASM_WORD)
-            ; /* Error */
     }
 }
 
@@ -252,7 +288,8 @@ void akl_asm_parse_func(struct akl_context *ctx)
 
     fn->fn_type = AKL_FUNC_USER;
     ctx->cx_comp_func = fn;
-    while ((tok = akl_asm_lex(dev)) != tASM_EOF) {
+    do {
+        tok = akl_asm_lex(dev);
         switch (tok) {
             case tASM_WORD:
             akl_asm_parse_instr(ctx);
@@ -265,6 +302,18 @@ void akl_asm_parse_func(struct akl_context *ctx)
             }
             break;
         }
+    } while (tok != tASM_FDECL && tok != tASM_EOF);
+}
+
+void akl_asm_parse(struct akl_context *ctx)
+{
+    akl_asm_token_t tok;
+    struct akl_state *s = ctx->cx_state;
+    struct akl_io_device *dev = ctx->cx_dev;
+    while ((tok = akl_asm_lex(dev)) != tASM_EOF) {
+        if (tok == tASM_FDECL) {
+            akl_asm_parse_func(ctx); 
+        } 
     }
 }
 #else // AKL_ASSEMBLY
