@@ -221,6 +221,7 @@ struct akl_context *akl_compile(struct akl_state *s, struct akl_io_device *dev)
 
     f->fn_type = AKL_FUNC_USER;
     cx->cx_comp_func = f;
+    s->ai_fn_main = f;
 
     do {
         tok = akl_compile_next(cx);

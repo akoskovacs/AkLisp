@@ -194,10 +194,11 @@ static void interactive_mode(void)
             /*akl_list_append(in, inst->ai_program, il);*/
             ctx = akl_compile(&state, dev);
 //            akl_dump_ir(ctx);
+            akl_dump_ir(ctx, state.ai_fn_main);
             akl_execute_ir(ctx);
             akl_dump_stack(ctx);
             printf(" => ");
-            akl_print_value(&state, akl_stack_pop(ctx));
+            akl_print_value(&state, akl_stack_head(ctx));
             akl_print_errors(&state);
             akl_clear_errors(&state);
             printf("\n");
