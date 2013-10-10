@@ -271,10 +271,12 @@ typedef int (*akl_mod_load_t)(struct akl_state *);
 struct akl_module {
     const char *am_path;
     const char *am_name;
-    const char *am_desc; /* Text description of the module */
+    const char *am_desc;          /* Text description of the module */
     const char *am_author;
     struct akl_fun_decl *am_funs; /* Exported functions */
-    void *am_handle; /* dlopen's handle */
+    size_t am_size;               /* Size of the module */
+    const char **am_depends_on;      /* Other required modules */
+    void *am_handle;              /* dlopen()'s handle */
     akl_mod_load_t am_load;
     akl_mod_load_t am_unload;
 };
@@ -287,6 +289,7 @@ struct akl_module __module_desc = { \
     .am_path = NULL, \
     .am_handle = NULL \
     .am_author = author, \
+    .am_size = 0,    \
     .am_desc = desc, \
     .am_load = load, \
     .am_unload = unload \
@@ -370,8 +373,8 @@ struct akl_function {
 
 struct akl_value *akl_call_function_bound(struct akl_context *);
 /* The second argument is the function's own local context. */
-struct akl_value *akl_call_atom(struct akl_context *, struct akl_context *, struct akl_atom *);
-struct akl_value *akl_call_function(struct akl_context *, struct akl_context *, const char *);
+struct akl_value *akl_call_atom(struct akl_context *, struct akl_context *, struct akl_atom *, unsigned int);
+struct akl_value *akl_call_function(struct akl_context *, struct akl_context *, const char *, unsigned int);
 
 struct akl_gc_pool {
     struct akl_vector    gp_pool;
@@ -419,6 +422,7 @@ struct akl_list *akl_stack_pop_list(struct akl_context *);
 enum   AKL_VALUE_TYPE akl_stack_top_type(struct akl_context *);
 struct akl_value *akl_stack_top(struct akl_context *);
 struct akl_value *akl_stack_shift(struct akl_context *);
+struct akl_value *akl_stack_head(struct akl_context *);
 
 typedef enum {
     AKL_NM_TERMINATE, AKL_NM_TRYAGAIN, AKL_NM_RETNULL
@@ -450,13 +454,14 @@ struct akl_state {
     unsigned int ai_gc_malloc_size; /* Totally malloc()'d bytes */
     struct akl_vector ai_gc_types;
 
-    struct akl_list  *ai_program;
+    struct akl_list     *ai_program;
     /* Loaded user-defined types */
-    struct akl_vector ai_utypes;
+    struct akl_vector    ai_utypes;
     /* Currently loaded modules */
-    struct akl_list   ai_modules;
-    struct akl_vector ai_stack; /*  Global stack */
-    struct akl_list *ai_errors; /* Collection of the errors (if any, default NULL) */
+    struct akl_list      ai_modules;
+    struct akl_function *ai_fn_main; /* The main function */
+    struct akl_vector    ai_stack; /*  Global stack */
+    struct akl_list     *ai_errors; /* Collection of the errors (if any, default NULL) */
     bool_t ai_interactive      : 1;
     bool_t ai_use_colors       : 1;
     bool_t ai_gc_is_enabled    : 1;
@@ -474,7 +479,6 @@ struct akl_label {
     char *la_name; // Only used when assembling
 };
 
-#define AKL_NR_INSTRUCTIONS 11
 typedef enum {
     AKL_IR_NOP = 0,
     AKL_IR_STORE,
@@ -491,6 +495,7 @@ typedef enum {
     AKL_IR_RET
 } akl_ir_instruction_t;
 
+#define AKL_NR_INSTRUCTIONS 14
 const char *akl_ir_instruction_set[AKL_NR_INSTRUCTIONS];
 
 typedef enum {
@@ -606,7 +611,8 @@ typedef enum {
     tASM_DOT='.',
     tASM_COMMA=',',
     tASM_COLON=':',
-    tASM_PERC='%'
+    tASM_PERC='%',
+    tASM_FDECL='@'
 } akl_asm_token_t;
 
 void *akl_alloc(struct akl_state *, size_t);
@@ -805,7 +811,7 @@ void akl_free_module(struct akl_state *, struct akl_module *);
     static const struct akl_fun_decl vname[] =
 
 #define AKL_FUN(cfun, name, desc) { AKL_FUNC_CFUN, { AKL_CAT(AKL_CFUN_PREFIX, cfun) }, name, desc }
-#define AKL_SFUN(sfun, name, desc) { AKL_FUNC_SPECIAL, { AKL_CAT(AKL_SFUN_PREFIX, sfun) }, name, desc }
+#define AKL_SFUN(scfun, name, desc) { AKL_FUNC_SPECIAL, { .sfun = AKL_CAT(AKL_SFUN_PREFIX, scfun) }, name, desc }
 #define AKL_END_FUNS() { 0, { NULL }, NULL, NULL }
 
 #if USE_COLORS

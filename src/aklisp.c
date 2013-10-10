@@ -40,15 +40,15 @@ static void update_recent_value(struct akl_state *in, struct akl_value *val)
 }
 
 /* ~~~===### Stack handling ###===~~~ */
-void akl_init_frame(struct akl_context *ctx, struct akl_frame *f)
+void akl_init_frame(struct akl_context *ctx, struct akl_frame *f, unsigned int argc)
 {
     assert(ctx && f);
     f->af_stack = &ctx->cx_state->ai_stack;
-    f->af_begin = akl_vector_count(&ctx->cx_state->ai_stack) + 1;
-    f->af_end = f->af_begin;
+    f->af_begin = akl_vector_count(&ctx->cx_state->ai_stack) - argc;
+    f->af_end = f->af_begin + argc;
     f->af_parent = &ctx->cx_frame;
     f->af_abs_begin = f->af_begin;
-    f->af_abs_count = f->af_begin - f->af_end;
+    f->af_abs_count = f->af_end - f->af_begin;
 }
 
 bool_t akl_frame_is_empty(struct akl_context *ctx)
@@ -66,11 +66,11 @@ unsigned int akl_frame_get_count(struct akl_context *ctx)
 struct akl_value *akl_frame_at(struct akl_context *ctx, unsigned int ind)
 {
     struct akl_frame *f = &ctx->cx_frame;
-    if (f->af_abs_count >= ind) {
-        akl_raise_error(ctx, AKL_ERROR, "Cannot get %%d, frame is smaller", ind);
+    if (f->af_abs_count <= ind) {
+        akl_raise_error(ctx, AKL_ERROR, "Cannot get %%%d, frame is smaller", ind);
         return NULL;
     }
-    return akl_vector_at(f->af_stack, f->af_abs_begin + ind);
+    return *(struct akl_value **)akl_vector_at(f->af_stack, f->af_abs_begin + ind);
 }
 
 unsigned int akl_frame_get_pointer(struct akl_context *ctx)
@@ -81,17 +81,17 @@ unsigned int akl_frame_get_pointer(struct akl_context *ctx)
 
 void akl_stack_clear(struct akl_context *ctx, size_t c)
 {
-    assert(ctx);
-    struct akl_frame *st = &ctx->cx_frame;
-    while (st->af_begin != st->af_end) {
-        akl_stack_pop(ctx);
+    assert(ctx && ctx->cx_state);
+    while (c--) {
+        akl_vector_pop(&ctx->cx_state->ai_stack);
     }
 }
 
 void akl_frame_destroy(struct akl_context *ctx)
 {
     assert(ctx);
-    akl_stack_clear(ctx, akl_frame_get_count(ctx));
+    struct akl_frame *f = &ctx->cx_frame;
+    akl_stack_clear(ctx, f->af_abs_count);
 }
 
 unsigned int akl_stack_get_pointer(struct akl_context *ctx)
@@ -103,20 +103,17 @@ unsigned int akl_stack_get_pointer(struct akl_context *ctx)
 /* Attention: The stack contains pointer to value pointers */
 void akl_stack_push(struct akl_context *ctx, struct akl_value *value)
 {
-    assert(ctx);
-    struct akl_frame *st = &ctx->cx_frame;
-    struct akl_value *vp = (struct akl_value *)akl_vector_reserve(st->af_stack);
-    *vp = *value;
-    st->af_end++;
+    assert(ctx && ctx->cx_state);
+    struct akl_value **vp = (struct akl_value **)akl_vector_reserve(&ctx->cx_state->ai_stack);
+    *vp = value;
 }
 
 struct akl_value *akl_stack_shift(struct akl_context *ctx)
 {
     assert(ctx);
     struct akl_frame *st = &ctx->cx_frame;
-    if (st->af_begin != st->af_end) {
-        st->af_begin++;
-        return (struct akl_value *)akl_vector_at(st->af_stack, st->af_begin);
+    if (st->af_begin < st->af_end) {
+        return akl_frame_at(ctx, st->af_begin++);
     } else {
         return NULL;
     }
@@ -124,10 +121,10 @@ struct akl_value *akl_stack_shift(struct akl_context *ctx)
 
 struct akl_value *akl_stack_head(struct akl_context *ctx)
 {
-    assert(ctx);
-    struct akl_frame *st = &ctx->cx_frame;
-    if (st->af_begin != st->af_end)
-        return (struct akl_value *)akl_vector_at(st->af_stack, st->af_begin);
+    assert(ctx && ctx->cx_state);
+    struct akl_vector *st = &ctx->cx_state->ai_stack;
+    if (!akl_vector_is_empty(st))
+        return akl_vector_last(st);
     else
         return NULL;
 }
@@ -138,7 +135,7 @@ struct akl_value *akl_stack_pop(struct akl_context *ctx)
     struct akl_frame *st = &ctx->cx_frame;
     if (st->af_begin != st->af_end) {
         st->af_end--;
-        return akl_vector_pop(st->af_stack);
+        return akl_frame_at(ctx, st->af_end);
     } else {
         return NULL;
     }
@@ -232,7 +229,7 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
         return -1;
     }
     if (argc == 0)
-        return 0;
+        return -1;
 
     va_start(ap, argc);
     while (argc--) {
@@ -295,19 +292,20 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
         }
     }
     va_end(ap);
+    return 0;
 }
 
 /* Inherit context (ctx) if no one give valid (if cx == NULL).
  * Should be only used in akl_call_* functions
  * NOTICE: Will create an lc local variable
 */
-#define CTX_USE_OR_CREATE(ctx, cx)   \
-    struct akl_context lc;            \
-    if (cx == NULL) {                  \
-        cx = &lc;                       \
-        akl_init_context(cx);            \
-        lc = *ctx;                        \
-        akl_init_frame(ctx, &cx->cx_frame);\
+#define CTX_USE_OR_CREATE(ctx, cx, argc)   \
+    struct akl_context lc;                  \
+    if (cx == NULL) {                        \
+        cx = &lc;                             \
+        akl_init_context(cx);                  \
+        lc = *ctx;                              \
+        akl_init_frame(ctx, &cx->cx_frame, argc);\
     }
 
 struct akl_value *akl_call_function_bound(struct akl_context *cx)
@@ -321,6 +319,9 @@ struct akl_value *akl_call_function_bound(struct akl_context *cx)
     switch (fn->fn_type) {
         case AKL_FUNC_CFUN:
         value = fn->fn_body.cfun(cx, akl_frame_get_count(cx));
+        value = value ? value : AKL_NIL;
+        akl_frame_destroy(cx);
+        akl_stack_push(cx, value);
         break;
 
         case AKL_FUNC_USER:
@@ -332,15 +333,14 @@ struct akl_value *akl_call_function_bound(struct akl_context *cx)
         break;
     }
 
-    akl_frame_destroy(cx);
     return value;
 }
 
-struct akl_value *akl_call_atom(struct akl_context *ctx, struct akl_context *cx, struct akl_atom *atm)
+struct akl_value *akl_call_atom(struct akl_context *ctx, struct akl_context *cx, struct akl_atom *atm, unsigned int argc)
 {
     assert(ctx && atm && atm->at_name);
     struct akl_value *v;
-    CTX_USE_OR_CREATE(ctx, cx);
+    CTX_USE_OR_CREATE(ctx, cx, argc);
     if (atm == NULL || atm->at_name == NULL || atm->at_value == NULL) {
         akl_raise_error(ctx, AKL_ERROR, "Function \'%s\' is not found", atm->at_name);
         return NULL;
@@ -359,16 +359,13 @@ struct akl_value *akl_call_atom(struct akl_context *ctx, struct akl_context *cx,
     return akl_call_function_bound(cx);
 }
 
-struct akl_value *akl_call_function(struct akl_context *ctx, struct akl_context *cx, const char *fname)
+struct akl_value *akl_call_function(struct akl_context *ctx, struct akl_context *cx
+                                    , const char *fname, unsigned int argc)
 {
     assert(ctx && fname);
     struct akl_atom *atm = akl_get_global_atom(cx->cx_state, fname);
-    CTX_USE_OR_CREATE(ctx, cx);
-    if (atm == NULL) {
-        akl_raise_error(ctx, AKL_ERROR, "Function \'%s\' is not a function", fname);
-        return NULL;
-    }
-    return akl_call_atom(ctx, cx, atm);
+    CTX_USE_OR_CREATE(ctx, cx, argc);
+    return akl_call_atom(ctx, cx, atm, argc);
 }
 
 #define MOVE_IP(ip) ((ip) = AKL_LIST_NEXT(ip))
@@ -412,7 +409,7 @@ void akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             break;
 
             case AKL_IR_CALL:
-            akl_call_atom(ctx, NULL, in->in_arg[0].atom);
+            akl_call_atom(ctx, NULL, in->in_arg[0].atom, in->in_arg[1].ui_num);
             MOVE_IP(ip);
             break;
 
@@ -489,8 +486,8 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
     struct akl_list_entry *ent;
     struct akl_ir_instruction *in;
     struct akl_atom *atom;
-    struct akl_label *l;
-    struct akl_ufun *uf;
+    struct akl_label *l = NULL;
+    struct akl_ufun *uf = NULL;
     int lind = 0;
 
     switch (fun->fn_type) {
@@ -499,10 +496,11 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
         return;
     }
     uf = &fun->fn_body.ufun;
-    l = (struct akl_label *)akl_vector_first(uf->uf_labels);
-    ir = &uf->uf_body;
-    assert(l && ir);
+    if (uf->uf_labels != NULL) {
+        l = (struct akl_label *)akl_vector_first(uf->uf_labels);
+    }
 
+    ir = &uf->uf_body;
     AKL_LIST_FOREACH(ent, ir) {
        in = (struct akl_ir_instruction *)ent->le_data;
        if (in == NULL)
@@ -725,7 +723,7 @@ void akl_print_errors(struct akl_state *in)
                     name = err->err_info->li_name;
                 }
 
-                fprintf(stderr,  AKL_GREEN "%s:%d:%d" AKL_END_COLOR_MARK ": %s%s" AKL_END_COLOR_MARK
+                fprintf(stderr,  AKL_GREEN "%s:%d:%d" AKL_END_COLOR_MARK ": %s%s\n" AKL_END_COLOR_MARK
                         , name, line, count, (err->err_type == AKL_ERROR) ? AKL_RED : AKL_YELLOW, err->err_msg);
             }
             errors++;
