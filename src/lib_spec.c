@@ -77,18 +77,33 @@ AKL_DEFINE_SFUN(while, ctx)
     akl_build_label(ctx, label+2);
 }
 
-char **akl_parse_params(struct akl_state *s, struct akl_io_device *dev)
+char **akl_parse_params(struct akl_context *ctx)
 {
+    assert(ctx && ctx->cx_state && ctx->cx_dev);
     akl_token_t tok;
     int i = 0;
     const int DEF_ARGC = 3;
-    char **args = (char **)akl_calloc(s, DEF_ARGC, sizeof(char *));
+    char **args = NULL;
+    tok = akl_lex(ctx->cx_dev);
 
-    while ((tok = akl_lex(dev)) != tRBRACE) {
+    /* Empty argument list (0 args) */
+    if (tok == tNIL) {
+        return NULL;
+    }
+
+    /* No argument list at all */
+    if (tok != tLBRACE) {
+        akl_raise_error(ctx, AKL_ERROR, "Expected an argument list for function definition \'%s\'"
+                        , ctx->cx_func_name);
+        return NULL;
+    }
+    args = (char **)akl_calloc(ctx->cx_state, DEF_ARGC, sizeof(char *));
+
+    while ((tok = akl_lex(ctx->cx_dev)) != tRBRACE) {
         if (tok == tATOM) {
-           args[i] = akl_lex_get_atom(dev);
+           args[i] = akl_lex_get_atom(ctx->cx_dev);
            if (++i >= DEF_ARGC) {
-               args = akl_realloc(s, args, i+DEF_ARGC);
+               args = akl_realloc(ctx->cx_state, args, i+DEF_ARGC);
            }
         } else {
             /* TODO: hoho, pattern matching... */
@@ -117,7 +132,9 @@ AKL_DEFINE_SFUN(defun, ctx)
         /* TODO: Error! */
     }
 
-    ufun->uf_args = akl_parse_params(ctx->cx_state, ctx->cx_dev);
+    ufun->uf_args = akl_parse_params(ctx);
+    ctx->cx_comp_func = func;
+    ctx->cx_ir = &ufun->uf_body;
     /* Eat the next left brace and interpret the body... */
     tok = akl_lex(ctx->cx_dev);
     if (tok == tSTRING) {
@@ -126,18 +143,20 @@ AKL_DEFINE_SFUN(defun, ctx)
         tok = akl_lex(ctx->cx_dev);
     }
 
+    akl_add_global_atom(ctx->cx_state, fatm);
     if (tok == tLBRACE) {
         akl_compile_list(ctx);
     } else {
         ; /* Todo: Error: no body */
+        akl_remove_global_atom(ctx->cx_state, fatm);
     }
-
-    akl_add_global_atom(ctx->cx_state, fatm);
 }
 
 AKL_DECLARE_FUNS(akl_spec_forms) {
     AKL_SFUN(if, "if", "Conditional expression"),
-    AKL_SFUN(while, "while", "Conditional loop expression")
+    AKL_SFUN(while, "while", "Conditional loop expression"),
+    AKL_SFUN(defun, "defun!", "Define a new function"),
+    AKL_END_FUNS()
 };
 
 void akl_spec_library_init(struct akl_state *s, enum AKL_INIT_FLAGS flags)
