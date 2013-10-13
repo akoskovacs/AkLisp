@@ -175,7 +175,7 @@ static void interactive_mode(void)
     struct akl_context *ctx;
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
-    printf("Copyleft (C) 2012 Akos Kovacs\n\n");
+    printf("Copyleft (C) 2013 Akos Kovacs\n\n");
     state.ai_interactive = TRUE;
     init_readline();
     while (1) {
@@ -195,10 +195,10 @@ static void interactive_mode(void)
             ctx = akl_compile(&state, dev);
 //            akl_dump_ir(ctx);
             akl_dump_ir(ctx, state.ai_fn_main);
-            akl_execute_ir(ctx);
+            akl_execute(ctx);
             akl_dump_stack(ctx);
             printf(" => ");
-            akl_print_value(&state, akl_stack_head(ctx));
+            akl_print_value(&state, akl_stack_pop(&state));
             akl_print_errors(&state);
             akl_clear_errors(&state);
             printf("\n");
