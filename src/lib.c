@@ -31,15 +31,24 @@ AKL_DEFINE_FUN(exit, cx, argc)
     exit(0);
 }
 
+AKL_DEFINE_FUN(print, cx, argc)
+{
+    struct akl_value *v;
+    if (akl_get_args(cx, 1, &v) == -1)
+        return AKL_NIL;
+
+    akl_print_value(cx->cx_state, v);
+    return v;
+}
+
 AKL_DEFINE_FUN(plus, cx, argc)
 {
     double sum = 0.0;
     double *n;
     struct akl_list_entry *ent;
-    while ((n = akl_stack_pop_number(cx)) != NULL) {
+    while ((n = akl_frame_pop_number(cx)) != NULL) {
        sum += *n;
     }
-    printf("+ = %lf\n", sum);
 
     return akl_new_number_value(cx->cx_state, sum);
 }
@@ -48,10 +57,9 @@ AKL_DEFINE_FUN(mul, cx, argc)
 {
     double prod = 1.0;
     double *n;
-    while ((n = akl_stack_pop_number(cx)) != NULL) {
+    while ((n = akl_frame_pop_number(cx)) != NULL) {
        prod *= *n;
     }
-    printf("* = %lf\n", prod);
 
     return akl_new_number_value(cx->cx_state, prod);
 }
@@ -85,7 +93,6 @@ AKL_DEFINE_FUN(dump_stack, cx, argc)
         printf("%%%d: ", n);
         akl_print_value(cx->cx_state, *vp);
         printf("\n");
-        n++;
     }
     return NULL;
 }
@@ -93,7 +100,7 @@ AKL_DEFINE_FUN(dump_stack, cx, argc)
 AKL_DEFINE_FUN(gt, ctx, argc)
 {
     struct akl_value *a1, *a2;
-    if (akl_get_value_args(ctx, 2, &a1, &a2))
+    if (akl_get_args(ctx, 2, &a1, &a2))
         return NULL;
 
     if (akl_compare_values(a1, a2) == 1)
@@ -105,7 +112,7 @@ AKL_DEFINE_FUN(gt, ctx, argc)
 AKL_DEFINE_FUN(lt, ctx, argc)
 {
     struct akl_value *a1, *a2;
-    if (akl_get_value_args(ctx, 2, &a1, &a2))
+    if (akl_get_args(ctx, 2, &a1, &a2))
         return AKL_NIL;
 
     if (akl_compare_values(a1, a2) == -1)
@@ -117,7 +124,7 @@ AKL_DEFINE_FUN(lt, ctx, argc)
 AKL_DEFINE_FUN(eq, ctx, argc)
 {
     struct akl_value *a1, *a2;
-    if (akl_get_value_args(ctx, 2, &a1, &a2))
+    if (akl_get_args(ctx, 2, &a1, &a2))
         return AKL_NIL;
 
     if (akl_compare_values(a1, a2) == 0)
@@ -130,7 +137,7 @@ AKL_DEFINE_FUN(minus, ctx, argc)
 {
     int sum = 0;
     struct akl_value *v;
-    while ((v = akl_stack_shift(ctx))) {
+    while ((v = akl_frame_shift(ctx))) {
         if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
         }
     }
@@ -141,7 +148,7 @@ AKL_DEFINE_FUN(list, ctx, argc)
 {
     struct akl_value *v;
     struct akl_list *list = akl_new_list(ctx->cx_state);
-    while ((v = akl_stack_shift(ctx))) {
+    while ((v = akl_frame_shift(ctx))) {
         akl_list_append_value(ctx->cx_state, list, v);
     }
     return akl_new_list_value(ctx->cx_state, list);
@@ -161,7 +168,7 @@ AKL_DEFINE_FUN(disassemble, ctx, argc)
     struct akl_value *v;
     struct akl_function *fn;
     if (argc == 1) {
-        if (akl_get_args_strict(ctx, 1, TYPE_ATOM, &a))
+        if (akl_get_args_strict(ctx, 1, TYPE_ATOM, &a) == -1)
             return NULL;
 
         a = akl_get_global_atom(ctx->cx_state, a->at_name);
@@ -1220,6 +1227,7 @@ AKL_DECLARE_FUNS(akl_debug_funs) {
     AKL_FUN(dump_stack,  "dump-stack", "Dump the stack contents"),
     AKL_FUN(disassemble,  "disassemble", "Disassemble a given function"),
     AKL_FUN(hello,  "hello", "Hello function"),
+    AKL_FUN(print,  "print", "Print an expression value"),
     AKL_END_FUNS()
 };
 
