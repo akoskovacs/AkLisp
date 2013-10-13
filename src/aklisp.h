@@ -160,7 +160,7 @@ struct akl_lex_info {
     unsigned int li_count; /* Column count */
 };
 
-static struct akl_value {
+extern struct akl_value {
     AKL_GC_DEFINE_OBJ;
     struct akl_lex_info *va_lex_info;
     enum AKL_VALUE_TYPE  va_type;
@@ -240,6 +240,7 @@ struct akl_context {
 struct akl_context *akl_new_context(struct akl_state *);
 void akl_init_context(struct akl_context *);
 void akl_execute_ir(struct akl_context *);
+void akl_execute(struct akl_context *);
 void akl_dump_ir(struct akl_context *, struct akl_function *);
 void akl_dump_stack(struct akl_context *);
 
@@ -401,7 +402,7 @@ struct akl_gc_type {
  * ...
  * Returns -1 on error
 */
-int akl_get_value_args(struct akl_context *, int, ...);
+int akl_get_args(struct akl_context *, int, ...);
 /*
  * Usage:
  * AKL_DEFINE_FUNCTION(testfn, ctx, argc) {
@@ -412,17 +413,19 @@ int akl_get_value_args(struct akl_context *, int, ...);
  * ...
  * Returns -1 on error
 */
-
 int akl_get_args_strict(struct akl_context *, int argc, ...);
-void   akl_stack_push(struct akl_context *, struct akl_value *);
-struct akl_value *akl_stack_pop(struct akl_context *);
-double *akl_stack_pop_number(struct akl_context *);
-char   *akl_stack_pop_string(struct akl_context *);
-struct akl_list *akl_stack_pop_list(struct akl_context *);
+struct akl_value *akl_frame_pop(struct akl_context *);
+double *akl_frame_pop_number(struct akl_context *);
+char   *akl_frame_pop_string(struct akl_context *);
+struct akl_list *akl_frame_pop_list(struct akl_context *);
+struct akl_value *akl_frame_top(struct akl_context *);
 enum   AKL_VALUE_TYPE akl_stack_top_type(struct akl_context *);
-struct akl_value *akl_stack_top(struct akl_context *);
-struct akl_value *akl_stack_shift(struct akl_context *);
-struct akl_value *akl_stack_head(struct akl_context *);
+struct akl_value *akl_frame_top(struct akl_context *);
+struct akl_value *akl_frame_shift(struct akl_context *);
+struct akl_value *akl_frame_head(struct akl_context *);
+
+void   akl_stack_push(struct akl_state *, struct akl_value *);
+struct akl_value *akl_stack_pop(struct akl_state *);
 
 typedef enum {
     AKL_NM_TERMINATE, AKL_NM_TRYAGAIN, AKL_NM_RETNULL
@@ -454,7 +457,6 @@ struct akl_state {
     unsigned int ai_gc_malloc_size; /* Totally malloc()'d bytes */
     struct akl_vector ai_gc_types;
 
-    struct akl_list     *ai_program;
     /* Loaded user-defined types */
     struct akl_vector    ai_utypes;
     /* Currently loaded modules */
