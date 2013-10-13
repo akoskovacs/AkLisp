@@ -38,6 +38,9 @@ void akl_build_store(struct akl_context *ctx, struct akl_value *arg)
 int argument_finder(char **args, const char *arg)
 {
     int i = 0;
+    if (!args || !arg)
+        return -1;
+
     for (i = 0; args[i]; i++) {
         if (strcmp(args[i], arg) == 0)
             return i;
@@ -48,7 +51,7 @@ int argument_finder(char **args, const char *arg)
 
 void akl_build_load(struct akl_context *ctx, char *name)
 {
-    struct akl_function *fn = ctx->cx_func;
+    struct akl_function *fn = ctx->cx_comp_func;
     struct akl_ufun *ufun = NULL;
     unsigned int ind;
     DEFINE_IR_INSTRUCTION(load, ctx);
@@ -215,13 +218,14 @@ struct akl_context *akl_compile(struct akl_state *s, struct akl_io_device *dev)
     struct akl_context *cx = akl_new_context(s);
     struct akl_function *f = akl_new_function(s);
     akl_token_t tok;
-    cx->cx_ir = akl_new_list(s);
+
+    akl_init_list(&f->fn_body.ufun.uf_body);
+    f->fn_type = AKL_FUNC_USER;
+    s->ai_fn_main = f;
 
     cx->cx_dev = dev;
-
-    f->fn_type = AKL_FUNC_USER;
     cx->cx_comp_func = f;
-    s->ai_fn_main = f;
+    cx->cx_ir = &f->fn_body.ufun.uf_body;
 
     do {
         tok = akl_compile_next(cx);
