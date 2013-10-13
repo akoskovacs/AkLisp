@@ -164,7 +164,7 @@ size_t copy_atom(struct akl_io_device *dev)
 
     while ((ch = akl_io_getc(dev))) {
         if (ch != ' ' && ch != ')' && ch != '\n') {
-            put_buffer(dev, i++, toupper(ch)); /* Good old times... */
+            put_buffer(dev, i++, tolower(ch));
         } else {
             akl_io_ungetc(ch, dev);
             break;
@@ -293,6 +293,7 @@ akl_asm_token_t akl_asm_lex(struct akl_io_device *dev)
         switch (ch) {
             case tASM_DOT: case tASM_COMMA:
             case tASM_COLON: case tASM_PERC:
+            case tASM_FDECL:
             return ch;
 
             case EOF:
