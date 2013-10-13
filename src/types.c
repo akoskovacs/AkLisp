@@ -27,13 +27,13 @@ const char *akl_type_name[10] = {
     "function", "user-data", NULL
 };
 
-static struct akl_value TRUE_VALUE = {
+struct akl_value TRUE_VALUE = {
     { AKL_GC_VALUE , FALSE, FALSE , TRUE }
   , NULL, TYPE_TRUE, { (double)1 }
   , FALSE, FALSE
 };
 
-static struct akl_value NIL_VALUE = {
+struct akl_value NIL_VALUE = {
     { AKL_GC_VALUE , FALSE, FALSE , TRUE }
   , NULL, TYPE_NIL, { (double)0 }
   , FALSE, TRUE
@@ -58,6 +58,7 @@ void akl_init_state(struct akl_state *s)
     s->ai_free_fn = free;
     s->ai_nomem_fn = akl_def_nomem_handler;
     s->ai_use_colors = TRUE;
+    s->ai_fn_main = NULL;
     akl_gc_init(s);
 
     RB_INIT(&s->ai_atom_head);
@@ -65,7 +66,6 @@ void akl_init_state(struct akl_state *s)
     akl_init_list(&s->ai_modules);
     akl_init_vector(s, &s->ai_utypes, sizeof(struct akl_module *), 5);
     akl_init_vector(s, &s->ai_stack, sizeof(struct akl_value *), 40);
-    s->ai_program  = NULL;
     s->ai_errors   = NULL;
 }
 
