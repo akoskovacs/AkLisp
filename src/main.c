@@ -23,6 +23,7 @@
 #include "aklisp.h"
 #include <unistd.h>
 #include <string.h>
+#include "../config.h"
 
 #if HAVE_GETOPT_H
 #include <getopt.h>
@@ -120,6 +121,7 @@ int no_color_flag;
 static struct option akl_options[] = {
     { "assemble"   , no_argument,       0, 'a' },
     { "compile"    , no_argument,       0, 'c' },
+    { "define"     , no_argument,       0, 'D' },
     { "eval"       , required_argument, 0, 'e' },
     { "interactive", no_argument,       0, 'i' },
     { "no-color"   , no_argument,       &no_color_flag,  1  },
@@ -130,8 +132,8 @@ static struct option akl_options[] = {
 
 const char *akl_option_desc[] = {
     "Compile an AkLisp assembly file", "Compile an AkLisp program to bytecode"
-    , "Evaulate a command-line expression", "Force interactive mode"
-    , "Disable colors", "This help message"
+    , "Define a variable from command-line", "Evaulate a command-line expression"
+    , "Force interactive mode", "Disable colors", "This help message"
     , "Print the version number"
 };
 
@@ -154,13 +156,10 @@ static void cmd_parse_define(const char *opt)
 {
     char var[100]; /* Should be enough */
     char value[100];
-    struct akl_atom *atom = NULL;
     struct akl_value *v = NULL;
     sscanf(opt, "%100[A-Za-z_+-*]=%100[A-Za-z0-9 ]", var, value);
-    atom = akl_new_atom(&state, var);
-    atom->at_value = akl_new_string_value(&state, value);
+    akl_add_global_variable(&state, var, NULL, akl_new_string_value(&state, value));
     printf("define %s as %s\n", var, value);
-    akl_add_global_atom(&state, atom);
 }
 #endif // HAVE_GETOPT_H
 
@@ -207,56 +206,41 @@ static void interactive_mode(void)
     }
 }
 
-int main(int argc, const char *argv[])
+int main(int argc, const char **argv)
 {
     FILE *fp;
     int c;
-    int opt_index = 0;
-#if 0
-    if (argc > 1) {
-        fp = fopen(argv[1], "r");
-        if (fp == NULL) {
-            fprintf(stderr, "ERROR: Cannot open file %s!\n", argv[1]);
-            return -1;
-        }
-        // TODO...
-    //    in = akl_new_file_interpreter(argv[1], fp);
-        in.ai_interactive = FALSE;
-    } else {
-        interactive_mode();
-        return 0;
-    }
-#endif
+    int opt_index = 1;
+    struct akl_io_device *dev;
+    struct akl_context *ctx;
+    struct akl_list args;
+    const char *fname;
 
     akl_init_state(&state);
+    akl_init_list(&args);
     akl_library_init(&state, AKL_LIB_ALL);
 
-    if (argc == 1) {
-        interactive_mode();
-        return 0;
-    }
-
 #ifdef HAVE_GETOPT_H
-    while((c = getopt_long(argc, argv, "ae:chiv", akl_options, &opt_index)) != -1) {
+    while((c = getopt_long(argc, argv, "aD:e:chiv", akl_options, &opt_index)) != -1) {
         if (no_color_flag)
             state.ai_use_colors = FALSE;
 
         switch (c) {
             case 'a':
             printf("Assembling\n");
-            break;
+            return 0;
 
             case 'e':
             printf("Eval this line \'%s\'\n", optarg);
-            break;
+            return 0;
 
             case 'h':
             print_help();
-            break;
+            return 0;
 
             case 'v':
             printf("AkLisp v%d.%d-%s\n", VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
-            break;
+            return 0;
 
             case 'D':
                 cmd_parse_define(optarg);
@@ -269,5 +253,26 @@ int main(int argc, const char *argv[])
         }
     }
 #endif // HAVE_GETOPT_H
+    if (opt_index < argc) {
+        fname = argv[opt_index];
+        fp = fopen(fname, "r");
+        if (fp == NULL) {
+            fprintf(stderr, "ERROR: Cannot open file %s!\n", fname);
+            return -1;
+        }
+        while (opt_index < argc) {
+            akl_list_append_value(&state, &args, akl_new_string_value(&state, strdup(argv[opt_index++])));
+        }
+        state.ai_interactive = FALSE;
+        akl_add_global_variable(&state, "*args*", "The list of command-line arguments", akl_new_list_value(&state, &args));
+        akl_add_global_variable(&state, "*file*", "The current file", akl_new_string_value(&state, strdup(fname)));
+        dev = akl_new_file_device(&state, fname, fp);
+        ctx = akl_compile(&state, dev);
+        akl_execute(ctx);
+    } else {
+        interactive_mode();
+        return 0;
+    }
+
     return 0;
 }
