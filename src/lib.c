@@ -38,6 +38,7 @@ AKL_DEFINE_FUN(print, cx, argc)
         return AKL_NIL;
 
     akl_print_value(cx->cx_state, v);
+    printf("\n");
     return v;
 }
 
@@ -172,6 +173,7 @@ AKL_DEFINE_FUN(disassemble, ctx, argc)
             return NULL;
 
         a = akl_get_global_atom(ctx->cx_state, a->at_name);
+        v = a->at_value;
         if (AKL_CHECK_TYPE(v, TYPE_FUNCTION))
             fn = v->va_value.func;
         else
