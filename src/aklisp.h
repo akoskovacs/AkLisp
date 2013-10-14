@@ -540,6 +540,8 @@ void   akl_add_global_sfun(struct akl_state *, akl_sfun_t, const char *, const c
 void   akl_remove_function(struct akl_state *, akl_cfun_t);
 struct akl_atom *akl_get_global_atom(struct akl_state *, const char *);
 struct akl_atom *akl_add_global_atom(struct akl_state *, struct akl_atom *);
+ struct akl_atom *
+akl_add_global_variable(struct akl_state *s, const char *name, const char *desc, struct akl_value *v);
 void   akl_do_on_all_atoms(struct akl_state *, void (*fn)(struct akl_atom *));
 void   akl_remove_global_atom(struct akl_state *, struct akl_atom *);
 bool_t akl_is_equal_with(struct akl_atom *, const char **);

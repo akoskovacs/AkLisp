@@ -49,12 +49,20 @@ int argument_finder(char **args, const char *arg)
     return -1;
 }
 
+void akl_build_get(struct akl_context *ctx, char *name)
+{
+    DEFINE_IR_INSTRUCTION(get, ctx);
+    get->in_op = AKL_IR_GET;
+    get->in_str = name;
+}
+
 void akl_build_load(struct akl_context *ctx, char *name)
 {
     struct akl_function *fn = ctx->cx_comp_func;
     struct akl_ufun *ufun = NULL;
     unsigned int ind;
-    DEFINE_IR_INSTRUCTION(load, ctx);
+    struct akl_ir_instruction *load =
+            AKL_MALLOC(ctx->cx_state, struct akl_ir_instruction);
 
     load->in_op = AKL_IR_LOAD;
 
@@ -63,9 +71,11 @@ void akl_build_load(struct akl_context *ctx, char *name)
         /* The 'name' must be an argument or a local variable */
         if ((ind = argument_finder(ufun->uf_args, name)) != -1) {
             load->in_arg[0].ui_num = ind; // The found stack pointer
+            akl_list_append(ctx->cx_state, ctx->cx_ir, load);
         } else {
-            akl_raise_error(ctx, AKL_ERROR
-               , "'%s' parameter variable cannot found!", name);
+            /* Not found as a local variable, must be a global one. */
+            akl_free(ctx->cx_state, load, sizeof(*load));
+            akl_build_get(ctx, name);
         }
     }
 }

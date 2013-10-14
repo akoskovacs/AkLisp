@@ -347,7 +347,7 @@ struct akl_value *akl_call_function_bound(struct akl_context *cx)
         ufun = &fn->fn_body.ufun;
         cx->cx_lex_info = ufun->uf_info;
         cx->cx_ir = &ufun->uf_body;
-        akl_execute_ir(cx);
+        akl_ir_exec_branch(cx, AKL_LIST_FIRST(&ufun->uf_body));
         value = akl_frame_head(cx);
         break;
     }
@@ -401,6 +401,7 @@ void akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
     struct akl_label *lt, *ln;
     struct akl_ir_instruction *in;
     struct akl_value *v, *lv;
+    struct akl_atom *a;
 
     if (ir == NULL || ip == NULL)
         return;
@@ -410,6 +411,12 @@ void akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
         LOOP_WATCHDOG(ip);
         switch (in->in_op) {
             case AKL_IR_NOP:
+            MOVE_IP(ip);
+            break;
+
+            case AKL_IR_GET:
+            a = akl_get_global_atom(s, in->in_str);
+            akl_stack_push(s, a->at_value);
             MOVE_IP(ip);
             break;
 
@@ -490,6 +497,10 @@ void akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
                 ip = lt->la_branch;
             }
             break;
+
+            default:
+            akl_raise_error(ctx, AKL_ERROR, "Unkown instruction '%#x'", in->in_op);
+            return;
         }
     }
 }
@@ -566,6 +577,10 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
 
             case AKL_IR_LOAD:
             printf("load %%%d", in->in_arg[0].ui_num);
+            break;
+
+            case AKL_IR_GET:
+            printf("get %s", in->in_str);
             break;
 
             case AKL_IR_STORE:
