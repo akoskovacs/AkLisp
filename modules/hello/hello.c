@@ -35,10 +35,10 @@ AKL_DEFINE_FUN(hello, ctx, argc)
 
 AKL_DEFINE_FUN(string_times, ctx, argc)
 {
-    double t
+    double t;
     int i;
     const char *str;
-    if (akl_get_args_strict(ctx, 2, AKL_NUMBER, &t, AKL_STRING, &str))
+    if (akl_get_args_strict(ctx, 2, TYPE_NUMBER, &t, TYPE_STRING, &str))
         /* Something didn't work, must return... */
         return AKL_NIL;
 
@@ -50,39 +50,37 @@ AKL_DEFINE_FUN(string_times, ctx, argc)
     return AKL_NIL;
 }
 
-AKL_DECLARE_FUNS(akl_funs) {
+const AKL_DECLARE_FUNS(akl_funs) {
     AKL_FUN(hello, "hello", "A simple hello function"),
     AKL_FUN(string_times, "string-times", "Print a string n times"),
     AKL_END_FUNS()
-}
+};
 
 /* One for initializing and one for destroying resources. */
 /* Each of them should return 0 (AKL_LOAD_OK) when everything is good */
-static int hello_load(struct akl_context *ctx)
+static int hello_load(struct akl_state *ctx)
 {
    printf("The hello module loaded");
    /* initalize_some_resource() */
    return AKL_LOAD_OK;
 }
 
-static int hello_unload(struct akl_context *ctx)
+static int hello_unload(struct akl_state *ctx)
 {
    printf("The hello module unloaded");
    /* deinitalize_some_resource() */
    return AKL_LOAD_OK;
 }
 
-struct akl_module mod_hello {
-    .am_name = "hello";
-    .am_desc = "A simple hello module";
-    .am_author = "Kovacs Akos <akoskovacs@gmx.com>"
-    .am_funs = akl_funs;
-    .am_load = hello_load;
-    .am_unload = hello_unload;
+const static struct akl_module __mod_desc = {
+    .am_name = "hello",
+    .am_desc = "A simple hello module",
+    .am_author = "Kovacs Akos <akoskovacs@gmx.com>",
+    .am_funs = (struct akl_fun_decl *)akl_funs,
+    .am_load = hello_load,
+    .am_unload = hello_unload,
     /* These can be NULL, when no (de)initialization needed */
     /*.am_depends_on = { "foo", "bar", NULL }; */
-    .am_depends_on = NULL; /* A NULL-terminated array of other needed modules */
+    .am_depends_on = NULL, /* A NULL-terminated array of other needed modules */
 };
 
-AKL_MODULE(mod_hello);
-/* No need for further explaination, the code explains itself... */
