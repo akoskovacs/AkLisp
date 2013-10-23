@@ -31,6 +31,11 @@ AKL_DEFINE_FUN(exit, cx, argc)
     exit(0);
 }
 
+AKL_DEFINE_FUN(progn, cx, argc)
+{
+    return akl_frame_pop(cx);
+}
+
 AKL_DEFINE_FUN(print, cx, argc)
 {
     struct akl_value *v;
@@ -1221,7 +1226,8 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(gt,  ">", "Greater compare function"),
     AKL_FUN(lt,  "<", "Less-than compare function"),
     AKL_FUN(list,  "list", "Create a list from the given arguments"),
-    AKL_FUN(exit,  "exit", "Exit"),
+    AKL_FUN(progn,  "$", "Evaulate all elements and give back the last (primitive sequence)"),
+    AKL_FUN(exit,  "exit!", "Exit"),
     AKL_END_FUNS()
 };
 
