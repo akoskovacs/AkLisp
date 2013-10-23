@@ -25,6 +25,7 @@
 #include <stdarg.h>
 
 static struct akl_atom *recent_value;
+static void akl_ir_exec_branch(struct akl_context *, struct akl_list_entry *);
 
 static void update_recent_value(struct akl_state *in, struct akl_value *val)
 {
@@ -136,10 +137,12 @@ struct akl_value *akl_frame_head(struct akl_context *ctx)
 struct akl_value *akl_frame_pop(struct akl_context *ctx)
 {
     assert(ctx);
+    struct akl_value **vp = NULL;
     struct akl_frame *st = &ctx->cx_frame;
     if (st->af_begin != st->af_end) {
         st->af_end--;
-        return *(struct akl_value **)akl_vector_at(st->af_stack, st->af_end);
+        vp = (struct akl_value **)akl_vector_at(st->af_stack, st->af_end);
+        return vp ? *vp : NULL;
     } else {
         return NULL;
     }
@@ -394,7 +397,8 @@ struct akl_value *akl_call_function(struct akl_context *ctx, struct akl_context 
             return;\
         } \
 
-void akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
+static void
+akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
 {
     struct akl_list *ir = ctx->cx_ir;
     struct akl_state *s = ctx->cx_state;
@@ -598,6 +602,12 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
        }
        printf("\n");
     }
+}
+
+void akl_clear_ir(struct akl_context *ctx)
+{
+    while (akl_list_pop(ctx->cx_ir))
+        ;
 }
 
 void akl_dump_stack(struct akl_context *ctx)
