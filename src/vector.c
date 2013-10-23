@@ -176,7 +176,7 @@ void *
 akl_vector_at(struct akl_vector *vec, unsigned int ind)
 {
     assert(vec);
-    if (ind < vec->av_size) {
+    if (!akl_vector_is_empty(vec) && ind < vec->av_size) {
         return vec->av_vector + (ind * vec->av_msize);
     }
     return NULL;
