@@ -23,7 +23,7 @@
 #include "aklisp.h"
 #include <unistd.h>
 #include <string.h>
-#include "../config.h"
+//#include "../config.h"
 
 #if HAVE_GETOPT_H
 #include <getopt.h>
@@ -192,15 +192,16 @@ static void interactive_mode(void)
             dev = akl_new_string_device(&state, "stdio", line);
             /*akl_list_append(in, inst->ai_program, il);*/
             ctx = akl_compile(&state, dev);
-//            akl_dump_ir(ctx);
             akl_dump_ir(ctx, state.ai_fn_main);
             akl_execute(ctx);
+//            akl_clear_ir(ctx);
             akl_dump_stack(ctx);
             printf(" => ");
             akl_print_value(&state, akl_stack_pop(&state));
             akl_print_errors(&state);
             akl_clear_errors(&state);
             printf("\n");
+            free(line);
         }
         lnum++;
     }

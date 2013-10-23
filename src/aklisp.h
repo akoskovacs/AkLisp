@@ -242,6 +242,7 @@ void akl_init_context(struct akl_context *);
 void akl_execute_ir(struct akl_context *);
 void akl_execute(struct akl_context *);
 void akl_dump_ir(struct akl_context *, struct akl_function *);
+void akl_clear_ir(struct akl_context *);
 void akl_dump_stack(struct akl_context *);
 
 struct akl_utype {
@@ -501,9 +502,9 @@ typedef enum {
 const char *akl_ir_instruction_set[AKL_NR_INSTRUCTIONS];
 
 typedef enum {
-      AKL_JMP = AKL_IR_JMP
-    , AKL_JMP_TRUE
-    , AKL_JMP_FALSE
+      AKL_JMP       = AKL_IR_JMP
+    , AKL_JMP_TRUE  = AKL_IR_JT
+    , AKL_JMP_FALSE = AKL_IR_JN
 } akl_jump_t;
 
 struct akl_ir_instruction {
