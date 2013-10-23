@@ -32,6 +32,15 @@ void akl_build_label(struct akl_context *ctx, struct akl_label *l)
     l->la_branch = AKL_LIST_LAST(ctx->cx_ir);
 }
 
+AKL_DEFINE_SFUN(when, ctx)
+{
+    struct akl_label *label = akl_new_labels(ctx, 2);
+    akl_compile_next(ctx);
+    akl_build_jump(ctx, AKL_JMP_FALSE, label+0);
+    akl_build_label(ctx, label+0);
+    akl_compile_next(ctx);
+}
+
 AKL_DEFINE_SFUN(if, ctx)
 {
     /* Allocate the branch */
@@ -150,10 +159,12 @@ AKL_DEFINE_SFUN(defun, ctx)
         ; /* Todo: Error: no body */
         akl_remove_global_atom(ctx->cx_state, fatm);
     }
+    akl_build_store(ctx, fval);
 }
 
 AKL_DECLARE_FUNS(akl_spec_forms) {
     AKL_SFUN(if, "if", "Conditional expression"),
+    AKL_SFUN(when, "when", "Conditionally evaulate an expression"),
     AKL_SFUN(while, "while", "Conditional loop expression"),
     AKL_SFUN(defun, "defun!", "Define a new function"),
     AKL_END_FUNS()
