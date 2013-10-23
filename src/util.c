@@ -39,9 +39,9 @@ struct akl_atom *
 akl_add_global_variable(struct akl_state *s, const char *name, const char *desc, struct akl_value *v)
 {
     assert(s && name && v);
-    struct akl_atom *a = akl_new_atom(s, name);
+    struct akl_atom *a = akl_new_atom(s, (char *)name);
     a->at_is_cdef = TRUE;
-    a->at_desc = desc;
+    a->at_desc = (char *)desc;
     a->at_value = v;
     akl_add_global_atom(s, a);
     return a;
