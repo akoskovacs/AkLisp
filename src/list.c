@@ -37,7 +37,7 @@ struct akl_list_entry
     }
 
     list->li_last = ent;
-    list->li_elem_count++;
+    list->li_count++;
     list->is_nil = FALSE;
     return ent; 
 }
@@ -63,7 +63,7 @@ akl_list_insert_head(struct akl_state *s, struct akl_list *list, void *data)
         ent->le_next = list->li_head; 
     }
     list->li_head = ent;
-    list->li_elem_count++;
+    list->li_count++;
     list->is_nil = FALSE;
     return ent;
 }
@@ -226,7 +226,7 @@ akl_list_remove_entry(struct akl_list *list, struct akl_list_entry *ent)
         if (list->li_last == ent) {
             list->li_last = prev;
         }
-        list->li_elem_count--;
+        list->li_count--;
     }
     return ent;
 }
@@ -266,16 +266,22 @@ void *akl_list_pop(struct akl_list *list)
     return akl_list_remove_entry(list, list->li_last)->le_data;
 }
 
+unsigned int
+akl_list_count(struct akl_list *l)
+{
+    return (l != NULL) ? l->li_count : 0;
+}
+
 struct akl_list *akl_cdr(struct akl_state *s, struct akl_list *l)
 {
     struct akl_list *nhead;
     assert(l);
-    if (AKL_IS_NIL(l) || l->li_elem_count == 0)
+    if (AKL_IS_NIL(l) || l->li_count == 0)
         return NULL;
 
     nhead = akl_new_list(s);
-    nhead->li_elem_count = l->li_elem_count - 1;
-    if (nhead->li_elem_count <= 0) {
+    nhead->li_count = l->li_count - 1;
+    if (nhead->li_count <= 0) {
         nhead->is_nil = TRUE;
     } else {
         nhead->li_head = l->li_head->le_next;
@@ -366,7 +372,7 @@ void akl_print_list(struct akl_state *s, struct akl_list *list)
     
     assert(list);
     if (list == NULL || AKL_IS_NIL(list)
-        || list->li_elem_count == 0) {
+        || list->li_count == 0) {
         AKL_START_COLOR(s, AKL_GRAY);
         printf("NIL");
         AKL_END_COLOR(s);
@@ -382,4 +388,60 @@ void akl_print_list(struct akl_state *s, struct akl_list *list)
             printf(" ");
     }
     printf(")");
+}
+
+struct akl_list_iterator *akl_list_begin(struct akl_state *s, struct akl_list *l)
+{
+    struct akl_list_iterator *it = NULL;
+    if (l && s) {
+        it = AKL_MALLOC(s, struct akl_list_iterator);
+        it->current = l->li_head;
+    }
+    return it;
+}
+
+struct akl_list_iterator *akl_list_end(struct akl_state *s, struct akl_list *l)
+{
+    struct akl_list_iterator *it = NULL;
+    if (l && s) {
+        it = AKL_MALLOC(s, struct akl_list_iterator);
+        it->current = l->li_last;
+    }
+    return it;
+}
+
+bool_t akl_list_has_next(struct akl_list_iterator *it)
+{
+   return (it && it->current);
+}
+
+bool_t akl_list_has_prev(struct akl_list_iterator *it)
+{
+   return (it && it->current);
+}
+
+void  *akl_list_next(struct akl_list_iterator *it)
+{
+    void *p;
+    if (it && it->current) {
+        p = it->current->le_data;
+        it->current = it->current->le_next;
+        return p;
+    }
+}
+
+void  *akl_list_prev(struct akl_list_iterator *it)
+{
+    void *p;
+    if (it && it->current) {
+        p = it->current->le_data;
+        it->current = it->current->le_prev;
+        return p;
+    }
+}
+
+void
+akl_list_free_iterator(struct akl_state *s, struct akl_list_iterator *it)
+{
+    akl_free(s, it, sizeof(struct akl_list_iterator));
 }
