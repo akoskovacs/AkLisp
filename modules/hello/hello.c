@@ -83,4 +83,3 @@ const static struct akl_module __mod_desc = {
     /*.am_depends_on = { "foo", "bar", NULL }; */
     .am_depends_on = NULL, /* A NULL-terminated array of other needed modules */
 };
-
