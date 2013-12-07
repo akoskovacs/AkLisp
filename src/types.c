@@ -57,7 +57,8 @@ void akl_init_state(struct akl_state *s)
     s->ai_calloc_fn = calloc;
     s->ai_free_fn = free;
     s->ai_nomem_fn = akl_def_nomem_handler;
-    s->ai_use_colors = TRUE;
+    AKL_SET_FEATURE(s, AKL_CFG_USE_COLORS);
+    AKL_SET_FEATURE(s, AKL_CFG_USE_GC);
     s->ai_fn_main = NULL;
     akl_gc_init(s);
 
@@ -89,7 +90,7 @@ void akl_init_list(struct akl_list *list)
     list->is_quoted = FALSE;
     list->is_nil    = FALSE;
     list->li_parent = NULL;
-    list->li_elem_count  = 0;
+    list->li_count  = 0;
 }
 
 struct akl_list *akl_new_list(struct akl_state *s)
@@ -382,6 +383,11 @@ bool_t akl_atom_is_function(struct akl_atom *atm)
 {
     struct akl_value *v = (atm != NULL) ? atm->at_value : NULL;
     return (v != NULL && v->va_type == TYPE_FUNCTION) ? TRUE : FALSE;
+}
+
+bool_t akl_atom_is_symbol(struct akl_atom *atm)
+{
+    return (atm && atm->at_value == NULL);
 }
 
 /* NOTE: These functions give back a NULL pointer, if the conversion

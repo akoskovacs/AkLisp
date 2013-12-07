@@ -23,7 +23,7 @@
 #include "aklisp.h"
 #include <unistd.h>
 #include <string.h>
-//#include "../config.h"
+#include "../config.h"
 
 #if HAVE_GETOPT_H
 #include <getopt.h>
@@ -88,13 +88,32 @@ static int akl_insert_strterm(int count, int key)
     rl_backward_char(1, 1);
     return 0;
 }
+
+static int akl_char_delete(int count, int key)
+{
+    int i;
+    int cpos = rl_point;
+    int epos = cpos+1;
+    char c2del = rl_line_buffer[cpos];
+    for (i = epos; i < strlen(rl_line_buffer); i++) {
+        if (rl_line_buffer[i] == c2del) {
+            epos = i;
+            break;
+        }
+    }
+    rl_delete_text(cpos, epos-cpos);
+    return 0;
+}
+
 static void init_readline(void)
 {
     rl_readline_name = "AkLisp";
     rl_attempted_completion_function = (CPPFunction *)akl_completion;
     rl_bind_key('(', akl_insert_rbrace);
     rl_bind_key('"', akl_insert_strterm);
+    rl_bind_key('\b', akl_char_delete);
 }
+
 #else //HAVE_READLINE
 static void init_readline(void) {}
 static void add_history(char *line __unused) {}
@@ -118,7 +137,7 @@ static char *readline(char *prompt)
 #ifdef HAVE_GETOPT_H
 
 int no_color_flag;
-static struct option akl_options[] = {
+const static struct option akl_options[] = {
     { "assemble"   , no_argument,       0, 'a' },
     { "compile"    , no_argument,       0, 'c' },
     { "define"     , no_argument,       0, 'D' },
@@ -152,11 +171,12 @@ void print_help(void)
     }
 }
 
+char var[100]; /* Should be enough */
+char value[100];
 static void cmd_parse_define(const char *opt)
 {
-    char var[100]; /* Should be enough */
-    char value[100];
     struct akl_value *v = NULL;
+    var[0] = value[0] = '\0';
     sscanf(opt, "%100[A-Za-z_+-*]=%100[A-Za-z0-9 ]", var, value);
     akl_add_global_variable(&state, var, NULL, akl_new_string_value(&state, value));
     printf("define %s as %s\n", var, value);
@@ -175,7 +195,7 @@ static void interactive_mode(void)
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
     printf("Copyleft (C) 2013 Akos Kovacs\n\n");
-    state.ai_interactive = TRUE;
+    AKL_SET_FEATURE(&state, AKL_CFG_INTERACTIVE);
     init_readline();
     while (1) {
         snprintf(prompt, PROMPT_MAX, "[%d]> ", lnum);
@@ -192,10 +212,12 @@ static void interactive_mode(void)
             dev = akl_new_string_device(&state, "stdio", line);
             /*akl_list_append(in, inst->ai_program, il);*/
             ctx = akl_compile(&state, dev);
-            akl_dump_ir(ctx, state.ai_fn_main);
+            if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_INSTR))
+                akl_dump_ir(ctx, state.ai_fn_main);
             akl_execute(ctx);
 //            akl_clear_ir(ctx);
-            akl_dump_stack(ctx);
+            if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_STACK))
+                akl_dump_stack(ctx);
             printf(" => ");
             akl_print_value(&state, akl_stack_pop(&state));
             akl_print_errors(&state);
@@ -207,7 +229,7 @@ static void interactive_mode(void)
     }
 }
 
-int main(int argc, const char **argv)
+int main(int argc, char* const* argv)
 {
     FILE *fp;
     int c;
@@ -224,7 +246,7 @@ int main(int argc, const char **argv)
 #ifdef HAVE_GETOPT_H
     while((c = getopt_long(argc, argv, "aD:e:chiv", akl_options, &opt_index)) != -1) {
         if (no_color_flag)
-            state.ai_use_colors = FALSE;
+            AKL_UNSET_FEATURE(&state, AKL_CFG_USE_COLORS);
 
         switch (c) {
             case 'a':
@@ -264,7 +286,7 @@ int main(int argc, const char **argv)
         while (opt_index < argc) {
             akl_list_append_value(&state, &args, akl_new_string_value(&state, strdup(argv[opt_index++])));
         }
-        state.ai_interactive = FALSE;
+        AKL_UNSET_FEATURE(&state, AKL_CFG_INTERACTIVE);
         akl_add_global_variable(&state, "*args*", "The list of command-line arguments", akl_new_list_value(&state, &args));
         akl_add_global_variable(&state, "*file*", "The current file", akl_new_string_value(&state, strdup(fname)));
         dev = akl_new_file_device(&state, fname, fp);
