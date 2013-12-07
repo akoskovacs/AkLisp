@@ -36,6 +36,7 @@
 #define AKL_FREE(s, obj) akl_free(s, (void *)obj, sizeof *obj)
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
+#define AKL_TYPE(value) (value->va_type)
 #define AKL_GET_VALUE_MEMBER_PTR(val, type, member) \
                             ((AKL_CHECK_TYPE(val, type) \
                             ? (val)->va_value.member : NULL))
@@ -50,6 +51,9 @@
 #define AKL_GET_CFUN_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_CFUN, cfunc))
 #define AKL_GET_LIST_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_LIST, list))
 #define AKL_STACK_SIZE 10
+#define AKL_SET_FEATURE(state, feature) ((state)->ai_config |= (feature))
+#define AKL_UNSET_FEATURE(state, feature) ((state)->ai_config &= ~(feature))
+#define AKL_IS_FEATURE_ON(state, feature) ((state) && ((state)->ai_config & (feature)))
 
 struct akl_list;
 struct akl_atom;
@@ -142,11 +146,15 @@ struct akl_list {
     struct akl_list_entry *li_head;
     struct akl_list_entry *li_last;
     struct akl_list *li_parent; /* Parent (container) list */
-    unsigned int     li_elem_count;
+    unsigned int     li_count;
     bool_t is_quoted : 1;
 /* Yep element count == 0 can simply mean NIL, but
   then we cannot use the AKL_IS_NIL() macro :-( */
     bool_t is_nil    : 1;
+};
+
+struct akl_list_iterator {
+    struct akl_list_entry *current;
 };
 
 struct akl_userdata {
@@ -252,10 +260,11 @@ struct akl_utype {
 };
 
 enum AKL_FUNCTION_TYPE {
-    AKL_FUNC_CFUN,
-    AKL_FUNC_SPECIAL,
-    AKL_FUNC_USER,
-    AKL_FUNC_LAMBDA
+    AKL_FUNC_CFUN,    /* Normal built-in C functions */
+    AKL_FUNC_SPECIAL, /* Compiler, optimizing control structures, etc... (if, while, ...) */
+    AKL_FUNC_NOEVAL,  /* Built-ins, without argument 'pre-evaulation' (set!, ...) */
+    AKL_FUNC_USER,    /* User-defined Lisp functions */
+    AKL_FUNC_LAMBDA   /* User-defined lambdas */
 };
 
 /* Used for declaration */
@@ -277,7 +286,7 @@ struct akl_module {
     const char *am_author;
     struct akl_fun_decl *am_funs; /* Exported functions */
     size_t am_size;               /* Size of the module */
-    const char **am_depends_on;      /* Other required modules */
+    const char **am_depends_on;   /* Other required modules (NULL terminated) */
     void *am_handle;              /* dlopen()'s handle */
     akl_mod_load_t am_load;
     akl_mod_load_t am_unload;
@@ -465,11 +474,17 @@ struct akl_state {
     struct akl_function *ai_fn_main; /* The main function */
     struct akl_vector    ai_stack; /*  Global stack */
     struct akl_list     *ai_errors; /* Collection of the errors (if any, default NULL) */
-    bool_t ai_interactive      : 1;
-    bool_t ai_use_colors       : 1;
-    bool_t ai_gc_is_enabled    : 1;
+#define AKL_CFG_USE_COLORS   0x0001
+#define AKL_CFG_USE_GC       0x0002
+#define AKL_CFG_INTERACTIVE  0x0004 /* Interactive interpreter */
+#define AKL_DEBUG_INSTR      0x0008
+#define AKL_DEBUG_STACK      0x0010
+    unsigned long         ai_config; /* Bit configuration */
     bool_t ai_gc_last_was_mark : 1;
 };
+
+bool_t akl_set_feature(struct akl_state *, const char *);
+bool_t akl_set_feature_to(struct akl_state *, const char *, bool_t);
 
 struct akl_label *akl_new_branches(struct akl_state *, struct akl_context *);
 struct akl_label *akl_new_labels(struct akl_context *, int);
@@ -547,6 +562,7 @@ void   akl_do_on_all_atoms(struct akl_state *, void (*fn)(struct akl_atom *));
 void   akl_remove_global_atom(struct akl_state *, struct akl_atom *);
 bool_t akl_is_equal_with(struct akl_atom *, const char **);
 bool_t akl_atom_is_function(struct akl_atom *);
+bool_t akl_atom_is_symbol(struct akl_atom *);
 
 #define AKL_LIST_FIRST(list) ((list != NULL) ? (list)->li_head : NULL)
 #define AKL_LIST_LAST(list) ((list != NULL) ? (list)->li_last : NULL)
@@ -645,6 +661,7 @@ akl_token_t akl_compile_next(struct akl_context *);
 struct akl_value *
 akl_parse_token(struct akl_context *, akl_token_t, bool_t);
 struct akl_list  *akl_parse_list(struct akl_context *);
+struct akl_list *akl_str_to_list(struct akl_state *, const char *);
 struct akl_value *akl_build_value(struct akl_context *, akl_token_t);
 struct akl_value *akl_parse_value(struct akl_context *);
 struct akl_list  *akl_parse_file(struct akl_state *, const char *, FILE *);
@@ -652,6 +669,13 @@ struct akl_list  *akl_parse_io(struct akl_state *, struct akl_io_device *);
 struct akl_list  *akl_parse(struct akl_state *);
 struct akl_value *akl_car(struct akl_list *);
 struct akl_list  *akl_cdr(struct akl_state *, struct akl_list *);
+struct akl_list_iterator *akl_list_begin(struct akl_state *s, struct akl_list *);
+struct akl_list_iterator *akl_list_end(struct akl_state *s, struct akl_list *);
+bool_t akl_list_has_next(struct akl_list_iterator *);
+bool_t akl_list_has_prev(struct akl_list_iterator *);
+void  *akl_list_next(struct akl_list_iterator *);
+void  *akl_list_prev(struct akl_list_iterator *);
+void   akl_list_free_iterator(struct akl_state *, struct akl_list_iterator *);
 
 void akl_asm_parse_instr(struct akl_context *);
 void akl_asm_parse_decl(struct akl_context *);
@@ -718,6 +742,7 @@ akl_list_insert_head(struct akl_state *, struct akl_list *, void *);
 struct akl_list_entry *
 akl_list_insert_head_value(struct akl_state *, struct akl_list *, struct akl_value *);
 struct akl_value *akl_list_shift(struct akl_list *);
+unsigned int akl_list_count(struct akl_list *);
 
 struct akl_value *akl_list_index_value(struct akl_list *, int);
 struct akl_list_entry *akl_list_index(struct akl_list *, int);
@@ -737,6 +762,7 @@ int    akl_io_ungetc(int, struct akl_io_device *);
 bool_t akl_io_eof(struct akl_io_device *dev);
 
 struct akl_context *akl_compile(struct akl_state *s, struct akl_io_device *dev);
+struct akl_value   *akl_exec_eval(struct akl_state *s);
 void   akl_eval_program(struct akl_state *);
 
 void   akl_print_value(struct akl_state *, struct akl_value *);
@@ -809,6 +835,9 @@ void akl_free_module(struct akl_state *, struct akl_module *);
 #define AKL_DEFINE_FUN(fname, ctx, argc) \
     struct akl_value * AKL_CAT(AKL_CFUN_PREFIX, fname)(struct akl_context * ctx, int argc)
 
+#define AKL_DEFINE_NE_FUN(fname, ctx, argc) \
+    struct akl_value * AKL_CAT(AKL_CFUN_PREFIX, fname)(struct akl_context * ctx, int argc)
+
 #define AKL_DEFINE_SFUN(fname, ctx) \
     static void AKL_CAT(AKL_SFUN_PREFIX, fname)(struct akl_context * ctx)
 
@@ -816,6 +845,7 @@ void akl_free_module(struct akl_state *, struct akl_module *);
     static const struct akl_fun_decl vname[] =
 
 #define AKL_FUN(cfun, name, desc) { AKL_FUNC_CFUN, { AKL_CAT(AKL_CFUN_PREFIX, cfun) }, name, desc }
+#define AKL_NE_FUN(cfun, name, desc) { AKL_FUNC_NOEVAL, { AKL_CAT(AKL_CFUN_PREFIX, cfun) }, name, desc }
 #define AKL_SFUN(scfun, name, desc) { AKL_FUNC_SPECIAL, { .sfun = AKL_CAT(AKL_SFUN_PREFIX, scfun) }, name, desc }
 #define AKL_END_FUNS() { 0, { NULL }, NULL, NULL }
 
@@ -827,9 +857,9 @@ void akl_free_module(struct akl_state *, struct akl_module *);
 #define AKL_RED    "\x1b[31m"
 #define AKL_PURPLE "\x1b[35m"
 #define AKL_BRIGHT_GREEN "\x1b[1;32m"
-#define AKL_START_COLOR(s,c) if ((s)->ai_use_colors) printf("%s", (c))
+#define AKL_START_COLOR(s,c) if (AKL_IS_FEATURE_ON(s, AKL_CFG_USE_COLORS)) printf("%s", (c))
 #define AKL_END_COLOR_MARK "\x1b[0m"
-#define AKL_END_COLOR(s) if((s)->ai_use_colors) printf(AKL_END_COLOR_MARK)
+#define AKL_END_COLOR(s) if(AKL_IS_FEATURE_ON(s, AKL_CFG_USE_COLORS)) printf(AKL_END_COLOR_MARK)
 #else
 #define AKL_GREEN  ""
 #define AKL_YELLOW ""

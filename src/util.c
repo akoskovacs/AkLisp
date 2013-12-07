@@ -139,3 +139,61 @@ akl_cfun_t akl_get_global_cfun(struct akl_state *in, const char *name)
 #endif
     return NULL;
 }
+
+static const struct akl_feature {
+    const char  *af_name;
+    unsigned int af_bit;
+    const char  *af_desc;
+} akl_features[] = {
+    { "use-colors",  AKL_CFG_USE_COLORS,  "Use colorful prompt"       },
+    { "interactive", AKL_CFG_INTERACTIVE, "Enable interactive prompt" },
+    { "use-gc",      AKL_CFG_USE_GC,      "Enable Garbage Collector"  },
+    { "debug-instr", AKL_DEBUG_INSTR,     "Debug instructions"        },
+    { "debug-stack", AKL_DEBUG_STACK,     "Debug stack"               }
+};
+
+#define FEATURE_COUNT sizeof(akl_features)/sizeof(akl_features[0])
+void show_features(struct akl_state *s) {
+    int i;
+    if (!s) return;
+
+    printf("Available options:\n");
+    for (i = 0; i < FEATURE_COUNT; i++) {
+        printf("\t%-10s\t%-30s%-10s\n", akl_features[i].af_name, akl_features[i].af_desc
+                                , AKL_IS_FEATURE_ON(s, akl_features[i].af_bit) ? "[on]" : "[off]");
+    }
+    printf("\nUsage:\n\tEnable: '(akl :use-colors)'\n"
+           "\tDisable: '(akl :no-use-colors)'\n");
+}
+
+bool_t akl_set_feature_to(struct akl_state *s, const char *feature, bool_t to)
+{
+   int i;
+   if (!s || !feature || feature[0] == '\0')
+       return FALSE;
+
+   for (i = 0; i < FEATURE_COUNT; i++) {
+       if (strcmp(akl_features[i].af_name, feature) == 0) {
+           if (to == TRUE) 
+               AKL_SET_FEATURE(s, akl_features[i].af_bit);
+           else
+               AKL_UNSET_FEATURE(s, akl_features[i].af_bit);
+           return TRUE;
+       }
+   }
+   return FALSE;
+}
+
+bool_t akl_set_feature(struct akl_state *s, const char *feature)
+{
+   bool_t to = TRUE;
+   if (!feature)
+       return FALSE;
+
+   if (strncmp(feature, "no-", 3) == 0) {
+       to = FALSE;
+       feature += 3;          // discard no-
+   }
+   return akl_set_feature_to(s, feature, to);
+}
+
