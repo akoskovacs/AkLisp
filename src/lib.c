@@ -31,6 +31,44 @@ AKL_DEFINE_FUN(exit, cx, argc)
     exit(0);
 }
 
+AKL_DEFINE_FUN(describe, cx, argc)
+{
+    struct akl_atom *sym, *fn;
+    if (akl_get_args_strict(cx, 1, TYPE_ATOM, &sym) == -1) {
+       return AKL_NIL;
+    }
+    fn = akl_get_global_atom(cx->cx_state, sym->at_name);
+    if (!fn || !fn->at_desc) {
+        akl_raise_error(cx, AKL_WARNING, "Global atom '%s' cannot found", sym->at_name);
+        return AKL_NIL;
+    }
+    return akl_new_string_value(cx->cx_state, fn->at_desc);
+}
+
+extern void show_features(struct akl_state *); // @ type.c
+
+// To set specific interpreter features
+AKL_DEFINE_FUN(akl, cx, argc)
+{
+    struct akl_atom *sym;
+    const char *sname;
+    struct akl_state *s = cx->cx_state;
+    if (akl_get_args_strict(cx, 1, TYPE_ATOM, &sym) == -1) {
+       show_features(s);
+       return AKL_NIL;
+    }
+    sname = sym->at_name;
+    if (akl_set_feature(s, sname)) {
+        return akl_new_true_value(s);
+    } else {
+       if (strcmp(sname, "help") == 0)
+           show_features(s);
+       else
+           akl_raise_error(cx, AKL_WARNING, "Cannot set feature '%s'", sname);
+       return AKL_NIL;
+    }
+}
+
 AKL_DEFINE_FUN(progn, cx, argc)
 {
     return akl_frame_pop(cx);
@@ -39,10 +77,9 @@ AKL_DEFINE_FUN(progn, cx, argc)
 AKL_DEFINE_FUN(print, cx, argc)
 {
     struct akl_value *v;
-    if (akl_get_args(cx, 1, &v) == -1)
-        return AKL_NIL;
+    while ((v = akl_frame_shift(cx)) != NULL)
+        akl_print_value(cx->cx_state, v);
 
-    akl_print_value(cx->cx_state, v);
     printf("\n");
     return v;
 }
@@ -150,6 +187,24 @@ AKL_DEFINE_FUN(minus, ctx, argc)
     return NULL;
 }
 
+AKL_DEFINE_FUN(length, ctx, argc)
+{
+    struct akl_value *vp;
+    akl_get_args(ctx, 1, &vp);
+    switch (AKL_TYPE(vp)) {
+        case TYPE_STRING:
+        return akl_new_number_value(ctx->cx_state
+                                , (double)strlen(AKL_GET_STRING_VALUE(vp)));
+
+        case TYPE_LIST:
+        return akl_new_number_value(ctx->cx_state
+                          , (double)akl_list_count(AKL_GET_LIST_VALUE(vp)));
+        default:
+        akl_raise_error(ctx, AKL_ERROR, "Argument must be a list or a string!");
+    }
+    return AKL_NIL;
+}
+
 AKL_DEFINE_FUN(list, ctx, argc)
 {
     struct akl_value *v;
@@ -164,8 +219,9 @@ AKL_DEFINE_FUN(map, ctx, argc)
 {
     struct akl_atom *a;
     struct akl_list *lp;
+    // TODO: Change TYPE_* to bit masks.
     akl_get_args_strict(ctx, 2, TYPE_ATOM, &a, TYPE_LIST, &lp);
-    return akl_call_atom(ctx, NULL, a, lp->li_elem_count);
+    return akl_call_atom(ctx, NULL, a, akl_list_count(lp));
 }
 
 AKL_DEFINE_FUN(disassemble, ctx, argc)
@@ -187,6 +243,19 @@ AKL_DEFINE_FUN(disassemble, ctx, argc)
         fn = ctx->cx_state->ai_fn_main;
     }
     akl_dump_ir(ctx, fn);
+    return AKL_NIL;
+}
+
+AKL_DEFINE_NE_FUN(set, ctx, argc)
+{
+    return AKL_NIL;
+}
+
+extern void akl_stack_clear(struct akl_context *ctx, size_t c);
+AKL_DEFINE_FUN(clear_stack, ctx, argc)
+{
+    while (akl_stack_pop(ctx->cx_state))
+        ;
     return AKL_NIL;
 }
 
@@ -1226,13 +1295,17 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(gt,  ">", "Greater compare function"),
     AKL_FUN(lt,  "<", "Less-than compare function"),
     AKL_FUN(list,  "list", "Create a list from the given arguments"),
+    AKL_FUN(length,  "length", "Get the length of a string or the element count for a list"),
     AKL_FUN(progn,  "$", "Evaulate all elements and give back the last (primitive sequence)"),
+    AKL_FUN(akl,    "akl", "Set/unset interpreter features"),
+    AKL_FUN(describe,    "describe", "Get a global atom help string"),
     AKL_FUN(exit,  "exit!", "Exit"),
     AKL_END_FUNS()
 };
 
 AKL_DECLARE_FUNS(akl_debug_funs) {
     AKL_FUN(dump_stack,  "dump-stack", "Dump the stack contents"),
+    AKL_FUN(clear_stack,  "clear-stack", "Clear the current stack"),
     AKL_FUN(disassemble,  "disassemble", "Disassemble a given function"),
     AKL_FUN(hello,  "hello", "Hello function"),
     AKL_FUN(print,  "print", "Print an expression value"),
