@@ -108,6 +108,27 @@ struct akl_list *akl_parse_list(struct akl_context *ctx)
     return list;
 }
 
+struct akl_list *
+akl_str_to_list(struct akl_state *s, const char *str)
+{
+    struct akl_io_device *dev = akl_new_string_device(s, "string", str);
+    struct akl_list *l = NULL;
+    struct akl_context ctx;
+    akl_token_t tok;
+    akl_init_context(&ctx);
+    ctx.cx_state = s;
+    ctx.cx_dev = dev;
+    tok = akl_lex(dev);
+    if (tok != tLBRACE && tok != tQUOTE)
+        goto error;
+
+    l = akl_parse_list(&ctx);
+error:
+    akl_lex_free(dev);
+    AKL_FREE(s, dev);
+    return l;
+}
+
 /* Have to be in the same order as akl_ir_instruction_t */
 const char *akl_ir_instruction_set[] = {
     "nop"  , "store" , "load"
@@ -116,7 +137,6 @@ const char *akl_ir_instruction_set[] = {
   , "jn"   , "head"  , "tail"
   , "ret"  , NULL
 };
-
 
 #define AKL_ASSEMBLER
 #ifdef AKL_ASSEMBLER
