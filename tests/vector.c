@@ -98,9 +98,8 @@ test_res_t vector_is_empty(void)
 {
     struct akl_vector ovec;
     int *n;
-    bool_t t = !akl_vector_is_empty(vec);
     akl_init_vector(&state, &ovec, sizeof(int), 3);
-    t = t && akl_vector_is_empty(&ovec);
+    bool_t t = akl_vector_is_empty(&ovec);
     n = (int *)akl_vector_reserve(&ovec);
     *n = 42;
     t = t && !akl_vector_is_empty(&ovec);
@@ -110,7 +109,7 @@ test_res_t vector_is_empty(void)
 
 int main()
 {
-    akl_init_state(&state);
+    akl_init_state(&state, NULL);
     struct test vtests[] = {
         { vector_create, "Can create vector with akl_vector_new()" },
         { vector_push, "Can add elements to a vector with akl_vector_push()" },
