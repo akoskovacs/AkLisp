@@ -49,6 +49,14 @@ int argument_finder(char **args, const char *arg)
     return -1;
 }
 
+void akl_build_set(struct akl_context *ctx, char *name, struct akl_value *v)
+{
+    DEFINE_IR_INSTRUCTION(set, ctx);
+    set->in_op = AKL_IR_SET;
+    set->in_str = name;
+    set->in_arg[0].value = v;
+}
+
 void akl_build_get(struct akl_context *ctx, char *name)
 {
     DEFINE_IR_INSTRUCTION(get, ctx);
@@ -225,6 +233,7 @@ akl_token_t akl_compile_next(struct akl_context *ctx)
 
 struct akl_context *akl_compile(struct akl_state *s, struct akl_io_device *dev)
 {
+    AKL_ASSERT(s && dev, NULL);
     struct akl_context *cx = akl_new_context(s);
     struct akl_function *f = akl_new_function(s);
     akl_token_t tok;
