@@ -225,7 +225,6 @@ struct akl_io_device {
 
 struct akl_frame {
     unsigned int af_begin;
-    unsigned int af_count;
     unsigned int af_end;
 };
 
@@ -237,7 +236,8 @@ struct akl_context {
     struct akl_list      *cx_ir;        /* The current Internal Representation */
     struct akl_function  *cx_func;      /* The called function's descriptor */
     struct akl_context   *cx_parent;    /* Parent context pointer */
-    struct akl_frame     *cx_frame;
+    struct akl_frame     *cx_frame;     /* Frame info used by executor (push) */
+    struct akl_frame     *cx_uframe;    /* Frame info used by the function itself (shift, pop, etc...) */
     const char           *cx_func_name; /* The called function's name */
     struct akl_function  *cx_comp_func; /* The function under compilation */
     struct akl_io_device *cx_dev;       /* The current I/O device */

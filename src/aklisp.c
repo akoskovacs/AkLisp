@@ -47,7 +47,7 @@ unsigned int akl_frame_get_count(struct akl_context *ctx)
 #if 0
     return akl_vector_count(ctx->cx_stack) - ctx->cx_frame_begin;
 #endif
-    return ctx->cx_frame->af_count;
+    return ctx->cx_frame->af_begin-ctx->cx_frame->af_end;
 }
 
 bool_t akl_frame_is_empty(struct akl_context *ctx)
@@ -96,7 +96,7 @@ void akl_frame_push(struct akl_context *ctx, struct akl_value *value)
 {
     AKL_ASSERT(ctx && ctx->cx_state && ctx->cx_frame && value, AKL_NOTHING);
     akl_stack_push(ctx->cx_state, value);
-    ctx->cx_frame->af_count++;
+    ctx->cx_frame->af_end++;
 }
 
 struct akl_value *akl_frame_shift(struct akl_context *ctx)
@@ -667,6 +667,7 @@ int akl_compare_values(void *c1, void *c2)
 {
     assert(c1);
     assert(c2);
+    char *a, *b;
     struct akl_value *v1 = (struct akl_value *)c1;
     struct akl_value *v2 = (struct akl_value *)c2;
     if (v1->va_type == v2->va_type) {
@@ -676,12 +677,18 @@ int akl_compare_values(void *c1, void *c2)
                                    , AKL_GET_NUMBER_VALUE(v2));
 
             case TYPE_STRING:
-            return strcmp(AKL_GET_STRING_VALUE(v1)
-                          , AKL_GET_STRING_VALUE(v2));
+            a = AKL_GET_STRING_VALUE(v1);
+            b = AKL_GET_STRING_VALUE(v2);
+            if (a == NULL || b == NULL)
+                return -1;
+            return strcmp(a, b);
 
             case TYPE_ATOM:
-            return strcasecmp(akl_get_atom_name_value(v1)
-                          , akl_get_atom_name_value(v2));
+            a = akl_get_atom_name_value(v1);
+            b = akl_get_atom_name_value(v2);
+            if (a == NULL || b == NULL)
+                return -1;
+            return strcasecmp(a, b);
 
             case TYPE_USERDATA:
             /* TODO: userdata compare function */
