@@ -189,12 +189,13 @@ AKL_DEFINE_FUN(minus, ctx, argc)
 
 AKL_DEFINE_FUN(length, ctx, argc)
 {
+    char *t;
     struct akl_value *vp;
     akl_get_args(ctx, 1, &vp);
     switch (AKL_TYPE(vp)) {
         case TYPE_STRING:
-        return akl_new_number_value(ctx->cx_state
-                                , (double)strlen(AKL_GET_STRING_VALUE(vp)));
+        t = AKL_GET_STRING_VALUE(vp);
+        return akl_new_number_value(ctx->cx_state, (double)strlen(t));
 
         case TYPE_LIST:
         return akl_new_number_value(ctx->cx_state
@@ -265,7 +266,8 @@ AKL_DEFINE_FUN(about, ctx, argc)
                            , "Numbers", "Strings"
                            , "List entries", "Total allocated bytes"
                            , NULL };
-    int c, i;
+    int c;
+    struct akl_list_entry *ent;
     struct akl_module *mod;
     struct akl_state *s = ctx->cx_state;
     printf("\nAkLisp version %d.%d-%s\n"
@@ -287,12 +289,13 @@ AKL_DEFINE_FUN(about, ctx, argc)
             , AKL_USER_NAME, AKL_HOST_NAME
 #endif // AKL_USER_INFO
             );
-    c = akl_vector_count(&s->ai_modules);
+    c = akl_list_count(&s->ai_modules);
     if (c > 0)
         printf("\n%u loaded module%s:\n", c, (c > 1)?"s":"");
 
-    AKL_VECTOR_FOREACH(i, mod, &s->ai_modules) {
-        if (mod) {
+    AKL_LIST_FOREACH(ent, &s->ai_modules) {
+        if (ent) {
+            mod = (struct akl_module *)ent->le_data;
             if (mod->am_name && mod->am_path)
                 printf("\tName: '%s'\n\tPath: '%s'\n", mod->am_name, mod->am_path);
             if (mod->am_desc)
@@ -303,7 +306,7 @@ AKL_DEFINE_FUN(about, ctx, argc)
         printf("\n");
     }
     printf("\nGC statistics:\n");
-    printf("\tallocated memory: %ld bytes\n", s->ai_gc_malloc_size);
+    printf("\tallocated memory: %ud bytes\n", s->ai_gc_malloc_size);
     
     return &TRUE_VALUE;
 }
