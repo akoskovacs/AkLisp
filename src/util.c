@@ -100,7 +100,7 @@ akl_get_global_atom(struct akl_state *in, const char *name)
     if (name == NULL)
         return NULL;
 
-    atm.at_name = name;
+    atm.at_name = (char *)name;
     res = ATOM_TREE_RB_FIND(&in->ai_atom_head, &atm);
     return res;
 }
