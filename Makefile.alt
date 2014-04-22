@@ -1,25 +1,56 @@
 # This is an alternative makefile, if you don't want to use CMake.
 # It will only generate the executable and will not check the header files...
+VER_MAJOR := 0
+VER_MINOR := 2
+VER_ADDITIONAL := "\"prealpha\""
+AKLISP_SHARED := libaklisp_shared.so.$(VER_MAJOR).$(VER_MINOR)
+
 CC = gcc
+AR = ar
+ARFLAGS = rcs
 RM = rm -rf
 CP = cp
+LN = ln -s
 ALTCONF = config.h.alt
 CONF = conf.h
-MAKE = make
-all: aklisp 
-DIRS = src modules tests
+MKDIR = mkdir -p
+OBJ_DIR = $(CURDIR)/objs
+CFLAGS = -ggdb
+SHARED_LDFLAGS = -fPIC -shared #-Wl -soname
+STATIC_LDFLAGS = #
+ifneq ($(V),)
+Q=
+else
+Q=@
+endif
 
-$(foreach D $(DIRS) include $D)
+ifeq ($(LINK_SHARED),y)
+	AKL_LIBRARY := $(AKLISP_SHARED)
+	LDFLAGS 	 = $(SHARED_LDFLAGS)
+else
+	AKL_LIBRARY := libaklisp_static.a
+	LDFLAGS      = $(STATIC_LDFLAGS)
+endif
+
+all: aklisp 
+SUBDIRS := src modules test
+
+export CC RM CP MKDIR ALTCONF CONF CFLAGS LDFLAGS Q
+export AR ARFLAGS SHARED_LDFLAGS STATIC_LDFLAGS OBJ_DIR
+export VER_MAJOR VER_MINOR VER_ADDITIONAL AKL_LIBRARY
+
+all: aklisp
 
 aklisp: 
 	@echo "Building AkLisp..."
 	$(CP) $(ALTCONF) $(CONF)
-	cd src ; $(MAKE)
+	$(MAKE) -C src
 
-modules: aklisp $(akl-mod-y)
+modules: aklisp
 	@echo "Building modules..."
+	$(MAKE) -C $@
 
-test: aklisp $(akl-test-y)
+test: aklisp
 	@echo "Testing AkLisp..."
 
 help:
@@ -31,11 +62,13 @@ help:
 	@echo "make clean       - delete object files"
 	@echo "make clean-cmake - delete junk CMake files"
 
-.PHONY: clean clean-cmake help test modules
+fix-make:
+	$(RM) Makefile
+	$(LN) Makefile.alt Makefile 
+
+.PHONY: clean clean-cmake help test modules fix-make
 clean:
-	$(RM) $(TARGET)
-	cd src ; $(MAKE) clean
-	cd modules ; $(MAKE) clean
+	$(foreach D, $(SUBDIRS), $(MAKE) -C $D clean;) 
 
 clean-cmake:
-	$(RM) CMakeFiles/ CMakeCache.txt cmake_install.txt
+	$(RM) CMakeFiles/ CMakeCache.txt cmake_install.cmake

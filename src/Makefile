@@ -1,46 +1,35 @@
 # This is an alternative makefile, if you don't want to use CMake.
 # It will only generate the executable and will not check the header files...
-PREFIX := /usr/local
-VER_MAJOR := 0
-VER_MINOR := 2
-VER_ADDITIONAL := "prealpha"
-AKL_MODULE_SEARCH_PATH := $(PREFIX)/AkLisp/modules/
 
-CC = cc
-LD = ld
-RM = rm -rf
-CP = cp
-ALTCONF = config.h.alt
-CONF = conf.h
-CFLAGS = -ggdb # Default is debug build
-CD = cd
-MAKE = make
-OBJECTS := obj-y
 TARGET := ../aklisp
-CTARGET := akl.c
-CFLAGS = # -rdynamic -ldl -lreadline
-SH_LDFLAGS := -fPIC -shared -Wl -soname
+AKL_MODULE_SEARCH_PATH := $(PREFIX)/AkLisp/modules/
 
 DEFINES := -include "../conf.h" -DVER_MAJOR=$(VER_MAJOR) \
 	       -DVER_MINOR=$(VER_MINOR) -DVER_ADDITIONAL=$(VER_ADDITIONAL)
 
 include Makefile.objs
 
-CONFIG_UNIX := y
+CONFIG_OS_UNIX := y
 
-all: aklisp
+all: aklisp 
+
+aklisp: $(AKL_LIBRARY) $(obj-app-y)
 	@echo "LINK aklisp"
-	$(CC) $(OBJECTS) $(CFLAGS) -o $(TARGET)
+	$(Q)$(CC) $(obj-app-y) $(LDFLAGS) $(AKL_LIBRARY)
+	
+libaklisp_static.a: $(obj-lib-y)
+	$(Q)$(AR) $(ARFLAGS) $@ $(obj-lib-y)
 
-%.o: %.c
-	@echo "CC $<"
-	$(CC) $(CFLAGS) $(DEFINES) $< -c 
-
-libaklisp.so: libaklisp.so.$(VER_MAJOR).$(VER_MINOR)
-
-libaklisp.so$(VER_MAJOR).$(VER_MINOR): $(obj-lib-y)
+$(AKLISP_SHARED): $(obj-lib-y)
 	@echo "LINK $@"
-	$(CC) $(SH_LDFLAGS) $@ $(obj-lib-y) 
+	$(Q)$(CC) $(LDFLAGS) $@ $(obj-lib-y) 
+
+%.o: %.c $(OBJ_DIR)
+	@echo "CC $<"
+	$(Q)$(CC) $(CFLAGS) $(DEFINES) $< -c -o $(OBJ_DIR)/$@
+
+$(OBJ_DIR):
+	$(MKDIR) $(OBJ_DIR)
 
 gen-file:
 	cat akl_tree.h > $(CTARGET)
@@ -49,4 +38,4 @@ gen-file:
 
 PHONY: clean clean-cmake
 clean:
-	$(RM) $(TARGET) $(OBJECTS)
+	$(RM) $(OBJ_DIR) $(AKLISP_SHARED)
