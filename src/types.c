@@ -107,7 +107,7 @@ struct akl_list *akl_new_list(struct akl_state *s)
 void akl_init_frame(struct akl_frame *f)
 {
     AKL_ASSERT(f, AKL_NOTHING);
-    f->af_begin = f->af_count = f->af_end = 0;
+    f->af_begin = f->af_end = 0;
 }
 
 void akl_init_context(struct akl_context *ctx)
@@ -497,7 +497,10 @@ struct akl_value *akl_to_symbol(struct akl_state *in, struct akl_value *v)
 
             case TYPE_STRING:
             /* TODO: Eliminate the strup()s */
-            name = strdup(AKL_GET_STRING_VALUE(v));
+            name = AKL_GET_STRING_VALUE(v);
+            if (name == NULL)
+                return NULL;
+            name = strdup(name);
             break;
 
             case TYPE_NIL:
