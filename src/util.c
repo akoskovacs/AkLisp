@@ -24,19 +24,22 @@
 
 RB_GENERATE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
 
-struct akl_atom *akl_add_global_atom(struct akl_state *in, struct akl_atom *atom)
+struct akl_atom *
+akl_add_global_atom(struct akl_state *in, struct akl_atom *atom)
 {
     AKL_GC_SET_STATIC(atom);
     return ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
 }
 
-void akl_remove_global_atom(struct akl_state *in, struct akl_atom *atom)
+void
+akl_remove_global_atom(struct akl_state *in, struct akl_atom *atom)
 {
     ATOM_TREE_RB_REMOVE(&in->ai_atom_head, atom);
 }
 
 struct akl_atom *
-akl_add_global_variable(struct akl_state *s, const char *name, const char *desc, struct akl_value *v)
+akl_add_global_variable(struct akl_state *s, const char *name
+                        , const char *desc, struct akl_value *v)
 {
     assert(s && name && v);
     struct akl_atom *a = akl_new_atom(s, (char *)name);
@@ -47,7 +50,8 @@ akl_add_global_variable(struct akl_state *s, const char *name, const char *desc,
     return a;
 }
 
-void akl_remove_function(struct akl_state *in, akl_cfun_t fn)
+void
+akl_remove_function(struct akl_state *in, akl_cfun_t fn)
 {
     struct akl_atom *atom;
     RB_FOREACH(atom, ATOM_TREE, &in->ai_atom_head) {
@@ -71,7 +75,8 @@ akl_add_global_function(struct akl_state *s, const char *name
 }
 
 
-void akl_add_global_cfun(struct akl_state *s, akl_cfun_t fn
+void
+akl_add_global_cfun(struct akl_state *s, akl_cfun_t fn
     , const char *name, const char *desc)
 {
     struct akl_function *fun = akl_add_global_function(s, name, desc);
@@ -79,7 +84,8 @@ void akl_add_global_cfun(struct akl_state *s, akl_cfun_t fn
     fun->fn_body.cfun = fn;
 }
 
-void akl_add_global_sfun(struct akl_state *s, akl_sfun_t fn
+void
+akl_add_global_sfun(struct akl_state *s, akl_sfun_t fn
     , const char *name, const char *desc)
 {
     struct akl_function *fun = akl_add_global_function(s, name, desc);
@@ -90,16 +96,17 @@ void akl_add_global_sfun(struct akl_state *s, akl_sfun_t fn
 struct akl_atom *
 akl_get_global_atom(struct akl_state *in, const char *name)
 {
-    struct akl_atom *atm, *res;
+    struct akl_atom atm, *res;
     if (name == NULL)
         return NULL;
 
-    atm = akl_new_atom(in, strdup(name));
-    res = ATOM_TREE_RB_FIND(&in->ai_atom_head, atm);
-    return (res == NULL) ? atm : res;
+    atm.at_name = name;
+    res = ATOM_TREE_RB_FIND(&in->ai_atom_head, &atm);
+    return res;
 }
 
-void akl_do_on_all_atoms(struct akl_state *in, void (*fn) (struct akl_atom *))
+void
+akl_do_on_all_atoms(struct akl_state *in, void (*fn) (struct akl_atom *))
 {
     struct akl_atom *atm;
     RB_FOREACH(atm, ATOM_TREE, &in->ai_atom_head) {
@@ -107,7 +114,8 @@ void akl_do_on_all_atoms(struct akl_state *in, void (*fn) (struct akl_atom *))
     }
 }
 
-void akl_declare_functions(struct akl_state *s, const struct akl_fun_decl *funs)
+void
+akl_declare_functions(struct akl_state *s, const struct akl_fun_decl *funs)
 {
     assert(s && funs);
     while (funs->fd_fun.cfun && funs->fd_name) {
@@ -128,7 +136,8 @@ void akl_declare_functions(struct akl_state *s, const struct akl_fun_decl *funs)
     }
 }
 
-akl_cfun_t akl_get_global_cfun(struct akl_state *in, const char *name)
+akl_cfun_t
+akl_get_global_cfun(struct akl_state *in, const char *name)
 {
 #if 0
     struct akl_atom *atm = akl_get_global_atom(in, name);
@@ -153,7 +162,7 @@ static const struct akl_feature {
 };
 
 #define FEATURE_COUNT sizeof(akl_features)/sizeof(akl_features[0])
-void show_features(struct akl_state *s) {
+void show_features(struct akl_state *s, const char *fname) {
     int i;
     if (!s) return;
 
@@ -162,8 +171,8 @@ void show_features(struct akl_state *s) {
         printf("\t%-10s\t%-30s%-10s\n", akl_features[i].af_name, akl_features[i].af_desc
                                 , AKL_IS_FEATURE_ON(s, akl_features[i].af_bit) ? "[on]" : "[off]");
     }
-    printf("\nUsage:\n\tEnable: '(akl :use-colors)'\n"
-           "\tDisable: '(akl :no-use-colors)'\n");
+    printf("\nUsage:\n\tEnable: '(%s :use-colors)'\n"
+           "\tDisable: '(%s :no-use-colors)'\n", fname, fname);
 }
 
 bool_t akl_set_feature_to(struct akl_state *s, const char *feature, bool_t to)
@@ -196,4 +205,3 @@ bool_t akl_set_feature(struct akl_state *s, const char *feature)
    }
    return akl_set_feature_to(s, feature, to);
 }
-
