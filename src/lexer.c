@@ -198,7 +198,7 @@ akl_token_t akl_lex(struct akl_io_device *dev)
 {
     int ch;
     /* We should take care of the '+', '++',
-      and etc. style functions. Moreover the
+      and etc., style functions. Moreover the
       positive and negative numbers must also work:
       '(++ +5)' should be valid. */
     char op = 0;
