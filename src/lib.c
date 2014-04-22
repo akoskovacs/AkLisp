@@ -45,16 +45,16 @@ AKL_DEFINE_FUN(describe, cx, argc)
     return akl_new_string_value(cx->cx_state, fn->at_desc);
 }
 
-extern void show_features(struct akl_state *); // @ type.c
+extern void show_features(struct akl_state *, const char *fname); // @ util.c
 
 // To set specific interpreter features
-AKL_DEFINE_FUN(akl, cx, argc)
+AKL_DEFINE_FUN(akl_cfg, cx, argc)
 {
     struct akl_atom *sym;
     const char *sname;
     struct akl_state *s = cx->cx_state;
     if (akl_get_args_strict(cx, 1, TYPE_ATOM, &sym) == -1) {
-       show_features(s);
+       show_features(s, cx->cx_func_name);
        return AKL_NIL;
     }
     sname = sym->at_name;
@@ -62,7 +62,7 @@ AKL_DEFINE_FUN(akl, cx, argc)
         return akl_new_true_value(s);
     } else {
        if (strcmp(sname, "help") == 0)
-           show_features(s);
+           show_features(s, cx->cx_func_name);
        else
            akl_raise_error(cx, AKL_WARNING, "Cannot set feature '%s'", sname);
        return AKL_NIL;
@@ -132,7 +132,7 @@ AKL_DEFINE_FUN(dump_stack, cx, argc)
     struct akl_value **vp;
     int n = 0;
     printf("stack contents:\n");
-    AKL_VECTOR_FOREACH(n, vp, cx->cx_frame.af_stack) {
+    AKL_VECTOR_FOREACH(n, vp, cx->cx_stack) {
         printf("%%%d: ", n);
         akl_print_value(cx->cx_state, *vp);
         printf("\n");
@@ -257,6 +257,55 @@ AKL_DEFINE_FUN(clear_stack, ctx, argc)
     while (akl_stack_pop(ctx->cx_state))
         ;
     return AKL_NIL;
+}
+
+AKL_DEFINE_FUN(about, ctx, argc)
+{
+    const char *tnames[] = { "Atoms", "Lists"
+                           , "Numbers", "Strings"
+                           , "List entries", "Total allocated bytes"
+                           , NULL };
+    int c, i;
+    struct akl_module *mod;
+    struct akl_state *s = ctx->cx_state;
+    printf("\nAkLisp version %d.%d-%s\n"
+            "\tCopyleft (c) Akos Kovacs\n"
+            "\tBuilt on %s %s\n"
+#ifdef AKL_SYSTEM_INFO
+            "\tBuild platform: %s (%s)\n"
+            "\tBuild processor: %s\n"
+#endif // AKL_SYSTEM_INFO
+#ifdef AKL_USER_INFO
+            "\tBuilt by: %s@%s\n"
+#endif // AKL_USER_INFO
+            , VER_MAJOR, VER_MINOR, VER_ADDITIONAL
+            , __DATE__, __TIME__
+#ifdef AKL_SYSTEM_INFO
+            , AKL_SYSTEM_NAME, AKL_SYSTEM_VERSION, AKL_PROCESSOR
+#endif // AKL_SYSTEM_INFO
+#ifdef AKL_USER_INFO
+            , AKL_USER_NAME, AKL_HOST_NAME
+#endif // AKL_USER_INFO
+            );
+    c = akl_vector_count(&s->ai_modules);
+    if (c > 0)
+        printf("\n%u loaded module%s:\n", c, (c > 1)?"s":"");
+
+    AKL_VECTOR_FOREACH(i, mod, &s->ai_modules) {
+        if (mod) {
+            if (mod->am_name && mod->am_path)
+                printf("\tName: '%s'\n\tPath: '%s'\n", mod->am_name, mod->am_path);
+            if (mod->am_desc)
+                printf("\tDescription: '%s'\n", mod->am_desc);
+            if (mod->am_author)
+                printf("\tAuthor: '%s'\n", mod->am_author);
+        }
+        printf("\n");
+    }
+    printf("\nGC statistics:\n");
+    printf("\tallocated memory: %ld bytes\n", s->ai_gc_malloc_size);
+    
+    return &TRUE_VALUE;
 }
 
 #if 0
@@ -778,57 +827,6 @@ AKL_CFUN_DEFINE(version, in, args __unused)
     return akl_new_list_value(in, version);
 }
 
-AKL_CFUN_DEFINE(about, in, args)
-{
-    const char *tnames[] = { "Atoms", "Lists"
-                           , "Numbers", "Strings"
-                           , "List entries", "Total allocated bytes"
-                           , NULL };
-    int c, i;
-    struct akl_module *mod;
-    printf("\nAkLisp version %d.%d-%s\n"
-            "\tCopyleft (c) Akos Kovacs\n"
-            "\tBuilt on %s %s\n"
-#ifdef AKL_SYSTEM_INFO
-            "\tBuild platform: %s (%s)\n"
-            "\tBuild processor: %s\n"
-#endif // AKL_SYSTEM_INFO
-#ifdef AKL_USER_INFO
-            "\tBuild by: %s@%s\n"
-#endif // AKL_USER_INFO
-            , VER_MAJOR, VER_MINOR, VER_ADDITIONAL
-            , __DATE__, __TIME__
-#ifdef AKL_SYSTEM_INFO
-            , AKL_SYSTEM_NAME, AKL_SYSTEM_VERSION, AKL_PROCESSOR
-#endif // AKL_SYSTEM_INFO
-#ifdef AKL_USER_INFO
-            , AKL_USER_NAME, AKL_HOST_NAME
-#endif // AKL_USER_INFO
-            );
-    c = akl_vector_count(&in->ai_modules);
-    if (c > 0)
-        printf("\n%u loaded module%s:\n", c, (c > 1)?"s":"");
-
-    AKL_VECTOR_FOREACH(i, mod, &in->ai_modules) {
-        if (mod) {
-            if (mod->am_name && mod->am_path)
-                printf("\tName: '%s'\n\tPath: '%s'\n", mod->am_name, mod->am_path);
-            if (mod->am_desc)
-                printf("\tDescription: '%s'\n", mod->am_desc);
-            if (mod->am_author)
-                printf("\tAuthor: '%s'\n", mod->am_author);
-        }
-        printf("\n");
-    }
-    /*
-    printf("\nGC statistics:\n");
-    for (i = 0; i < AKL_NR_GC_STAT_ENT; i++) {
-        printf("\t%s: %d\n", tnames[i], in->ai_gc_stat[i]);
-    }
-    printf("\n");*/
-    
-    return version_function(in, args);
-}
 
 AKL_CFUN_DEFINE(range, in, args)
 {
@@ -1288,16 +1286,16 @@ static void akl_define_mod_path(struct akl_state *s)
 }
 
 AKL_DECLARE_FUNS(akl_basic_funs) {
-    AKL_FUN(plus, "+", "Arithmetic addition"),
-    AKL_FUN(mul,  "*", "Arithmetic product"),
+    AKL_FUN(plus,       "+", "Arithmetic addition"),
+    AKL_FUN(mul,        "*", "Arithmetic product"),
     AKL_FUN(write_times,  "write-times", "Write a string out n times"),
-    AKL_FUN(eq,  "=", "Compare to values for equality"),
-    AKL_FUN(gt,  ">", "Greater compare function"),
-    AKL_FUN(lt,  "<", "Less-than compare function"),
-    AKL_FUN(list,  "list", "Create a list from the given arguments"),
-    AKL_FUN(length,  "length", "Get the length of a string or the element count for a list"),
-    AKL_FUN(progn,  "$", "Evaulate all elements and give back the last (primitive sequence)"),
-    AKL_FUN(akl,    "akl", "Set/unset interpreter features"),
+    AKL_FUN(eq,         "=", "Compare to values for equality"),
+    AKL_FUN(gt,         ">", "Greater compare function"),
+    AKL_FUN(lt,         "<", "Less-than compare function"),
+    AKL_FUN(list,       "list", "Create a list from the given arguments"),
+    AKL_FUN(length,     "length", "Get the length of a string or the element count for a list"),
+    AKL_FUN(progn,      "$", "Evaulate all elements and give back the last (primitive sequence)"),
+    AKL_FUN(akl_cfg,    "akl-cfg!", "Set/unset interpreter features"),
     AKL_FUN(describe,    "describe", "Get a global atom help string"),
     AKL_FUN(exit,  "exit!", "Exit"),
     AKL_END_FUNS()
@@ -1308,6 +1306,7 @@ AKL_DECLARE_FUNS(akl_debug_funs) {
     AKL_FUN(clear_stack,  "clear-stack", "Clear the current stack"),
     AKL_FUN(disassemble,  "disassemble", "Disassemble a given function"),
     AKL_FUN(hello,  "hello", "Hello function"),
+    AKL_FUN(about,  "about", "Informations about the interpreter"),
     AKL_FUN(print,  "print", "Print an expression value"),
     AKL_END_FUNS()
 };
