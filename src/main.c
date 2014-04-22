@@ -143,17 +143,18 @@ const static struct option akl_options[] = {
     { "define"     , no_argument,       0, 'D' },
     { "eval"       , required_argument, 0, 'e' },
     { "interactive", no_argument,       0, 'i' },
-    { "no-color"   , no_argument,       &no_color_flag,  1  },
+    { "config"     , required_argument, 0, 'C' },
+    { "no-colors"  , no_argument,       &no_color_flag,  1  },
     { "help"       , no_argument,       0, 'h' },
     { "version"    , no_argument,       0, 'v' },
-    { NULL         ,           0,       0, 0 }
+    { NULL         ,           0,       0,  0  }
 };
 
 const char *akl_option_desc[] = {
     "Compile an AkLisp assembly file", "Compile an AkLisp program to bytecode"
     , "Define a variable from command-line", "Evaulate a command-line expression"
-    , "Force interactive mode", "Disable colors", "This help message"
-    , "Print the version number"
+    , "Force interactive mode", "Pass configuration setting to akl-cfg!", "Disable colors"
+    , "This help message", "Print the version number"
 };
 
 void print_help(void)
@@ -171,13 +172,15 @@ void print_help(void)
     }
 }
 
-char var[100]; /* Should be enough */
-char value[100];
+/* XXX: This should be dynamic */
+char var[64]; /* Should be enough */
+char value[64];
 static void cmd_parse_define(const char *opt)
 {
     struct akl_value *v = NULL;
+    AKL_ASSERT(opt, AKL_NOTHING);
     var[0] = value[0] = '\0';
-    sscanf(opt, "%100[A-Za-z_+-*]=%100[A-Za-z0-9 ]", var, value);
+    sscanf(opt, "%63[A-Za-z_+-*]=%63[A-Za-z0-9 ]", var, value);
     akl_add_global_variable(&state, var, NULL, akl_new_string_value(&state, value));
     printf("define %s as %s\n", var, value);
 }
@@ -194,7 +197,7 @@ static void interactive_mode(void)
     struct akl_context *ctx;
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
-    printf("Copyleft (C) 2013 Akos Kovacs\n\n");
+    printf("Copyleft (C) 2014 Akos Kovacs\n\n");
     AKL_SET_FEATURE(&state, AKL_CFG_INTERACTIVE);
     init_readline();
     while (1) {
@@ -239,12 +242,12 @@ int main(int argc, char* const* argv)
     struct akl_list args;
     const char *fname;
 
-    akl_init_state(&state);
+    akl_init_state(&state, NULL);
     akl_init_list(&args);
     akl_library_init(&state, AKL_LIB_ALL);
 
 #ifdef HAVE_GETOPT_H
-    while((c = getopt_long(argc, argv, "aD:e:chiv", akl_options, &opt_index)) != -1) {
+    while((c = getopt_long(argc, argv, "aD:C:e:chiv", akl_options, &opt_index)) != -1) {
         if (no_color_flag)
             AKL_UNSET_FEATURE(&state, AKL_CFG_USE_COLORS);
 
@@ -269,6 +272,10 @@ int main(int argc, char* const* argv)
                 cmd_parse_define(optarg);
             break;
 
+            case 'C':
+                akl_set_feature(&state, optarg);
+            break;
+
             case 'i':
             default:
             interactive_mode();
@@ -284,11 +291,17 @@ int main(int argc, char* const* argv)
             return -1;
         }
         while (opt_index < argc) {
-            akl_list_append_value(&state, &args, akl_new_string_value(&state, strdup(argv[opt_index++])));
+            akl_list_append_value(&state, &args
+                , akl_new_string_value(&state, strdup(argv[opt_index++])));
         }
         AKL_UNSET_FEATURE(&state, AKL_CFG_INTERACTIVE);
-        akl_add_global_variable(&state, "*args*", "The list of command-line arguments", akl_new_list_value(&state, &args));
-        akl_add_global_variable(&state, "*file*", "The current file", akl_new_string_value(&state, strdup(fname)));
+
+        akl_add_global_variable(&state, "*args*", "The list of command-line arguments"
+            , akl_new_list_value(&state, &args));
+
+        akl_add_global_variable(&state, "*file*", "The current file"
+            , akl_new_string_value(&state, strdup(fname)));
+
         dev = akl_new_file_device(&state, fname, fp);
         ctx = akl_compile(&state, dev);
         akl_execute(ctx);
