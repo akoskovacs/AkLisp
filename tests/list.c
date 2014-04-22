@@ -92,7 +92,7 @@ test_res_t list_remove(void)
 
 int main()
 {
-    akl_init_state(&state);
+    akl_init_state(&state, NULL);
     struct test vtests[] = {
         { list_create, "akl_new_list() can create a list" },
         { list_append, "akl_list_append() can add elements to a list" },
