@@ -33,18 +33,23 @@
 #define IS_BIT_SET(V, N) TEST_BIT(V, N)
 #define IS_BIT_NOT_SET(V, N) (!TEST_BIT(V, N))
 
+struct akl_mem_callbacks akl_mem_std_callbacks = {
+    .mc_malloc_fn  = malloc,
+    .mc_calloc_fn  = calloc,
+    .mc_free_fn    = free,
+    .mc_realloc_fn = realloc,
+    .mc_nomem_fn   = akl_def_nomem_handler
+};
+
 void *akl_alloc(struct akl_state *s, size_t size)
 {
     void *ptr;
-    assert(s && s->ai_malloc_fn);
+    AKL_ASSERT(s, NULL);
 
-    ptr = s->ai_malloc_fn(size);
+    ptr = s->ai_mem_fn->mc_malloc_fn(size);
     s->ai_gc_malloc_size += size;
     if (ptr == NULL) {
-        if (!s->ai_nomem_fn)
-            s->ai_nomem_fn = akl_def_nomem_handler;
-
-        switch (s->ai_nomem_fn(s)) {
+        switch (s->ai_mem_fn->mc_nomem_fn(s)) {
             case AKL_NM_TRYAGAIN:
             return akl_alloc(s, size);
 
@@ -60,16 +65,16 @@ void *akl_alloc(struct akl_state *s, size_t size)
 
 void *akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
 {
-    void *ptr;
-    assert(s && s->ai_calloc_fn);
+    void *ptr = NULL;
+    /* Integer overflow fix.
+     * XXX: It has to be SIZE_T_MAX, but that's not defined in limits.h
+     */
+    AKL_ASSERT(s && (nmemb && size && (UINT_MAX / nmemb) > size), NULL);
 
-    ptr = s->ai_calloc_fn(nmemb, size);
-    s->ai_gc_malloc_size += size*nmemb;
+    ptr = s->ai_mem_fn->mc_calloc_fn(nmemb, size);
+    s->ai_gc_malloc_size += size * nmemb;
     if (ptr == NULL) {
-        if (!s->ai_nomem_fn)
-            s->ai_nomem_fn = akl_def_nomem_handler;
-
-        switch (s->ai_nomem_fn(s)) {
+        switch (s->ai_mem_fn->mc_nomem_fn(s)) {
             case AKL_NM_TRYAGAIN:
             return akl_calloc(s, nmemb, size);
 
@@ -86,15 +91,12 @@ void *akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
 void *akl_realloc(struct akl_state *s, void *ptr, size_t size)
 {
     void *p;
-    assert(s && s->ai_realloc_fn);
+    AKL_ASSERT(s, NULL);
 
-    p = s->ai_realloc_fn(ptr, size);
+    p = s->ai_mem_fn->mc_realloc_fn(ptr, size);
     s->ai_gc_malloc_size += size;
     if (p == NULL) {
-        if (!s->ai_nomem_fn)
-            s->ai_nomem_fn = akl_def_nomem_handler;
-
-        switch (s->ai_nomem_fn(s)) {
+        switch (s->ai_mem_fn->mc_nomem_fn(s)) {
             case AKL_NM_TRYAGAIN:
             return akl_realloc(s, ptr, size);
 
@@ -110,12 +112,24 @@ void *akl_realloc(struct akl_state *s, void *ptr, size_t size)
 
 void akl_free(struct akl_state *s, void *ptr, size_t size)
 {
-    if (s && s->ai_free_fn) {
-        s->ai_free_fn(ptr);
+    if (s) {
+        s->ai_mem_fn->mc_free_fn(ptr);
         s->ai_gc_malloc_size -= size;
-    } else {
-        free(ptr);
     }
+}
+
+#define AKL_CPY_MEM_CALLBACK(s, cbs, fname) \
+    (s)->ai_mem_fn->fname = ((cbs)->fname) ? (cbs)->fname : akl_mem_std_callbacks.fname
+
+void akl_set_mem_callbacks(struct akl_state *s, const struct akl_mem_callbacks *cbs)
+{
+    AKL_ASSERT(s && cbs
+    /* Every field must be filled properly */
+        && cbs->mc_malloc_fn  && cbs->mc_calloc_fn
+        && cbs->mc_realloc_fn && cbs->mc_free_fn
+        && cbs->mc_nomem_fn, AKL_NOTHING);
+
+     s->ai_mem_fn = cbs;
 }
 
 akl_gc_type_t akl_gc_register_type(struct akl_state *s, akl_gc_marker_t marker, size_t objsize)
@@ -229,7 +243,7 @@ void akl_gc_mark(struct akl_state *s)
 void akl_gc_mark_all(struct akl_state *s)
 {
     struct akl_atom *atom;
-    if (!s->ai_gc_is_enabled)
+    if (!AKL_IS_FEATURE_ON(s, AKL_CFG_USE_GC)) 
         return;
 #if 0
     RB_FOREACH(atom, ATOM_TREE, &s->ai_atom_head) {
@@ -241,7 +255,7 @@ void akl_gc_mark_all(struct akl_state *s)
 
 void akl_gc_unmark_all(struct akl_state *s)
 {
-    if (!s->ai_gc_is_enabled)
+    if (!AKL_IS_FEATURE_ON(s, AKL_CFG_USE_GC)) 
         return;
 }
 
@@ -416,7 +430,7 @@ void akl_gc_sweep(struct akl_state *s)
 {
     int i;
     struct akl_gc_type *t;
-    if (s->ai_gc_is_enabled) {
+    if (AKL_IS_FEATURE_ON(s, AKL_CFG_USE_GC)) {
         for (i = 0; i < akl_vector_count(&s->ai_gc_types); i++) {
             t = akl_gc_get_type(s, i);
             akl_gc_sweep_pool(s, t->gt_pool_head, t->gt_marker_fn);
@@ -427,13 +441,13 @@ void akl_gc_sweep(struct akl_state *s)
 void akl_gc_enable(struct akl_state *s)
 {
     if (s)
-        s->ai_gc_is_enabled = TRUE;
+        AKL_SET_FEATURE(s, AKL_CFG_USE_GC);
 }
 
 void akl_gc_disable(struct akl_state *s)
 {
     if (s)
-        s->ai_gc_is_enabled = FALSE;
+        AKL_UNSET_FEATURE(s, AKL_CFG_USE_GC);
 }
 
 
@@ -503,7 +517,7 @@ void *akl_gc_malloc(struct akl_state *s, akl_gc_type_t tid)
         akl_gc_pool_use(p, ind);
         return akl_vector_at(&p->gp_pool, ind);
     } else {
-        if (!s->ai_gc_last_was_mark && s->ai_gc_is_enabled) {
+        if (!s->ai_gc_last_was_mark && AKL_IS_FEATURE_ON(s, AKL_CFG_USE_GC)) {
             akl_gc_mark(s);
             akl_gc_sweep(s);
             s->ai_gc_last_was_mark = TRUE;
