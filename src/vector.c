@@ -49,7 +49,7 @@ void akl_init_vector(struct akl_state *s, struct akl_vector *vec, unsigned int n
 
 bool_t akl_vector_is_empty(struct akl_vector *vec)
 {
-    return (!vec || !vec->av_vector || vec->av_count == 0);
+    return (!vec || !vec->av_vector || (vec->av_count == 0));
 }
 
 /**
@@ -176,8 +176,8 @@ void *
 akl_vector_at(struct akl_vector *vec, unsigned int ind)
 {
     assert(vec);
-    if (!akl_vector_is_empty(vec) && ind < vec->av_size) {
-        return vec->av_vector + (ind * vec->av_msize);
+    if (ind < vec->av_size) {
+        return (void *)vec->av_vector + (ind * vec->av_msize);
     }
     return NULL;
 }
