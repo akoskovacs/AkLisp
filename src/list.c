@@ -68,6 +68,14 @@ akl_list_insert_head(struct akl_state *s, struct akl_list *list, void *data)
     return ent;
 }
 
+void *akl_list_head(struct akl_list *list)
+{
+    if (list != NULL) {
+        return (list->li_head == NULL) ? NULL : list->li_head->le_data;
+    }
+    return NULL;
+}
+
 struct akl_list_entry *
 akl_list_insert_head_value(struct akl_state *s, struct akl_list *list, struct akl_value *val)
 {
@@ -202,6 +210,19 @@ struct akl_value *akl_list_index_value(struct akl_list *list, int index)
 {
     struct akl_list_entry *ent = akl_list_index(list, index);
     return ent ? (struct akl_value *)ent->le_data : NULL;
+}
+
+void *akl_list_last(struct akl_list *list)
+{
+    if (list != NULL) {
+        return list->li_last->le_data;
+    }
+    return NULL;
+}
+
+bool_t akl_list_is_empty(struct akl_list *list)
+{
+    return akl_list_count(list) == 0;
 }
 
 /* NOTICE: Will not free the data */
