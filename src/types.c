@@ -50,13 +50,13 @@ akl_def_nomem_handler(struct akl_state *s)
     return AKL_NM_TERMINATE;
 }
 
-void akl_init_state(struct akl_state *s)
+void akl_init_state(struct akl_state *s, const struct akl_mem_callbacks *cbs)
 {
-    s->ai_malloc_fn = malloc;
-    s->ai_realloc_fn = realloc;
-    s->ai_calloc_fn = calloc;
-    s->ai_free_fn = free;
-    s->ai_nomem_fn = akl_def_nomem_handler;
+    if (cbs == NULL) {
+        s->ai_mem_fn = &akl_mem_std_callbacks;
+    } else {
+        akl_set_mem_callbacks(s, cbs);
+    }
     AKL_SET_FEATURE(s, AKL_CFG_USE_COLORS);
     AKL_SET_FEATURE(s, AKL_CFG_USE_GC);
     s->ai_fn_main = NULL;
@@ -66,19 +66,23 @@ void akl_init_state(struct akl_state *s)
     s->ai_device = NULL;
     akl_init_list(&s->ai_modules);
     akl_init_vector(s, &s->ai_utypes, sizeof(struct akl_module *), 5);
-    akl_init_vector(s, &s->ai_stack, sizeof(struct akl_value *), 40);
+    akl_init_vector(s, &s->ai_stack, sizeof(struct akl_value **), AKL_STACK_SIZE);
     s->ai_errors   = NULL;
+    akl_init_context(&s->ai_context);
 }
 
-struct akl_state *akl_new_state(void *(*alloc)(size_t))
+struct akl_state *akl_new_state(const struct akl_mem_callbacks *cbs)
 {
     struct akl_state *s;
-    if (!alloc) {
+    void *(*alloc)(size_t);
+    if (cbs == NULL || cbs->mc_malloc_fn == NULL) {
          alloc = malloc;
     }
     s = (struct akl_state *)alloc(sizeof(struct akl_state));
-    akl_init_state(s);
-    s->ai_malloc_fn = alloc;
+    if (s == NULL)
+        return NULL;
+
+    akl_init_state(s, cbs);
     return s;
 }
 
@@ -100,6 +104,12 @@ struct akl_list *akl_new_list(struct akl_state *s)
     return list;
 }
 
+void akl_init_frame(struct akl_frame *f)
+{
+    AKL_ASSERT(f, AKL_NOTHING);
+    f->af_begin = f->af_count = f->af_end = 0;
+}
+
 void akl_init_context(struct akl_context *ctx)
 {
     ctx->cx_state     = NULL;
@@ -108,6 +118,8 @@ void akl_init_context(struct akl_context *ctx)
     ctx->cx_func_name = NULL;
     ctx->cx_ir        = NULL;
     ctx->cx_lex_info  = NULL;
+    ctx->cx_parent    = NULL;
+    ctx->cx_frame     = NULL;
 }
 
 struct akl_context *akl_new_context(struct akl_state *s)
@@ -115,7 +127,8 @@ struct akl_context *akl_new_context(struct akl_state *s)
     struct akl_context *ctx = AKL_MALLOC(s, struct akl_context);
     akl_init_context(ctx);
     ctx->cx_state = s;
-    ctx->cx_frame.af_stack = &s->ai_stack;
+    ctx->cx_frame = AKL_MALLOC(ctx->cx_state, struct akl_frame);
+    akl_init_frame(ctx->cx_frame);
     return ctx;
 }
 
@@ -317,26 +330,27 @@ akl_new_string_device(struct akl_state *s, const char *name, const char *str)
 }
 
 struct akl_state *
-akl_new_file_interpreter(const char *file_name, FILE *fp, void *(*alloc)(size_t))
+akl_new_file_interpreter(const char *file_name, FILE *fp, const struct akl_mem_callbacks *cbs)
 {
-    struct akl_state *s = akl_new_state(alloc);
+    struct akl_state *s = akl_new_state(cbs);
     s->ai_device = akl_new_file_device(s, file_name, fp);
     return s;
 }
 
 struct akl_state *
-akl_new_string_interpreter(const char *name, const char *str, void *(*alloc)(size_t))
+akl_new_string_interpreter(const char *name, const char *str, const struct akl_mem_callbacks *cbs)
 {
-    struct akl_state *s = akl_new_state(alloc);
+    struct akl_state *s = akl_new_state(cbs);
     s->ai_device = akl_new_string_device(s, name, str);
     return s;
 }
 
 struct akl_state *
-akl_reset_string_interpreter(struct akl_state *in, const char *name, const char *str, void *(*alloc)(size_t))
+akl_reset_string_interpreter(struct akl_state *in, const char *name, const char *str
+                             , const struct akl_mem_callbacks *cbs)
 {
    if (in == NULL) {
-       return akl_new_string_interpreter(name, str, in->ai_malloc_fn);
+       return akl_new_string_interpreter(name, str, cbs);
    } else if (in->ai_device == NULL) {
        in->ai_device = akl_new_string_device(in, name, str);
        return in;
