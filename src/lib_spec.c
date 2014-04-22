@@ -24,7 +24,7 @@
 
 /*
  * These functions are special forms. They build their own internal
- * representation, by parsing the tokens.
+ * representation by parsing the tokens.
 */
 void akl_build_label(struct akl_context *ctx, struct akl_label *l)
 {
@@ -41,7 +41,22 @@ AKL_DEFINE_SFUN(when, ctx)
     akl_compile_next(ctx);
 }
 
-AKL_DEFINE_SFUN(if, ctx)
+AKL_DEFINE_SFUN(set, ctx)
+{
+    assert(ctx && ctx->cx_state && ctx->cx_dev);
+    struct akl_state *s       = ctx->cx_state;
+    struct akl_io_device *dev = ctx->cx_dev;
+    char *vname;
+    struct akl_value *value;
+    akl_token_t tok = akl_lex(dev);
+    if (tok != tATOM) {
+        akl_raise_error(ctx, AKL_ERROR, "Unexpected token, (need a valid atom for set!)");
+        return;
+    }
+    vname = akl_lex_get_atom(dev);
+}
+
+AKL_DEFINE_SFUN(sif, ctx)
 {
     /* Allocate the branch */
     struct akl_label *label = akl_new_labels(ctx, 3);
@@ -64,7 +79,7 @@ AKL_DEFINE_SFUN(if, ctx)
     akl_build_label(ctx, label+2);
 }
 
-AKL_DEFINE_SFUN(while, ctx)
+AKL_DEFINE_SFUN(swhile, ctx)
 {
     akl_token_t tok;
     struct akl_label *label = akl_new_labels(ctx, 3);
@@ -86,7 +101,7 @@ AKL_DEFINE_SFUN(while, ctx)
     akl_build_label(ctx, label+2);
 }
 
-char **akl_parse_params(struct akl_context *ctx)
+char **akl_parse_params(struct akl_context *ctx, const char *fname)
 {
     assert(ctx && ctx->cx_state && ctx->cx_dev);
     akl_token_t tok;
@@ -100,10 +115,14 @@ char **akl_parse_params(struct akl_context *ctx)
         return NULL;
     }
 
+    if (fname == NULL) {
+        fname = "lambda";
+    }
+
     /* No argument list at all */
     if (tok != tLBRACE) {
         akl_raise_error(ctx, AKL_ERROR, "Expected an argument list for function definition \'%s\'"
-                        , ctx->cx_func_name);
+                        , fname);
         return NULL;
     }
     args = (char **)akl_calloc(ctx->cx_state, DEF_ARGC, sizeof(char *));
@@ -139,10 +158,13 @@ AKL_DEFINE_SFUN(defun, ctx)
         fatm->at_value = fval;
     } else {
         /* TODO: Error! */
+        akl_raise_error(ctx, AKL_ERROR, "Unexpected token, "
+                        "defun! needs a parameter list and a function body");
+        return;
     }
 
-    ufun->uf_args = akl_parse_params(ctx);
     ctx->cx_comp_func = func;
+    ufun->uf_args = akl_parse_params(ctx, fatm->at_name);
     ctx->cx_ir = &ufun->uf_body;
     /* Eat the next left brace and interpret the body... */
     tok = akl_lex(ctx->cx_dev);
@@ -163,9 +185,9 @@ AKL_DEFINE_SFUN(defun, ctx)
 }
 
 AKL_DECLARE_FUNS(akl_spec_forms) {
-    AKL_SFUN(if, "if", "Conditional expression"),
+    AKL_SFUN(sif, "if", "Conditional expression"),
     AKL_SFUN(when, "when", "Conditionally evaulate an expression"),
-    AKL_SFUN(while, "while", "Conditional loop expression"),
+    AKL_SFUN(swhile, "while", "Conditional loop expression"),
     AKL_SFUN(defun, "defun!", "Define a new function"),
     AKL_END_FUNS()
 };
