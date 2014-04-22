@@ -66,10 +66,7 @@ void *akl_alloc(struct akl_state *s, size_t size)
 void *akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
 {
     void *ptr = NULL;
-    /* Integer overflow fix.
-     * XXX: It has to be SIZE_T_MAX, but that's not defined in limits.h
-     */
-    AKL_ASSERT(s && (nmemb && size && (UINT_MAX / nmemb) > size), NULL);
+    AKL_ASSERT(s, NULL);
 
     ptr = s->ai_mem_fn->mc_calloc_fn(nmemb, size);
     s->ai_gc_malloc_size += size * nmemb;
