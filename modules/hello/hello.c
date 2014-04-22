@@ -72,12 +72,12 @@ static int hello_unload(struct akl_state *ctx)
    return AKL_LOAD_OK;
 }
 
-const static struct akl_module __mod_desc = {
-    .am_name = "hello",
-    .am_desc = "A simple hello module",
+AKL_MODULE {
+    .am_name   = "hello",
+    .am_desc   = "A simple hello module",
     .am_author = "Kovacs Akos <akoskovacs@gmx.com>",
-    .am_funs = (struct akl_fun_decl *)akl_funs,
-    .am_load = hello_load,
+    .am_funs   = akl_funs,
+    .am_load   = hello_load,
     .am_unload = hello_unload,
     /* These can be NULL, when no (de)initialization needed */
     /*.am_depends_on = { "foo", "bar", NULL }; */
