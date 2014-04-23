@@ -715,29 +715,16 @@ void akl_raise_error(struct akl_context *ctx
     struct akl_state *s = ctx->cx_state;
     struct akl_list *l;
     struct akl_error *err;
-    size_t fmt_size = strlen(fmt);
-    /* should be enough */
-    size_t new_size = fmt_size + (fmt_size/2);
     int n;
     char *np;
-    char *msg = (char *)akl_alloc(s, new_size);
-    while (1) {
-        va_start(ap, fmt);
-        n = vsnprintf(msg, new_size, fmt, ap);
-        va_end(ap);
-        if (n > -1 && n < new_size)
-            break;
-        /* Else try again with more space. */
-        if (n > -1)    /* glibc 2.1 */
-            new_size = n+1;
-        else           /* glibc 2.0 */
-            new_size *= 2;
-        if ((np = (char *)realloc (msg, new_size)) == NULL) {
-            free(msg);
-            return;
-        } else {
-            msg = np;
-        }
+    char *msg;
+    va_start(ap, fmt);
+    n = vasprintf(&msg, fmt, ap);
+    va_end(ap);
+    if (n < 0) {
+        /* TODO: Somehow raise error from akl_raise_error() */
+        /* XXX:  Need free() here? */
+        return;
     }
 
     if (s) {
