@@ -306,7 +306,7 @@ AKL_DEFINE_FUN(about, ctx, argc)
         printf("\n");
     }
     printf("\nGC statistics:\n");
-    printf("\tallocated memory: %ud bytes\n", s->ai_gc_malloc_size);
+    printf("\tallocated memory: %u bytes\n", s->ai_gc_malloc_size);
     
     return &TRUE_VALUE;
 }
