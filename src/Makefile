@@ -1,26 +1,35 @@
 # This is an alternative makefile, if you don't want to use CMake.
 # It will only generate the executable and will not check the header files...
-CC = gcc
-LD = ld
-RM = rm -rf
-CP = cp
-ALTCONF = config.h.alt
-CONF = conf.h
-CFLAGS = -ggdb # Default is debug build
-CD = cd
-MAKE = make
-OBJECTS := main.o aklisp.o lib.o lexer.o parser.o os_unix.o gc.o list.o lib_file.o
-DEFINES := -DVER_MAJOR=0 -DVER_MINOR=1 -DVER_ADDITIONAL=\"alpha\" -DUSE_COLORS -DHAVE_READLINE -include "../conf.h"
+
 TARGET := ../aklisp
-CTARGET := akl.c
+AKL_MODULE_SEARCH_PATH := $(PREFIX)/AkLisp/modules/
 
-all: $(OBJECTS)
+DEFINES := -include "../conf.h" -DVER_MAJOR=$(VER_MAJOR) \
+	       -DVER_MINOR=$(VER_MINOR) -DVER_ADDITIONAL=$(VER_ADDITIONAL)
+
+include Makefile.objs
+
+CONFIG_OS_UNIX := y
+
+all: aklisp 
+
+aklisp: $(AKL_LIBRARY) $(obj-app-y)
 	@echo "LINK aklisp"
-	@$(CC) $(OBJECTS) -rdynamic -ldl -lreadline -o $(TARGET)
+	$(Q)$(CC) $(obj-app-y) $(LDFLAGS) $(AKL_LIBRARY)
+	
+libaklisp_static.a: $(obj-lib-y)
+	$(Q)$(AR) $(ARFLAGS) $@ $(obj-lib-y)
 
-%.o: %.c
+$(AKLISP_SHARED): $(obj-lib-y)
+	@echo "LINK $@"
+	$(Q)$(CC) $(LDFLAGS) $@ $(obj-lib-y) 
+
+%.o: %.c $(OBJ_DIR)
 	@echo "CC $<"
-	@$(CC) $(CFLAGS) $(DEFINES) $< -c 
+	$(Q)$(CC) $(CFLAGS) $(DEFINES) $< -c -o $(OBJ_DIR)/$@
+
+$(OBJ_DIR):
+	$(MKDIR) $(OBJ_DIR)
 
 gen-file:
 	cat akl_tree.h > $(CTARGET)
@@ -29,4 +38,4 @@ gen-file:
 
 PHONY: clean clean-cmake
 clean:
-	$(RM) $(TARGET) $(OBJECTS)
+	$(RM) $(OBJ_DIR) $(AKLISP_SHARED)

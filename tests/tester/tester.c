@@ -1,9 +1,9 @@
 #include "tester.h"
 
 const char fail_str[] = "FAILED";
-const char fail_str_color[] = RED "FAILED" END_COLOR_MARK ;
+const char fail_str_color[] = AKL_RED "FAILED" AKL_END_COLOR_MARK ;
 const char ok_str[] = "OK";
-const char ok_str_color[] = GREEN "OK" END_COLOR_MARK ;
+const char ok_str_color[] = AKL_GREEN "OK" AKL_END_COLOR_MARK ;
 const char dot_str[] = ".";
 size_t term_width;
 
@@ -60,9 +60,9 @@ int run_tests(const char *name, struct test *tests)
         tests++;
     }
 
-    printf(YELLOW "Test set \'%s\' is completed. " END_COLOR_MARK
-                    "[%d test, " GREEN "%d ok" END_COLOR_MARK ", " 
-                    RED "%d fail" END_COLOR_MARK "]\n"
+    printf(AKL_YELLOW "Test set \'%s\' is completed. " AKL_END_COLOR_MARK
+                    "[%d test, " AKL_GREEN "%d ok" AKL_END_COLOR_MARK ", " 
+                    AKL_RED "%d fail" AKL_END_COLOR_MARK "]\n"
         , name, ok_cnt+fail_cnt, ok_cnt, fail_cnt);
 
     return (fail_cnt > 0) ? 1 : 0;

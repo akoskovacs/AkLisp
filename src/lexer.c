@@ -164,7 +164,26 @@ size_t copy_atom(struct akl_io_device *dev)
 
     while ((ch = akl_io_getc(dev))) {
         if (ch != ' ' && ch != ')' && ch != '\n') {
-            put_buffer(dev, i++, toupper(ch)); /* Good old times... */
+            put_buffer(dev, i++, tolower(ch));
+        } else {
+            akl_io_ungetc(ch, dev);
+            break;
+        }
+        if (akl_io_eof(dev))
+            break;
+    }
+    return i;
+}
+
+size_t copy_word(struct akl_io_device *dev)
+{
+    int ch;
+    size_t i = 0;
+    assert(dev);
+
+    while ((ch = akl_io_getc(dev))) {
+        if (ch != ' ' && ch != ':' && ch != '\n') {
+            put_buffer(dev, i++, ch);
         } else {
             akl_io_ungetc(ch, dev);
             break;
@@ -179,7 +198,7 @@ akl_token_t akl_lex(struct akl_io_device *dev)
 {
     int ch;
     /* We should take care of the '+', '++',
-      and etc. style functions. Moreover the
+      and etc., style functions. Moreover the
       positive and negative numbers must also work:
       '(++ +5)' should be valid. */
     char op = 0;
@@ -261,6 +280,56 @@ akl_token_t akl_lex(struct akl_io_device *dev)
         }
     }
     return tEOF;
+}
+
+akl_asm_token_t akl_asm_lex(struct akl_io_device *dev)
+{
+    int ch;
+    int op='+';
+    if (dev->iod_buffer == NULL)
+        init_lexer(dev);
+
+    while ((ch = akl_io_getc(dev))) {
+        switch (ch) {
+            case tASM_DOT: case tASM_COMMA:
+            case tASM_COLON: case tASM_PERC:
+            case tASM_FDECL:
+            return ch;
+
+            case EOF:
+            return tASM_EOF;
+
+            case '\n':
+            dev->iod_line_count++;
+            dev->iod_char_count = 0;
+            continue;
+
+            case '\"':
+            copy_string(dev);
+            return tASM_STRING;
+
+            case '+': case '-':
+            op = ch;
+            continue;
+        }
+        // Unix shebang
+        if (dev->iod_char_count == 1 && ch == '#') {
+            while ((ch = akl_io_getc(dev)) && ch != '\n') 
+                ;
+        } else if (isalpha(ch)) {
+            copy_word(dev);
+            return tASM_WORD;
+        } else if (isdigit(ch)) {
+            akl_io_ungetc(ch, dev);
+            copy_number(dev, op);
+            return tASM_NUMBER;
+        } else if (ch == ';') {
+            while ((ch = akl_io_getc(dev)) && ch != '\n')
+                ;
+        } else {
+            printf("lexer error\n");
+        }
+    }
 }
 
 char *akl_lex_get_string(struct akl_io_device *dev)

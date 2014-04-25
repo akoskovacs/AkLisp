@@ -1,0 +1,74 @@
+# This is an alternative makefile, if you don't want to use CMake.
+# It will only generate the executable and will not check the header files...
+VER_MAJOR := 0
+VER_MINOR := 2
+VER_ADDITIONAL := "\"prealpha\""
+AKLISP_SHARED := libaklisp_shared.so.$(VER_MAJOR).$(VER_MINOR)
+
+CC = gcc
+AR = ar
+ARFLAGS = rcs
+RM = rm -rf
+CP = cp
+LN = ln -s
+ALTCONF = config.h.alt
+CONF = conf.h
+MKDIR = mkdir -p
+OBJ_DIR = $(CURDIR)/objs
+CFLAGS = -ggdb
+SHARED_LDFLAGS = -fPIC -shared #-Wl -soname
+STATIC_LDFLAGS = #
+ifneq ($(V),)
+Q=
+else
+Q=@
+endif
+
+ifeq ($(LINK_SHARED),y)
+	AKL_LIBRARY := $(AKLISP_SHARED)
+	LDFLAGS 	 = $(SHARED_LDFLAGS)
+else
+	AKL_LIBRARY := libaklisp_static.a
+	LDFLAGS      = $(STATIC_LDFLAGS)
+endif
+
+all: aklisp 
+SUBDIRS := src modules test
+
+export CC RM CP MKDIR ALTCONF CONF CFLAGS LDFLAGS Q
+export AR ARFLAGS SHARED_LDFLAGS STATIC_LDFLAGS OBJ_DIR
+export VER_MAJOR VER_MINOR VER_ADDITIONAL AKL_LIBRARY
+
+all: aklisp
+
+aklisp: 
+	@echo "Building AkLisp..."
+	$(CP) $(ALTCONF) $(CONF)
+	$(MAKE) -C src
+
+modules: aklisp
+	@echo "Building modules..."
+	$(MAKE) -C $@
+
+test: aklisp
+	@echo "Testing AkLisp..."
+
+help:
+	@echo "AkLisp build help:"
+	@echo "make             - build aklisp and the modules"
+	@echo "make aklisp      - just build aklisp"
+	@echo "make modules     - just build the modules"
+	@echo "make test        - test the build"
+	@echo "make clean       - delete object files"
+	@echo "make clean-cmake - delete junk CMake files"
+
+fix-make:
+	$(RM) Makefile
+	$(LN) Makefile.alt Makefile 
+
+.PHONY: clean clean-cmake help test modules fix-make
+clean:
+	$(foreach D, $(SUBDIRS), $(MAKE) -C $D clean;) 
+
+clean-cmake:
+	$(RM) CMakeFiles/ CMakeCache.txt cmake_install.cmake

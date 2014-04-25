@@ -25,31 +25,61 @@
 #include <aklisp.h>
 #include <stdio.h>
 
-AKL_CFUN_DEFINE(hello, in, args)
+AKL_DEFINE_FUN(hello, ctx, argc)
 {
     printf("Hello, world from 'hello' module!\n");
     /* Every function must return something, 
       the type of 'akl_value' */
-    return &NIL_VALUE;
+    return AKL_NIL;
 }
 
+AKL_DEFINE_FUN(string_times, ctx, argc)
+{
+    double t;
+    int i;
+    const char *str;
+    if (akl_get_args_strict(ctx, 2, TYPE_NUMBER, &t, TYPE_STRING, &str))
+        /* Something didn't work, must return... */
+        return AKL_NIL;
 
-/* Every module must have two functions with this signature */
+    i = (unsigned int)t;
+    while (i--) {
+        printf("%s", str);
+    }
+
+    return AKL_NIL;
+}
+
+const AKL_DECLARE_FUNS(akl_funs) {
+    AKL_FUN(hello, "hello", "A simple hello function"),
+    AKL_FUN(string_times, "string-times", "Print a string n times"),
+    AKL_END_FUNS()
+};
+
 /* One for initializing and one for destroying resources. */
-/* Each of them should return 0 when everything is good */
-static int hello_load(struct akl_state *in)
+/* Each of them should return 0 (AKL_LOAD_OK) when everything is good */
+static int hello_load(struct akl_state *ctx)
 {
-   AKL_ADD_CFUN(in, hello, "HELLO", "Hey hello!"); 
+   printf("The hello module loaded");
+   /* initalize_some_resource() */
    return AKL_LOAD_OK;
 }
 
-static int hello_unload(struct akl_state *in)
+static int hello_unload(struct akl_state *ctx)
 {
-   AKL_REMOVE_CFUN(in, hello);
+   printf("The hello module unloaded");
+   /* deinitalize_some_resource() */
    return AKL_LOAD_OK;
 }
 
-AKL_MODULE_DEFINE(hello_load, hello_unload, "hello"
-    , "A simple demo module", "Akos Kovacs");
-
-/* No need for further explaination, the code explains itself... */
+AKL_MODULE {
+    .am_name   = "hello",
+    .am_desc   = "A simple hello module",
+    .am_author = "Kovacs Akos <akoskovacs@gmx.com>",
+    .am_funs   = akl_funs,
+    .am_load   = hello_load,
+    .am_unload = hello_unload,
+    /* These can be NULL, when no (de)initialization needed */
+    /*.am_depends_on = { "foo", "bar", NULL }; */
+    .am_depends_on = NULL, /* A NULL-terminated array of other needed modules */
+};

@@ -38,7 +38,7 @@ test_res_t list_foreach(void)
 
 test_res_t list_size(void)
 {
-    return list->li_elem_count == NR_NUMS;
+    return akl_list_count(list) == NR_NUMS;
 }
 
 test_res_t list_index(void)
@@ -92,12 +92,12 @@ test_res_t list_remove(void)
 
 int main()
 {
-    akl_init_state(&state);
+    akl_init_state(&state, NULL);
     struct test vtests[] = {
         { list_create, "akl_new_list() can create a list" },
         { list_append, "akl_list_append() can add elements to a list" },
         { list_foreach, "AKL_LIST_FOREACH() can iterate through the elements" },
-        { list_size, "list->li_elem_count gives back the size of the list" },
+        { list_size, "akl_list_count() gives back the size of the list" },
         { list_index, "akl_list_index() can get back different elements" },
         { list_first, "AKL_LIST_FIRST() can get the first element" },
         { list_insert_head, "akl_insert_head() can insert a new first elemenet" },

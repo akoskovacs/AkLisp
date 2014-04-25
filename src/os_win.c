@@ -16,7 +16,6 @@ struct akl_module *akl_load_module_desc(struct akl_state *s, const char *libname
         FreeLibrary(dll);
 
     return mdesc;
-
 }
 
 void akl_free_module(struct akl_state *s, struct akl_module *mod)

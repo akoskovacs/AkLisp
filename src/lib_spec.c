@@ -24,51 +24,62 @@
 
 /*
  * These functions are special forms. They build their own internal
- * representation, by parsing the tokens.
+ * representation by parsing the tokens.
 */
-#define AKL_SPEC_DEFINE(name, ctx) \
-    static void akl_spec_##name(struct akl_context * ctx)
-
 void akl_build_label(struct akl_context *ctx, struct akl_label *l)
 {
     l->la_ir = ctx->cx_ir;
     l->la_branch = AKL_LIST_LAST(ctx->cx_ir);
 }
 
-struct akl_label *akl_new_labels(struct akl_context *ctx, int n)
+AKL_DEFINE_SFUN(when, ctx)
 {
-    struct akl_ufun *fn = &ctx->cx_func->fn_body.ufun;
-    struct akl_label *labels = (struct akl_label *)
-        akl_vector_reserve_more(fn->uf_labels, n);
-            
-    return labels;
+    struct akl_label *label = akl_new_labels(ctx, 2);
+    akl_compile_next(ctx);
+    akl_build_jump(ctx, AKL_JMP_FALSE, label+0);
+    akl_build_label(ctx, label+0);
+    akl_compile_next(ctx);
 }
 
-AKL_SPEC_DEFINE(if, ctx)
+AKL_DEFINE_SFUN(set, ctx)
+{
+    assert(ctx && ctx->cx_state && ctx->cx_dev);
+    struct akl_state *s       = ctx->cx_state;
+    struct akl_io_device *dev = ctx->cx_dev;
+    char *vname;
+    struct akl_value *value;
+    akl_token_t tok = akl_lex(dev);
+    if (tok != tATOM) {
+        akl_raise_error(ctx, AKL_ERROR, "Unexpected token, (need a valid atom for set!)");
+        return;
+    }
+    vname = akl_lex_get_atom(dev);
+}
+
+AKL_DEFINE_SFUN(sif, ctx)
 {
     /* Allocate the branch */
     struct akl_label *label = akl_new_labels(ctx, 3);
 
     /* Condition:*/
-    akl_compile_list(ctx);
-    akl_build_jump(ctx, AKL_JMP_TRUE, label+0);
-    akl_build_jump(ctx, AKL_JMP_FALSE, label+1);
+    akl_compile_next(ctx);
+    akl_build_branch(ctx, label+0, label+1);
 
     /* .L0: True branch: */
     akl_build_label(ctx, label+0);
-    akl_compile_list(ctx);
+    akl_compile_next(ctx);
     akl_build_jump(ctx, AKL_JMP, label+2);
 
     /* .L1: False branch: */
     akl_build_label(ctx, label+1);
-    akl_compile_list(ctx);
+    akl_compile_next(ctx);
     akl_build_jump(ctx, AKL_JMP, label+2);
 
     /* .L2: Continue... */
     akl_build_label(ctx, label+2);
 }
 
-AKL_SPEC_DEFINE(while, ctx)
+AKL_DEFINE_SFUN(swhile, ctx)
 {
     akl_token_t tok;
     struct akl_label *label = akl_new_labels(ctx, 3);
@@ -77,11 +88,8 @@ AKL_SPEC_DEFINE(while, ctx)
     }
     /* .L0: Condition: */
     akl_build_label(ctx, label+0);
-    akl_compile_list(ctx);
-    /* False condition, do not loop */
-    akl_build_jump(ctx, AKL_JMP_FALSE, label+1);
-    /* Exit from to loop */
-    akl_build_jump(ctx, AKL_JMP_TRUE, label+2);
+    akl_compile_next(ctx);
+    akl_build_branch(ctx, label+2, label+1);
 
     while ((tok = akl_lex(ctx->cx_dev)) != tRBRACE) {
         akl_compile_list(ctx);
@@ -93,18 +101,37 @@ AKL_SPEC_DEFINE(while, ctx)
     akl_build_label(ctx, label+2);
 }
 
-char **akl_parse_params(struct akl_state *s, struct akl_io_device *dev)
+char **akl_parse_params(struct akl_context *ctx, const char *fname)
 {
+    assert(ctx && ctx->cx_state && ctx->cx_dev);
     akl_token_t tok;
     int i = 0;
     const int DEF_ARGC = 3;
-    char **args = (char **)akl_calloc(s, DEF_ARGC, sizeof(char *));
+    char **args = NULL;
+    tok = akl_lex(ctx->cx_dev);
 
-    while ((tok = akl_lex(dev)) != tRBRACE) {
+    /* Empty argument list (0 args) */
+    if (tok == tNIL) {
+        return NULL;
+    }
+
+    if (fname == NULL) {
+        fname = "lambda";
+    }
+
+    /* No argument list at all */
+    if (tok != tLBRACE) {
+        akl_raise_error(ctx, AKL_ERROR, "Expected an argument list for function definition \'%s\'"
+                        , fname);
+        return NULL;
+    }
+    args = (char **)akl_calloc(ctx->cx_state, DEF_ARGC, sizeof(char *));
+
+    while ((tok = akl_lex(ctx->cx_dev)) != tRBRACE) {
         if (tok == tATOM) {
-           args[i] = akl_lex_get_atom(dev);
+           args[i] = akl_lex_get_atom(ctx->cx_dev);
            if (++i >= DEF_ARGC) {
-               args = akl_realloc(s, args, i+DEF_ARGC);
+               args = akl_realloc(ctx->cx_state, args, i+DEF_ARGC);
            }
         } else {
             /* TODO: hoho, pattern matching... */
@@ -114,7 +141,7 @@ char **akl_parse_params(struct akl_state *s, struct akl_io_device *dev)
     return args;
 }
 
-AKL_SPEC_DEFINE(defun, ctx)
+AKL_DEFINE_SFUN(defun, ctx)
 {
     struct akl_ufun *ufun;
     akl_token_t tok;
@@ -131,9 +158,14 @@ AKL_SPEC_DEFINE(defun, ctx)
         fatm->at_value = fval;
     } else {
         /* TODO: Error! */
+        akl_raise_error(ctx, AKL_ERROR, "Unexpected token, "
+                        "defun! needs a parameter list and a function body");
+        return;
     }
 
-    ufun->uf_args = akl_parse_params(ctx->cx_state, ctx->cx_dev);
+    ctx->cx_comp_func = func;
+    ufun->uf_args = akl_parse_params(ctx, fatm->at_name);
+    ctx->cx_ir = &ufun->uf_body;
     /* Eat the next left brace and interpret the body... */
     tok = akl_lex(ctx->cx_dev);
     if (tok == tSTRING) {
@@ -142,13 +174,27 @@ AKL_SPEC_DEFINE(defun, ctx)
         tok = akl_lex(ctx->cx_dev);
     }
 
+    akl_add_global_atom(ctx->cx_state, fatm);
     if (tok == tLBRACE) {
         akl_compile_list(ctx);
     } else {
         ; /* Todo: Error: no body */
+        akl_remove_global_atom(ctx->cx_state, fatm);
     }
+    akl_build_store(ctx, fval);
+}
 
-    akl_add_global_atom(ctx->cx_state, fatm);
+AKL_DECLARE_FUNS(akl_spec_forms) {
+    AKL_SFUN(sif, "if", "Conditional expression"),
+    AKL_SFUN(when, "when", "Conditionally evaulate an expression"),
+    AKL_SFUN(swhile, "while", "Conditional loop expression"),
+    AKL_SFUN(defun, "defun!", "Define a new function"),
+    AKL_END_FUNS()
+};
+
+void akl_spec_library_init(struct akl_state *s, enum AKL_INIT_FLAGS flags)
+{
+    akl_declare_functions(s, akl_spec_forms);
 }
 
 #if 0

@@ -22,6 +22,7 @@
  ************************************************************************/
 #include "aklisp.h"
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <dlfcn.h>
 #if HAVE_EXECINFO_H && HAVE_UCONTEXT_H
@@ -134,12 +135,10 @@ AKL_CFUN_DEFINE(env, ctx, argc)
 struct akl_module *akl_load_module_desc(struct akl_state *s, char *modpath)
 {
    /* We are on our way, lazy load */
+   struct buf stat;
    void *handle = dlopen(modname, RTLD_LAZY);
    struct akl_module *mod_desc;
    if (!handle) {
-       akl_add_error(s, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: Cannot load '%s': %s\n", modname, dlerror());
-       AKL_FREE(s, mod_path);
        return NULL;
    }
 
@@ -147,13 +146,13 @@ struct akl_module *akl_load_module_desc(struct akl_state *s, char *modpath)
    /* Get back the module descripor, called '__module_desc' */
    mod_desc = (struct akl_module *)dlsym(handle, "__module_desc");
    if (mod_desc == NULL || ((error = dlerror()) != NULL)) {
-       akl_add_error(in, AKL_ERROR, a1->va_lex_info
-           , "ERROR: load: No way to get back the module descriptor: %d.\n", error);
        AKL_FREE(s, mod_path);
        return NULL;
    }
+   fstat(modpath, &stat);
    mod_desc->am_handle = handle;
    mod_desc->am_path = modname;
+   mod_desc->am_size = stat.st_size;
    return mod_desc;
 }
 

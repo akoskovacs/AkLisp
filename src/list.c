@@ -37,7 +37,7 @@ struct akl_list_entry
     }
 
     list->li_last = ent;
-    list->li_elem_count++;
+    list->li_count++;
     list->is_nil = FALSE;
     return ent; 
 }
@@ -63,9 +63,17 @@ akl_list_insert_head(struct akl_state *s, struct akl_list *list, void *data)
         ent->le_next = list->li_head; 
     }
     list->li_head = ent;
-    list->li_elem_count++;
+    list->li_count++;
     list->is_nil = FALSE;
     return ent;
+}
+
+void *akl_list_head(struct akl_list *list)
+{
+    if (list != NULL) {
+        return (list->li_head == NULL) ? NULL : list->li_head->le_data;
+    }
+    return NULL;
 }
 
 struct akl_list_entry *
@@ -83,12 +91,14 @@ akl_list_shift(struct akl_list *list)
     struct akl_list_entry *ohead = list->li_head;
     struct akl_list_entry *nhead = (ohead) ? ohead->le_next : NULL;
     list->li_head = nhead;
-    nhead->le_prev = NULL;
+    if (nhead)
+        nhead->le_prev = NULL;
+
     if (ohead == list->li_last)
         list->li_last = nhead;
 
     /* TODO: Can explicitly free() the ohead */
-    return ohead->le_data;
+    return (ohead) ? ohead->le_data : NULL;
 }
 
 struct akl_value *akl_duplicate_value(struct akl_state *in, struct akl_value *oval)
@@ -202,8 +212,22 @@ struct akl_value *akl_list_index_value(struct akl_list *list, int index)
     return ent ? (struct akl_value *)ent->le_data : NULL;
 }
 
+void *akl_list_last(struct akl_list *list)
+{
+    if (list != NULL) {
+        return list->li_last->le_data;
+    }
+    return NULL;
+}
+
+bool_t akl_list_is_empty(struct akl_list *list)
+{
+    return akl_list_count(list) == 0;
+}
+
 /* NOTICE: Will not free the data */
-void akl_list_remove_entry(struct akl_list *list, struct akl_list_entry *ent)
+struct akl_list_entry *
+akl_list_remove_entry(struct akl_list *list, struct akl_list_entry *ent)
 {
     struct akl_list_entry *prev, *next;
     if (ent) {
@@ -223,8 +247,9 @@ void akl_list_remove_entry(struct akl_list *list, struct akl_list_entry *ent)
         if (list->li_last == ent) {
             list->li_last = prev;
         }
-        list->li_elem_count--;
+        list->li_count--;
     }
+    return ent;
 }
 
 /**
@@ -254,16 +279,30 @@ struct akl_value *akl_car(struct akl_list *l)
     return AKL_FIRST_VALUE(l);
 }
 
+void *akl_list_pop(struct akl_list *list)
+{
+    if (list == NULL || list->li_last == NULL)
+        return NULL;
+
+    return akl_list_remove_entry(list, list->li_last)->le_data;
+}
+
+unsigned int
+akl_list_count(struct akl_list *l)
+{
+    return (l != NULL) ? l->li_count : 0;
+}
+
 struct akl_list *akl_cdr(struct akl_state *s, struct akl_list *l)
 {
     struct akl_list *nhead;
     assert(l);
-    if (AKL_IS_NIL(l) || l->li_elem_count == 0)
+    if (AKL_IS_NIL(l) || l->li_count == 0)
         return NULL;
 
     nhead = akl_new_list(s);
-    nhead->li_elem_count = l->li_elem_count - 1;
-    if (nhead->li_elem_count <= 0) {
+    nhead->li_count = l->li_count - 1;
+    if (nhead->li_count <= 0) {
         nhead->is_nil = TRUE;
     } else {
         nhead->li_head = l->li_head->le_next;
@@ -286,59 +325,59 @@ bool_t akl_is_equal_with(struct akl_atom *atom, const char **strs)
    return FALSE;
 }
 
-void akl_print_value(struct akl_state *in, struct akl_value *val)
+void akl_print_value(struct akl_state *s, struct akl_value *val)
 {
     if (val == NULL || AKL_IS_NIL(val)) {
-        START_COLOR(GRAY);
+        AKL_START_COLOR(s, AKL_GRAY);
         printf("NIL");
-        END_COLOR;
+        AKL_END_COLOR(s);
         return;
     }
 
     switch (val->va_type) {
         case TYPE_NUMBER:
-        START_COLOR(YELLOW);
+        AKL_START_COLOR(s, AKL_YELLOW);
         printf("%g", AKL_GET_NUMBER_VALUE(val));
-        END_COLOR;
+        AKL_END_COLOR(s);
         break;
 
         case TYPE_STRING:
-        START_COLOR(GREEN);
+        AKL_START_COLOR(s, AKL_GREEN);
         printf("\"%s\"", AKL_GET_STRING_VALUE(val));
-        END_COLOR;
+        AKL_END_COLOR(s);
         break;
 
         case TYPE_LIST:
-        akl_print_list(in, AKL_GET_LIST_VALUE(val));
+        akl_print_list(s, AKL_GET_LIST_VALUE(val));
         break;
 
         case TYPE_ATOM:
         if (AKL_IS_QUOTED(val)) {
-            START_COLOR(YELLOW);
+            AKL_START_COLOR(s, AKL_YELLOW);
             printf(":%s", akl_get_atom_name_value(val));
         } else {
-            START_COLOR(PURPLE);
+            AKL_START_COLOR(s, AKL_PURPLE);
             printf("%s", akl_get_atom_name_value(val));
         }
-        END_COLOR;
+        AKL_END_COLOR(s);
         break;
 
         case TYPE_TRUE:
-        START_COLOR(BRIGHT_GREEN);
+        AKL_START_COLOR(s, AKL_BRIGHT_GREEN);
         printf("T");
-        END_COLOR;
+        AKL_END_COLOR(s);
         break;
 
         case TYPE_USERDATA:
-        START_COLOR(YELLOW);
+        AKL_START_COLOR(s, AKL_YELLOW);
         struct akl_utype *type = NULL;
         akl_utype_t tid = akl_get_utype_value(val);
-        type = akl_vector_at(&in->ai_utypes, tid);
+        type = akl_vector_at(&s->ai_utypes, tid);
         if (type)
             printf("<USERDATA: %s>", type->ut_name);
         else
             printf("<USERDATA>");
-        END_COLOR;
+        AKL_END_COLOR(s);
         break;
 
         case TYPE_NIL: case TYPE_FUNCTION:
@@ -348,16 +387,16 @@ void akl_print_value(struct akl_state *in, struct akl_value *val)
     }
 }
 
-void akl_print_list(struct akl_state *in, struct akl_list *list)
+void akl_print_list(struct akl_state *s, struct akl_list *list)
 {
     struct akl_list_entry *ent;
     
     assert(list);
     if (list == NULL || AKL_IS_NIL(list)
-        || list->li_elem_count == 0) {
-        START_COLOR(GRAY);
+        || list->li_count == 0) {
+        AKL_START_COLOR(s, AKL_GRAY);
         printf("NIL");
-        END_COLOR;
+        AKL_END_COLOR(s);
         return;
     }
 
@@ -365,9 +404,65 @@ void akl_print_list(struct akl_state *in, struct akl_list *list)
         printf("\'");
     printf("(");
     AKL_LIST_FOREACH(ent, list) {
-        akl_print_value(in, AKL_ENTRY_VALUE(ent));
+        akl_print_value(s, AKL_ENTRY_VALUE(ent));
         if (ent->le_next != NULL)
             printf(" ");
     }
     printf(")");
+}
+
+struct akl_list_iterator *akl_list_begin(struct akl_state *s, struct akl_list *l)
+{
+    struct akl_list_iterator *it = NULL;
+    if (l && s) {
+        it = AKL_MALLOC(s, struct akl_list_iterator);
+        it->current = l->li_head;
+    }
+    return it;
+}
+
+struct akl_list_iterator *akl_list_end(struct akl_state *s, struct akl_list *l)
+{
+    struct akl_list_iterator *it = NULL;
+    if (l && s) {
+        it = AKL_MALLOC(s, struct akl_list_iterator);
+        it->current = l->li_last;
+    }
+    return it;
+}
+
+bool_t akl_list_has_next(struct akl_list_iterator *it)
+{
+   return (it && it->current);
+}
+
+bool_t akl_list_has_prev(struct akl_list_iterator *it)
+{
+   return (it && it->current);
+}
+
+void  *akl_list_next(struct akl_list_iterator *it)
+{
+    void *p;
+    if (it && it->current) {
+        p = it->current->le_data;
+        it->current = it->current->le_next;
+        return p;
+    }
+}
+
+void  *akl_list_prev(struct akl_list_iterator *it)
+{
+    void *p;
+    if (it && it->current) {
+        p = it->current->le_data;
+        it->current = it->current->le_prev;
+        return p;
+    }
+}
+
+void
+akl_list_free_iterator(struct akl_state *s, struct akl_list_iterator *it)
+{
+    akl_free(s, it, sizeof(struct akl_list_iterator));
 }

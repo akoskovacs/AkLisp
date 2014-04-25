@@ -1,1 +1,1 @@
-AltMakefile
+Makefile.alt

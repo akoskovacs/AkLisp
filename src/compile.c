@@ -38,6 +38,9 @@ void akl_build_store(struct akl_context *ctx, struct akl_value *arg)
 int argument_finder(char **args, const char *arg)
 {
     int i = 0;
+    if (!args || !arg)
+        return -1;
+
     for (i = 0; args[i]; i++) {
         if (strcmp(args[i], arg) == 0)
             return i;
@@ -46,23 +49,42 @@ int argument_finder(char **args, const char *arg)
     return -1;
 }
 
+void akl_build_set(struct akl_context *ctx, char *name, struct akl_value *v)
+{
+    DEFINE_IR_INSTRUCTION(set, ctx);
+    set->in_op = AKL_IR_SET;
+    set->in_str = name;
+    set->in_arg[0].value = v;
+}
+
+void akl_build_get(struct akl_context *ctx, char *name)
+{
+    DEFINE_IR_INSTRUCTION(get, ctx);
+    get->in_op = AKL_IR_GET;
+    get->in_str = name;
+}
+
 void akl_build_load(struct akl_context *ctx, char *name)
 {
-    struct akl_function *fn = ctx->cx_func;
+    struct akl_function *fn = ctx->cx_comp_func;
     struct akl_ufun *ufun = NULL;
     unsigned int ind;
-    DEFINE_IR_INSTRUCTION(load, ctx);
+    struct akl_ir_instruction *load =
+            AKL_MALLOC(ctx->cx_state, struct akl_ir_instruction);
 
     load->in_op = AKL_IR_LOAD;
 
     if (fn->fn_type == AKL_FUNC_USER) {
         ufun = &fn->fn_body.ufun;
         /* The 'name' must be an argument or a local variable */
-        if ((ind = argument_finder(ufun->uf_args, name)) != -1)
+        if ((ind = argument_finder(ufun->uf_args, name)) != -1) {
             load->in_arg[0].ui_num = ind; // The found stack pointer
-        else
-            akl_add_error(ctx->cx_state, AKL_ERROR, ctx->cx_lex_info
-                , "'%s' parameter variable cannot found!", name);
+            akl_list_append(ctx->cx_state, ctx->cx_ir, load);
+        } else {
+            /* Not found as a local variable, must be a global one. */
+            akl_free(ctx->cx_state, load, sizeof(*load));
+            akl_build_get(ctx, name);
+        }
     }
 }
 
@@ -86,9 +108,24 @@ void akl_build_jump(struct akl_context *ctx, akl_jump_t jt, struct akl_label *l)
     branch->in_arg[0].label = l;
 }
 
-struct akl_value *akl_build_value(struct akl_context *ctx, akl_token_t tok)
+void akl_build_branch(struct akl_context *ctx, struct akl_label *lt, struct akl_label *lf)
 {
-    return akl_parse_token(ctx->cx_state, ctx->cx_dev, tok, TRUE);
+    DEFINE_IR_INSTRUCTION(branch, ctx);
+    branch->in_op = AKL_IR_BRANCH;
+    branch->in_arg[0].label = lt;
+    branch->in_arg[1].label = lf;
+}
+
+void akl_build_ret(struct akl_context *ctx)
+{
+    DEFINE_IR_INSTRUCTION(ret, ctx);
+    ret->in_op = AKL_IR_RET;
+}
+
+void akl_build_nop(struct akl_context *ctx)
+{
+    DEFINE_IR_INSTRUCTION(nop, ctx);
+    nop->in_op = AKL_IR_NOP;
 }
 
 /* Build the intermediate representation for an unquoted list */
@@ -112,7 +149,7 @@ void akl_compile_list(struct akl_context *cx)
             case tATOM:
             if (is_quoted) {
                 /* It just used as a symbol, nothing special... */
-                akl_build_store(cx, akl_build_value(cx, tok));
+                akl_build_store(cx, akl_parse_token(cx, tok, TRUE));
                 argc++;
                 break;
             } else {
@@ -134,6 +171,8 @@ void akl_compile_list(struct akl_context *cx)
                     if (AKL_CHECK_TYPE(v, TYPE_FUNCTION) && v->va_value.func != NULL) {
                         fun = v->va_value.func;
                         if (fun->fn_type == AKL_FUNC_SPECIAL) {
+                            cx->cx_func_name = name;
+                            cx->cx_func = fun;
                             fun->fn_body.scfun(cx);
                             return;
                         }
@@ -151,7 +190,7 @@ void akl_compile_list(struct akl_context *cx)
             /* The following list can be quoted, then it will be handled
               as an ordinary value */
             if (is_quoted) {
-                akl_build_store(cx, akl_build_value(cx, tok));
+                akl_build_store(cx, akl_parse_token(cx, tok, TRUE));
             } else {
                 /* Not quoted, compile it recursively. */
                 akl_compile_list(cx);
@@ -166,7 +205,7 @@ void akl_compile_list(struct akl_context *cx)
 
             /* tNUMBER, tSTRING, tETC... */
             default:
-            akl_build_store(cx, akl_build_value(cx, tok));
+            akl_build_store(cx, akl_parse_token(cx, tok, TRUE));
             argc++;
             break;
         }
@@ -174,22 +213,60 @@ void akl_compile_list(struct akl_context *cx)
     }
 }
 
+akl_token_t akl_compile_next(struct akl_context *ctx)
+{
+    assert(ctx && ctx->cx_dev);
+    akl_token_t tok = akl_lex(ctx->cx_dev);
+
+    if (tok == tLBRACE) {
+        akl_compile_list(ctx);
+    } else if (tok == tQUOTE) {
+        tok = akl_lex(ctx->cx_dev);
+        akl_build_store(ctx, akl_parse_token(ctx, tok, TRUE));
+    } else if (tok == tEOF) {
+        return tok;
+    } else {
+        akl_build_store(ctx, akl_parse_token(ctx, tok, FALSE));
+    }
+    return tok;
+}
+
 struct akl_context *akl_compile(struct akl_state *s, struct akl_io_device *dev)
 {
+    AKL_ASSERT(s && dev, NULL);
     struct akl_context *cx = akl_new_context(s);
+    struct akl_function *f = akl_new_function(s);
     akl_token_t tok;
-    cx->cx_ir = akl_new_list(s);
+
+    akl_init_list(&f->fn_body.ufun.uf_body);
+    f->fn_type = AKL_FUNC_USER;
+    s->ai_fn_main = f;
 
     cx->cx_dev = dev;
-    cx->cx_frame = akl_new_list(s);
-    while ((tok = akl_lex(dev)) != tEOF) {
-        if (tok == tLBRACE) {
-            akl_compile_list(cx);
-        } else if (tok == tQUOTE) {
-            akl_parse_list(s, dev);
-        } else {
-            akl_build_store(cx, akl_build_value(cx, tok));
-        }
+    cx->cx_comp_func = f;
+    cx->cx_ir = &f->fn_body.ufun.uf_body;
+
+    do {
+        tok = akl_compile_next(cx);
+    } while (tok != tEOF);
+
+    return cx;
+}
+
+void akl_asm_parse_func(struct akl_context *);
+
+struct akl_context *
+akl_asm_compile(struct akl_state *s, struct akl_io_device *dev)
+{
+    akl_asm_token_t tok;
+    struct akl_context *cx = akl_new_context(s);
+    cx->cx_ir = akl_new_list(s);
+    cx->cx_dev = dev;
+
+    while ((tok = akl_asm_lex(dev)) != tEOF) {
+            if (tok == tASM_WORD)
+                akl_asm_parse_func(cx);
+            /* else error */
     }
     return cx;
 }

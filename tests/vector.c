@@ -8,7 +8,7 @@ int ind42 = 6;
 test_res_t vector_create(void)
 {
     /* The vector must grow */
-    vec = akl_vector_new(&state, 8, sizeof(int));
+    vec = akl_new_vector(&state, 8, sizeof(int));
     return vec ? TEST_OK : TEST_FAIL;
 }
 
@@ -88,15 +88,28 @@ test_res_t vector_pop(void)
     akl_vector_pop(vec);
     for (i = akl_vector_count(vec)-1; i >= 0; i--) {
         n = (int *)akl_vector_pop(vec);        
-        if (*n != nums[i])
+        if (n == NULL || *n != nums[i])
             return TEST_FAIL;
     }
     return TEST_OK;
 }
 
+test_res_t vector_is_empty(void)
+{
+    struct akl_vector ovec;
+    int *n;
+    akl_init_vector(&state, &ovec, sizeof(int), 3);
+    bool_t t = akl_vector_is_empty(&ovec);
+    n = (int *)akl_vector_reserve(&ovec);
+    *n = 42;
+    t = t && !akl_vector_is_empty(&ovec);
+    akl_vector_destroy(&state, &ovec);
+    return t;
+}
+
 int main()
 {
-    akl_init_state(&state);
+    akl_init_state(&state, NULL);
     struct test vtests[] = {
         { vector_create, "Can create vector with akl_vector_new()" },
         { vector_push, "Can add elements to a vector with akl_vector_push()" },
@@ -106,6 +119,7 @@ int main()
         { vector_size, "akl_vector_count() knows the vector size" },
         { vector_reserve, "akl_vector_reserve() can reserve room for the next element" },
         { vector_pop, "akl_vector_pop() can pop back the elements" },
+        { vector_is_empty, "akl_vector_is_empty() knows emptiness" },
         { NULL, NULL }
     };
     return run_tests("Vector test", vtests);
