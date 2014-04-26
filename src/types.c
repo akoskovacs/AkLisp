@@ -104,12 +104,6 @@ struct akl_list *akl_new_list(struct akl_state *s)
     return list;
 }
 
-void akl_init_frame(struct akl_frame *f)
-{
-    AKL_ASSERT(f, AKL_NOTHING);
-    f->af_begin = f->af_end = 0;
-}
-
 void akl_init_context(struct akl_context *ctx)
 {
     ctx->cx_state     = NULL;
@@ -120,19 +114,31 @@ void akl_init_context(struct akl_context *ctx)
     ctx->cx_lex_info  = NULL;
     ctx->cx_parent    = NULL;
     ctx->cx_frame     = NULL;
+    ctx->cx_uframe    = NULL;
 }
 
-struct akl_context *akl_new_context(struct akl_state *s)
+void
+akl_frame_init(struct akl_context *ctx, struct akl_frame **f, unsigned int argc)
+{
+    if (*f == NULL) {
+        *f =  AKL_MALLOC(ctx->cx_state, struct akl_frame);
+    }
+    (*f)->af_begin = akl_vector_count(ctx->cx_stack);
+    (*f)->af_end = (*f)->af_begin + argc;
+}
+
+struct akl_context *
+akl_new_context(struct akl_state *s)
 {
     struct akl_context *ctx = AKL_MALLOC(s, struct akl_context);
     akl_init_context(ctx);
     ctx->cx_state = s;
-    ctx->cx_frame = AKL_MALLOC(ctx->cx_state, struct akl_frame);
-    akl_init_frame(ctx->cx_frame);
+    ctx->cx_stack = &s->ai_stack;
     return ctx;
 }
 
-struct akl_atom *akl_new_atom(struct akl_state *s, char *name)
+struct akl_atom *
+akl_new_atom(struct akl_state *s, char *name)
 {
     struct akl_atom *atom = (struct akl_atom *)akl_gc_malloc(s, AKL_GC_ATOM);
     AKL_GC_INIT_OBJ(atom, AKL_GC_ATOM);
@@ -143,7 +149,8 @@ struct akl_atom *akl_new_atom(struct akl_state *s, char *name)
     return atom;
 }
 
-struct akl_list_entry *akl_new_list_entry(struct akl_state *s)
+struct akl_list_entry *
+akl_new_list_entry(struct akl_state *s)
 {
     struct akl_list_entry *ent =
             (struct akl_list_entry *)akl_gc_malloc(s, AKL_GC_LIST_ENTRY);

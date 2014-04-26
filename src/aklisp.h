@@ -228,6 +228,8 @@ struct akl_frame {
     unsigned int af_end;
 };
 
+void akl_frame_init(struct akl_context *, struct akl_frame **, unsigned int);
+
 /* Contextual environment */
 struct akl_context {
     /* Current context for different entities */
