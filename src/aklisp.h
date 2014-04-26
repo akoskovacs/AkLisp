@@ -357,6 +357,7 @@ bool_t       akl_vector_is_empty_at(struct akl_vector *, unsigned int);
 void         akl_vector_destroy(struct akl_state *, struct akl_vector *);
 void         akl_vector_free(struct akl_state *, struct akl_vector *);
 void         akl_vector_grow(struct akl_vector *, unsigned int);
+void         akl_vector_truncate_by(struct akl_vector *, unsigned int);
 
 struct akl_ufun {
     /* Name of the arguments */

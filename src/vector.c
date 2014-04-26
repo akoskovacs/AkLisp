@@ -165,6 +165,16 @@ void akl_vector_grow(struct akl_vector *vec, unsigned int to)
                                     , vec->av_size*vec->av_msize);
 }
 
+void akl_vector_truncate_by(struct akl_vector *vec, unsigned int with)
+{
+    AKL_ASSERT(vec, AKL_NOTHING);
+    if (vec->av_count-with > 0) {
+        vec->av_count -= with;
+    } else {
+        vec->av_count = 0;
+    }
+}
+
 /* The user should zero out the removed memory */
 void *akl_vector_remove(struct akl_vector *vec, unsigned int ind)
 {
