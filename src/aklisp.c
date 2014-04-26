@@ -69,9 +69,10 @@ unsigned int akl_frame_get_pointer(struct akl_context *ctx)
 
 void akl_stack_clear(struct akl_context *ctx, size_t c)
 {
-    while (c--) {
-        akl_vector_pop(ctx->cx_stack);
-    }
+    void *ptr;
+    do {
+        ptr = akl_frame_pop(ctx);
+    } while (c-- || ptr != NULL);
 }
 
 void akl_frame_destroy(struct akl_context *ctx)
@@ -101,21 +102,31 @@ void akl_frame_push(struct akl_context *ctx, struct akl_value *value)
 
 struct akl_value *akl_frame_shift(struct akl_context *ctx)
 {
-    AKL_ASSERT(ctx, NULL);
-    return AKL_NIL;
+    AKL_ASSERT(ctx && ctx->cx_state && ctx->cx_uframe, NULL);
+    struct akl_frame *frame = ctx->cx_uframe;
+    if (frame->af_begin >= frame->af_end) {
+        return NULL;
+    }
+    return akl_vector_at(&ctx->cx_state->ai_stack, frame->af_begin++);
+}
+
+void akl_frame_restore(struct akl_context *ctx)
+{
+    AKL_ASSERT(ctx && ctx->cx_frame && ctx->cx_uframe, AKL_NOTHING);
+    *(ctx->cx_uframe) = *(ctx->cx_frame);
 }
 
 struct akl_value *akl_frame_head(struct akl_context *ctx)
 {
-    AKL_ASSERT(ctx && ctx->cx_state && ctx->cx_frame, NULL);
-    return akl_vector_at(ctx->cx_stack, ctx->cx_frame->af_begin);
+    AKL_ASSERT(ctx && ctx->cx_state && ctx->cx_uframe, NULL);
+    return akl_vector_at(ctx->cx_stack, ctx->cx_uframe->af_begin);
 }
 
 struct akl_value *akl_frame_pop(struct akl_context *ctx)
 {
     AKL_ASSERT(ctx, NULL);
     struct akl_value **vp = NULL;
-    struct akl_frame *st = ctx->cx_frame;
+    struct akl_frame *st = ctx->cx_uframe;
     if (st->af_begin != st->af_end) {
         st->af_end--;
         vp = (struct akl_value **)akl_vector_at(ctx->cx_stack, st->af_begin);
@@ -127,8 +138,8 @@ struct akl_value *akl_frame_pop(struct akl_context *ctx)
 
 struct akl_value *akl_stack_head(struct akl_state *s)
 {
-    assert(s);
-    return NULL;
+    AKL_ASSERT(s, NULL);
+    return akl_vector_first(&s->ai_stack);
 }
 
 struct akl_value *akl_stack_pop(struct akl_state *s)
@@ -147,10 +158,10 @@ akl_frame_top(struct akl_context *ctx)
 {
     AKL_ASSERT(ctx, NULL);
     struct akl_frame *st = ctx->cx_frame;
-    if (st->af_begin != st->af_end)
-        return akl_vector_at(ctx->cx_stack, st->af_end);
-    else
+    if (st->af_begin != st->af_end) {
         return NULL;
+    }
+    return akl_vector_at(ctx->cx_stack, st->af_end);
 }
 
 /* These functions do not check the type of the stack top */
@@ -160,6 +171,7 @@ double *akl_frame_pop_number(struct akl_context *ctx)
     if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
         return &v->va_value.number;
     }
+//    akl_frame_push(ctx, v);
     return NULL;
 }
 
@@ -306,7 +318,8 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
         cx = &lc;                             \
         akl_init_context(cx);                  \
         lc = *ctx;                              \
-        akl_init_frame(ctx, &cx->cx_frame, argc);\
+        akl_frame_init(ctx, &cx->cx_frame, argc);\
+        akl_frame_init(ctx, &cx->cx_uframe, argc);\
     }
 
 struct akl_value *akl_call_function_bound(struct akl_context *cx)
@@ -321,7 +334,12 @@ struct akl_value *akl_call_function_bound(struct akl_context *cx)
     switch (fn->fn_type) {
         case AKL_FUNC_CFUN:
         value = fn->fn_body.cfun(cx, akl_frame_get_count(cx));
-        value = value ? value : AKL_NIL;
+        if (value == NULL) {
+            akl_raise_error(cx, AKL_ERROR
+                , "Function '%s' gave back NULL", cx->cx_func_name);
+            akl_frame_destroy(cx);
+            return NULL;
+        }
         akl_frame_destroy(cx);
         akl_stack_push(s, value);
         break;
