@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
     if (argc > 1)
         line = argv[1];
 
-    akl_init_state(&s);
+    akl_init_state(&s, NULL);
     l = akl_str_to_list(&s, line);
     list_eval(0, l);
     return 0;
