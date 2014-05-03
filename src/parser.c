@@ -191,22 +191,24 @@ label_finder(void *f, void *s)
 struct akl_label *
 akl_get_or_create_label(struct akl_context *ctx, char *lname)
 {
-    int ind;
+    unsigned int ind;
     struct akl_function *fn = ctx->cx_comp_func;
     struct akl_label fl, *label;
     struct akl_ufun *ufun;
+    void *ptr;
     if (fn == NULL)
         return NULL;
 
     fl.la_name = lname;
 
     ufun = &fn->fn_body.ufun;
-    akl_vector_find(ufun->uf_labels, label_finder, (void *)&fl, &ind);
-    if (ind == -1) {
+    ptr = akl_vector_find(ufun->uf_labels, label_finder, (void *)&fl, &ind);
+    if (ptr == NULL) {
         label = akl_new_label(ctx);
         label->la_name = lname;
     }
     label = akl_vector_at(ufun->uf_labels, ind);
+    return label;
 
 }
 
@@ -320,6 +322,10 @@ void akl_asm_parse_func(struct akl_context *ctx)
             if (tok == tASM_WORD) {
                 akl_asm_parse_label(ctx);
             }
+            break;
+
+            default:
+            /* TODO */
             break;
         }
     } while (tok != tASM_FDECL && tok != tASM_EOF);
