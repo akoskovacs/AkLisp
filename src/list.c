@@ -441,7 +441,7 @@ bool_t akl_list_has_prev(struct akl_list_iterator *it)
    return (it && it->current);
 }
 
-void  *akl_list_next(struct akl_list_iterator *it)
+void *akl_list_next(struct akl_list_iterator *it)
 {
     void *p;
     if (it && it->current) {
@@ -449,9 +449,10 @@ void  *akl_list_next(struct akl_list_iterator *it)
         it->current = it->current->le_next;
         return p;
     }
+    return NULL;
 }
 
-void  *akl_list_prev(struct akl_list_iterator *it)
+void *akl_list_prev(struct akl_list_iterator *it)
 {
     void *p;
     if (it && it->current) {
@@ -459,6 +460,7 @@ void  *akl_list_prev(struct akl_list_iterator *it)
         it->current = it->current->le_prev;
         return p;
     }
+    return NULL;
 }
 
 void
