@@ -69,15 +69,19 @@ unsigned int akl_frame_get_pointer(struct akl_context *ctx)
 
 void akl_stack_clear(struct akl_context *ctx, size_t c)
 {
+#if 0
     void *ptr;
     do {
         ptr = akl_frame_pop(ctx);
     } while (c-- || ptr != NULL);
+#endif 
+    akl_vector_truncate_by(ctx->cx_stack, c);
 }
 
 void akl_frame_destroy(struct akl_context *ctx)
 {
     assert(ctx);
+    akl_vector_truncate_by(ctx->cx_stack, akl_vector_count(ctx->cx_stack));
 }
 
 unsigned int akl_stack_get_pointer(struct akl_context *ctx)
@@ -104,10 +108,12 @@ struct akl_value *akl_frame_shift(struct akl_context *ctx)
 {
     AKL_ASSERT(ctx && ctx->cx_state && ctx->cx_uframe, NULL);
     struct akl_frame *frame = ctx->cx_uframe;
+    struct akl_value **vp;
     if (frame->af_begin >= frame->af_end) {
         return NULL;
     }
-    return akl_vector_at(&ctx->cx_state->ai_stack, frame->af_begin++);
+    vp = (struct akl_value **)akl_vector_at(ctx->cx_stack, frame->af_begin++);
+    return (vp != NULL) ? *vp : NULL;
 }
 
 void akl_frame_restore(struct akl_context *ctx)
@@ -119,7 +125,10 @@ void akl_frame_restore(struct akl_context *ctx)
 struct akl_value *akl_frame_head(struct akl_context *ctx)
 {
     AKL_ASSERT(ctx && ctx->cx_state && ctx->cx_uframe, NULL);
-    return akl_vector_at(ctx->cx_stack, ctx->cx_uframe->af_begin);
+    struct akl_value **vp;
+    struct akl_frame *st = ctx->cx_uframe;
+    vp = (struct akl_value **)akl_vector_at(ctx->cx_stack, st->af_begin);
+    return (vp != NULL) ? *vp : NULL;
 }
 
 struct akl_value *akl_frame_pop(struct akl_context *ctx)
@@ -129,7 +138,7 @@ struct akl_value *akl_frame_pop(struct akl_context *ctx)
     struct akl_frame *st = ctx->cx_uframe;
     if (st->af_begin != st->af_end) {
         st->af_end--;
-        vp = (struct akl_value **)akl_vector_at(ctx->cx_stack, st->af_begin);
+        vp = (struct akl_value **)akl_vector_at(ctx->cx_stack, st->af_end);
         return vp ? *vp : NULL;
     } else {
         return NULL;
@@ -157,11 +166,13 @@ struct akl_value *
 akl_frame_top(struct akl_context *ctx)
 {
     AKL_ASSERT(ctx, NULL);
+    struct akl_value **vp;
     struct akl_frame *st = ctx->cx_frame;
     if (st->af_begin != st->af_end) {
         return NULL;
     }
-    return akl_vector_at(ctx->cx_stack, st->af_end);
+    vp = (struct akl_value **)akl_vector_at(ctx->cx_stack, st->af_end);
+    return (vp != NULL) ? *vp : NULL;
 }
 
 /* These functions do not check the type of the stack top */

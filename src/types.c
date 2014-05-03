@@ -120,11 +120,19 @@ void akl_init_context(struct akl_context *ctx)
 void
 akl_frame_init(struct akl_context *ctx, struct akl_frame **f, unsigned int argc)
 {
+    /* On first run, there is nothing in the stack */
+    /* TODO: Fix for argv */
     if (*f == NULL) {
         *f =  AKL_MALLOC(ctx->cx_state, struct akl_frame);
+        if (*f == NULL) {
+            return;
+        }
+        (*f)->af_begin = 0;
+        (*f)->af_end   = argc;
+        return;
     }
     (*f)->af_begin = akl_vector_count(ctx->cx_stack);
-    (*f)->af_end = (*f)->af_begin + argc;
+    (*f)->af_end   = (*f)->af_begin + argc;
 }
 
 struct akl_context *
