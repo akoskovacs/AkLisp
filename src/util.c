@@ -162,9 +162,11 @@ static const struct akl_feature {
 };
 
 #define FEATURE_COUNT sizeof(akl_features)/sizeof(akl_features[0])
-void show_features(struct akl_state *s, const char *fname) {
+void show_features(struct akl_state *s, const char *fname) 
+{
     int i;
-    if (!s) return;
+    if (!s)
+        return;
 
     printf("Available options:\n");
     for (i = 0; i < FEATURE_COUNT; i++) {
