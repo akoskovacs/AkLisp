@@ -81,7 +81,7 @@ AKL_DEFINE_FUN(print, cx, argc)
         akl_print_value(cx->cx_state, v);
 
     printf("\n");
-    return v;
+    return !v ? AKL_NIL : v;
 }
 
 AKL_DEFINE_FUN(plus, cx, argc)
@@ -137,7 +137,7 @@ AKL_DEFINE_FUN(dump_stack, cx, argc)
         akl_print_value(cx->cx_state, *vp);
         printf("\n");
     }
-    return NULL;
+    return akl_vector_is_empty(cx->cx_stack) ? AKL_NIL : &TRUE_VALUE;
 }
 
 AKL_DEFINE_FUN(gt, ctx, argc)
