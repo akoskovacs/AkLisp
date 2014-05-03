@@ -596,7 +596,8 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
             break;
 
             case AKL_IR_BRANCH:
-            printf("br .L%d, .L%d", in->in_arg[0].label->la_ind, in->in_arg[1].label->la_ind);
+            printf("br .L%d, .L%d", in->in_arg[0].label->la_ind
+                , in->in_arg[1].label->la_ind);
             break;
 
             case AKL_IR_LOAD:
