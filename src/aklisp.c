@@ -362,6 +362,11 @@ struct akl_value *akl_call_function_bound(struct akl_context *cx)
         akl_ir_exec_branch(cx, AKL_LIST_FIRST(&ufun->uf_body));
         value = akl_frame_head(cx);
         break;
+
+        /* TODO: */
+        default:
+        value = NULL;
+        break;
     }
 
     return value;
@@ -522,6 +527,10 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             }
             break;
 
+            case AKL_IR_RET:
+            /* TODO */
+            break;
+
             default:
             akl_raise_error(ctx, AKL_ERROR, "Unkown instruction '%#x'", in->in_op);
             return;
@@ -624,6 +633,14 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
 
             case AKL_IR_TAIL:
             printf("tail %d", in->in_arg[0].ui_num);
+            break;
+
+            case AKL_IR_RET:
+            printf("ret");
+            break;
+
+            default:
+            akl_raise_error(ctx, AKL_ERROR, "Unknown instruction '%x'", in->in_op);
             break;
        }
        printf("\n");
