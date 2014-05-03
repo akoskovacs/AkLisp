@@ -115,9 +115,6 @@ void akl_free(struct akl_state *s, void *ptr, size_t size)
     }
 }
 
-#define AKL_CPY_MEM_CALLBACK(s, cbs, fname) \
-    (s)->ai_mem_fn->fname = ((cbs)->fname) ? (cbs)->fname : akl_mem_std_callbacks.fname
-
 void akl_set_mem_callbacks(struct akl_state *s, const struct akl_mem_callbacks *cbs)
 {
     AKL_ASSERT(s && cbs
