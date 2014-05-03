@@ -330,6 +330,7 @@ akl_asm_token_t akl_asm_lex(struct akl_io_device *dev)
             printf("lexer error\n");
         }
     }
+    return tASM_EOF;
 }
 
 char *akl_lex_get_string(struct akl_io_device *dev)
