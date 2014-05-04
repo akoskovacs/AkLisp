@@ -449,7 +449,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             MOVE_IP(ip);
             break;
 
-            case AKL_IR_STORE:
+            case AKL_IR_PUSH:
             akl_stack_push(s, in->in_arg[0].value);
             MOVE_IP(ip);
             break;
@@ -622,8 +622,8 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
             printf("get %s", in->in_str);
             break;
 
-            case AKL_IR_STORE:
-            printf("store ");
+            case AKL_IR_PUSH:
+            printf("push ");
             akl_print_value(ctx->cx_state, in->in_arg[0].value);
             break;
 

@@ -181,7 +181,7 @@ AKL_DEFINE_SFUN(defun, ctx)
         ; /* Todo: Error: no body */
         akl_remove_global_atom(ctx->cx_state, fatm);
     }
-    akl_build_store(ctx, fval);
+    akl_build_push(ctx, fval);
 }
 
 AKL_DECLARE_FUNS(akl_spec_forms) {

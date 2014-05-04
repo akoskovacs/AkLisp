@@ -28,11 +28,11 @@
                                     , struct akl_ir_instruction); \
     akl_list_append((ctx)->cx_state, (ctx)->cx_ir, name )
 
-void akl_build_store(struct akl_context *ctx, struct akl_value *arg)
+void akl_build_push(struct akl_context *ctx, struct akl_value *arg)
 {
-    DEFINE_IR_INSTRUCTION(store, ctx);
-    store->in_op = AKL_IR_STORE;
-    store->in_arg[0].value = arg;
+    DEFINE_IR_INSTRUCTION(push, ctx);
+    push->in_op = AKL_IR_PUSH;
+    push->in_arg[0].value = arg;
 }
 
 int argument_finder(char **args, const char *arg)
@@ -149,7 +149,7 @@ void akl_compile_list(struct akl_context *cx)
             case tATOM:
             if (is_quoted) {
                 /* It just used as a symbol, nothing special... */
-                akl_build_store(cx, akl_parse_token(cx, tok, TRUE));
+                akl_build_push(cx, akl_parse_token(cx, tok, TRUE));
                 argc++;
                 break;
             } else {
@@ -190,7 +190,7 @@ void akl_compile_list(struct akl_context *cx)
             /* The following list can be quoted, then it will be handled
               as an ordinary value */
             if (is_quoted) {
-                akl_build_store(cx, akl_parse_token(cx, tok, TRUE));
+                akl_build_push(cx, akl_parse_token(cx, tok, TRUE));
             } else {
                 /* Not quoted, compile it recursively. */
                 akl_compile_list(cx);
@@ -205,7 +205,7 @@ void akl_compile_list(struct akl_context *cx)
 
             /* tNUMBER, tSTRING, tETC... */
             default:
-            akl_build_store(cx, akl_parse_token(cx, tok, TRUE));
+            akl_build_push(cx, akl_parse_token(cx, tok, TRUE));
             argc++;
             break;
         }
@@ -222,11 +222,11 @@ akl_token_t akl_compile_next(struct akl_context *ctx)
         akl_compile_list(ctx);
     } else if (tok == tQUOTE) {
         tok = akl_lex(ctx->cx_dev);
-        akl_build_store(ctx, akl_parse_token(ctx, tok, TRUE));
+        akl_build_push(ctx, akl_parse_token(ctx, tok, TRUE));
     } else if (tok == tEOF) {
         return tok;
     } else {
-        akl_build_store(ctx, akl_parse_token(ctx, tok, FALSE));
+        akl_build_push(ctx, akl_parse_token(ctx, tok, FALSE));
     }
     return tok;
 }

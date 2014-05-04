@@ -131,7 +131,7 @@ error:
 
 /* Have to be in the same order as akl_ir_instruction_t */
 const char *akl_ir_instruction_set[] = {
-    "nop"  , "store" , "load"
+    "nop"  , "push" , "load"
   , "call" , "get"   , "set"
   , "br"   , "jmp"   , "jt"
   , "jn"   , "head"  , "tail"
@@ -241,7 +241,7 @@ void akl_asm_parse_branch(struct akl_context *ctx, int ind)
 /*
  * Parses:
  *  nop
- *  store 33
+ *  push 33
  *  load %1
  *  call some-thing, 1
  *  set name, "Akos"
@@ -266,8 +266,8 @@ void akl_asm_parse_instr(struct akl_context *ctx)
         akl_build_nop(ctx);
         break;
 
-        case AKL_IR_STORE:
-        akl_build_store(ctx, akl_parse_value(ctx));
+        case AKL_IR_PUSH:
+        akl_build_push(ctx, akl_parse_value(ctx));
         break;
 
         case AKL_IR_CALL:

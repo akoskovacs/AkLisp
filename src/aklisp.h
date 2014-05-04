@@ -515,7 +515,7 @@ struct akl_label {
 
 typedef enum {
     AKL_IR_NOP = 0,
-    AKL_IR_STORE,
+    AKL_IR_PUSH,
     AKL_IR_LOAD,
     AKL_IR_CALL,
     AKL_IR_GET,
@@ -558,7 +558,7 @@ void akl_build_call(struct akl_context *, struct akl_atom *, int);
 void akl_build_set(struct akl_context *, char *, struct akl_value *);
 void akl_build_get(struct akl_context *, char *);
 void akl_build_load(struct akl_context *, char *);
-void akl_build_store(struct akl_context *, struct akl_value *);
+void akl_build_push(struct akl_context *, struct akl_value *);
 void akl_build_nop(struct akl_context *);
 void akl_build_ret(struct akl_context *);
 
