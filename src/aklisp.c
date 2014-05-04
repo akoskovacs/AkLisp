@@ -552,8 +552,8 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
     struct akl_ufun *uf = NULL;
     int lind = 0;
 
-    switch (fun->fn_type) {
-    case AKL_FUNC_CFUN: case AKL_FUNC_SPECIAL:
+    if (fun->fn_type == AKL_FUNC_CFUN 
+     || fun->fn_type == AKL_FUNC_SPECIAL) {
         printf("Compiled function\n");
         return;
     }
