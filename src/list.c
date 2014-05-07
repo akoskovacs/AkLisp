@@ -214,7 +214,7 @@ struct akl_value *akl_list_index_value(struct akl_list *list, int index)
 
 void *akl_list_last(struct akl_list *list)
 {
-    if (list != NULL) {
+    if (list != NULL && list->li_last != NULL) {
         return list->li_last->le_data;
     }
     return NULL;

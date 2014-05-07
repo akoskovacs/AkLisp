@@ -47,7 +47,7 @@ unsigned int akl_frame_get_count(struct akl_context *ctx)
 #if 0
     return akl_vector_count(ctx->cx_stack) - ctx->cx_frame_begin;
 #endif
-    return ctx->cx_frame->af_begin-ctx->cx_frame->af_end;
+    return ctx->cx_frame->af_end-ctx->cx_frame->af_begin;
 }
 
 bool_t akl_frame_is_empty(struct akl_context *ctx)
@@ -391,7 +391,6 @@ struct akl_value *akl_call_atom(struct akl_context *ctx, struct akl_context *cx
     }
 
     cx->cx_func = v->va_value.func;
-    cx->cx_lex_info = v->va_lex_info;
 
     return akl_call_function_bound(cx);
 }
@@ -463,6 +462,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             break;
 
             case AKL_IR_CALL:
+            ctx->cx_lex_info = in->in_linfo;
             akl_call_atom(ctx, NULL, in->in_arg[0].atom, in->in_arg[1].ui_num);
             MOVE_IP(ip);
             break;
