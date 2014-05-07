@@ -77,11 +77,34 @@ AKL_DEFINE_FUN(progn, cx, argc)
 AKL_DEFINE_FUN(print, cx, argc)
 {
     struct akl_value *v;
-    while ((v = akl_frame_shift(cx)) != NULL)
+    while ((v = akl_frame_shift(cx)) != NULL) {
         akl_print_value(cx->cx_state, v);
+        printf(" ");
+    }
 
     printf("\n");
     return !v ? AKL_NIL : v;
+}
+
+AKL_DEFINE_FUN(display, cx, argc)
+{
+    struct akl_value *v;
+    while ((v = akl_frame_shift(cx)) != NULL) {
+        switch (v->va_type) {
+            case TYPE_NUMBER:
+            printf("%g ", AKL_GET_NUMBER_VALUE(v));
+            break;
+
+            case TYPE_STRING:
+            printf("%s ", AKL_GET_STRING_VALUE(v));
+            break;
+
+            default:
+            break;
+        }
+    }
+    printf("\n");
+    return &TRUE_VALUE;
 }
 
 AKL_DEFINE_FUN(plus, cx, argc)
@@ -566,27 +589,6 @@ AKL_CFUN_DEFINE(eval, s, args)
     return akl_eval_list(s, l);
 }
 
-AKL_CFUN_DEFINE(display, in, args)
-{
-    struct akl_list_entry *ent;
-    struct akl_value *tmp;
-    AKL_LIST_FOREACH(ent, args) {
-        tmp = AKL_ENTRY_VALUE(ent);
-        switch (tmp->va_type) {
-            case TYPE_NUMBER:
-            printf("%g", AKL_GET_NUMBER_VALUE(tmp));
-            break;
-
-            case TYPE_STRING:
-            printf("%s", AKL_GET_STRING_VALUE(tmp));
-            break;
-
-            default:
-            break;
-        }
-    }
-    return &NIL_VALUE;
-}
 
 AKL_CFUN_DEFINE(last, in, args)
 {
@@ -1289,28 +1291,29 @@ static void akl_define_mod_path(struct akl_state *s)
 }
 
 AKL_DECLARE_FUNS(akl_basic_funs) {
-    AKL_FUN(plus,       "+", "Arithmetic addition"),
-    AKL_FUN(mul,        "*", "Arithmetic product"),
-    AKL_FUN(write_times,  "write-times", "Write a string out n times"),
-    AKL_FUN(eq,         "=", "Compare to values for equality"),
-    AKL_FUN(gt,         ">", "Greater compare function"),
-    AKL_FUN(lt,         "<", "Less-than compare function"),
-    AKL_FUN(list,       "list", "Create a list from the given arguments"),
-    AKL_FUN(length,     "length", "Get the length of a string or the element count for a list"),
-    AKL_FUN(progn,      "$", "Evaulate all elements and give back the last (primitive sequence)"),
-    AKL_FUN(akl_cfg,    "akl-cfg!", "Set/unset interpreter features"),
+    AKL_FUN(plus,        "+", "Arithmetic addition"),
+    AKL_FUN(mul,         "*", "Arithmetic product"),
+    AKL_FUN(write_times, "write-times", "Write a string out n times"),
+    AKL_FUN(eq,          "=", "Compare to values for equality"),
+    AKL_FUN(gt,          ">", "Greater compare function"),
+    AKL_FUN(lt,          "<", "Less-than compare function"),
+    AKL_FUN(list,        "list", "Create a list from the given arguments"),
+    AKL_FUN(length,      "length", "Get the length of a string or the element count for a list"),
+    AKL_FUN(progn,       "$", "Evaulate all elements and give back the last (primitive sequence)"),
+    AKL_FUN(akl_cfg,     "akl-cfg!", "Set/unset interpreter features"),
     AKL_FUN(describe,    "describe", "Get a global atom help string"),
-    AKL_FUN(exit,  "exit!", "Exit"),
+    AKL_FUN(exit,        "exit!", "Exit"),
     AKL_END_FUNS()
 };
 
 AKL_DECLARE_FUNS(akl_debug_funs) {
-    AKL_FUN(dump_stack,  "dump-stack", "Dump the stack contents"),
+    AKL_FUN(dump_stack,   "dump-stack", "Dump the stack contents"),
     AKL_FUN(clear_stack,  "clear-stack", "Clear the current stack"),
     AKL_FUN(disassemble,  "disassemble", "Disassemble a given function"),
-    AKL_FUN(hello,  "hello", "Hello function"),
-    AKL_FUN(about,  "about", "Informations about the interpreter"),
-    AKL_FUN(print,  "print", "Print an expression value"),
+    AKL_FUN(hello,        "hello", "Hello function"),
+    AKL_FUN(about,        "about", "Informations about the interpreter"),
+    AKL_FUN(print,        "print", "Print a value in Lisp form"),
+    AKL_FUN(display,      "display", "Display a value without formatting (with newline)"),
     AKL_END_FUNS()
 };
 
