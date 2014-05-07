@@ -545,10 +545,10 @@ struct akl_ir_instruction {
     union {
         struct akl_value    *value;
         struct akl_atom     *atom;
-        struct akl_lex_info *lex_info;
         struct akl_label    *label;
         unsigned int         ui_num;
     } in_arg[2];
+    struct akl_lex_info *in_linfo;
 };
 
 void akl_compile_list(struct akl_context *);

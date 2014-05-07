@@ -26,13 +26,19 @@
 #define DEFINE_IR_INSTRUCTION(name, ctx) \
     struct akl_ir_instruction * name = AKL_MALLOC((ctx)->cx_state \
                                     , struct akl_ir_instruction); \
+    (name)->in_linfo = NULL;                                      \
     akl_list_append((ctx)->cx_state, (ctx)->cx_ir, name )
 
-void akl_build_push(struct akl_context *ctx, struct akl_value *arg)
+
+static void
+akl_ir_set_lex_info(struct akl_context *ctx, struct akl_lex_info *info)
 {
-    DEFINE_IR_INSTRUCTION(push, ctx);
-    push->in_op = AKL_IR_PUSH;
-    push->in_arg[0].value = arg;
+    AKL_ASSERT(ctx && ctx->cx_ir, AKL_NOTHING);
+    struct akl_ir_instruction *li =
+            (struct akl_ir_instruction *)akl_list_last(ctx->cx_ir);
+    if (li && info) {
+        li->in_linfo = info;
+    }
 }
 
 int argument_finder(char **args, const char *arg)
@@ -45,8 +51,14 @@ int argument_finder(char **args, const char *arg)
         if (strcmp(args[i], arg) == 0)
             return i;
     }
-        
+
     return -1;
+}
+void akl_build_push(struct akl_context *ctx, struct akl_value *arg)
+{
+    DEFINE_IR_INSTRUCTION(push, ctx);
+    push->in_op = AKL_IR_PUSH;
+    push->in_arg[0].value = arg;
 }
 
 void akl_build_set(struct akl_context *ctx, char *name, struct akl_value *v)
@@ -135,9 +147,10 @@ void akl_compile_list(struct akl_context *cx)
     char *name;
     akl_token_t tok;
     int argc = 0;
-    struct akl_atom *afn = NULL;
+    struct akl_atom *afn = NULL;   /* Must be a function */
     struct akl_function *fun = NULL;
     struct akl_value *v;
+    struct akl_lex_info *call_info = NULL;
 
     while ((tok = akl_lex(cx->cx_dev))) {
         if (tok == tQUOTE) {
@@ -158,6 +171,7 @@ void akl_compile_list(struct akl_context *cx)
                   special form, execute it. */
                 if (afn == NULL) {
                     name = akl_lex_get_atom(cx->cx_dev);
+                    call_info = akl_new_lex_info(cx->cx_state, cx->cx_dev);
                     afn = akl_get_global_atom(cx->cx_state, name);
                     /* The previous function copied the name. Must free it. */
                     akl_free(cx->cx_state, name, 0);
@@ -201,6 +215,8 @@ void akl_compile_list(struct akl_context *cx)
             case tRBRACE:
             /* We are run out of arguments, it's time for a function call */
             akl_build_call(cx, afn, argc);
+            akl_ir_set_lex_info(cx, call_info);
+            call_info = NULL;
             return;
 
             /* tNUMBER, tSTRING, tETC... */

@@ -172,7 +172,7 @@ akl_new_list_entry(struct akl_state *s)
 struct akl_lex_info *akl_new_lex_info(struct akl_state *in, struct akl_io_device *dev)
 {
     struct akl_lex_info *info = AKL_MALLOC(in, struct akl_lex_info);
-    if (dev) {
+    if (dev && info) {
         info->li_line = dev->iod_line_count;
         /* The column, where the token start */
         info->li_count = dev->iod_column;
