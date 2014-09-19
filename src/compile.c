@@ -79,7 +79,7 @@ void akl_build_get(struct akl_context *ctx, char *name)
 void akl_build_load(struct akl_context *ctx, char *name)
 {
     struct akl_function *fn = ctx->cx_comp_func;
-    struct akl_ufun *ufun = NULL;
+    struct akl_lisp_fun *ufun = NULL;
     unsigned int ind;
     struct akl_ir_instruction *load =
             AKL_MALLOC(ctx->cx_state, struct akl_ir_instruction);
@@ -213,6 +213,11 @@ void akl_compile_list(struct akl_context *cx)
             break;
 
             case tRBRACE:
+            /* No function name, no function to call */
+            if (afn == NULL) {
+                akl_build_push(cx, akl_new_nil_value(cx->cx_state));
+                return;
+            }
             /* We are run out of arguments, it's time for a function call */
             akl_build_call(cx, afn, argc);
             akl_ir_set_lex_info(cx, call_info);
