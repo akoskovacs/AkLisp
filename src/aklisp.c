@@ -268,7 +268,7 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
             unless if that is a nil or a true */
         if ((t != TYPE_NIL || t != TYPE_TRUE) && t != vp->va_type) {
             ctx->cx_lex_info = vp->va_lex_info;
-            akl_raise_error(ctx, AKL_ERROR, "%s: Expected type '%s' but got type '%s'"
+            akl_raise_error(ctx, AKL_ERROR, "%s: Expected %s but got %s"
                 , ctx->cx_func_name, akl_type_name[t], akl_type_name[vp->va_type]);
             return -1;
         }
@@ -337,7 +337,7 @@ struct akl_value *akl_call_function_bound(struct akl_context *cx)
 {
     assert(cx);
     struct akl_function *fn;
-    struct akl_ufun *ufun;
+    struct akl_lisp_fun *ufun;
     struct akl_value *value;
     struct akl_state *s = cx->cx_state;
     fn = cx->cx_func;
@@ -449,6 +449,10 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             break;
 
             case AKL_IR_PUSH:
+            if (in->in_arg[0].value == NULL) {
+                akl_raise_error(ctx, AKL_WARNING, "Interpreter error: NULL pushed to stack");
+                return;
+            }
             akl_stack_push(s, in->in_arg[0].value);
             MOVE_IP(ip);
             break;
@@ -529,6 +533,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
 
             case AKL_IR_RET:
             /* TODO */
+            MOVE_IP(ip);
             break;
 
             default:
@@ -549,7 +554,7 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
     struct akl_ir_instruction *in;
     struct akl_atom *atom;
     struct akl_label *l = NULL;
-    struct akl_ufun *uf = NULL;
+    struct akl_lisp_fun *uf = NULL;
     int lind = 0;
 
     if (fun->fn_type == AKL_FUNC_CFUN 
@@ -649,8 +654,11 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
 
 void akl_clear_ir(struct akl_context *ctx)
 {
-    while (akl_list_pop(ctx->cx_ir))
-        ;
+    if (!ctx || !ctx->cx_ir)
+        return;
+
+    while (akl_list_count(ctx->cx_ir) != 0)
+        akl_list_pop(ctx->cx_ir);
 }
 
 void akl_dump_stack(struct akl_context *ctx)
@@ -686,7 +694,7 @@ void akl_execute(struct akl_context *ctx)
 {
     AKL_ASSERT(ctx && ctx->cx_state && ctx->cx_state->ai_fn_main, AKL_NOTHING);
     struct akl_function *mf = ctx->cx_state->ai_fn_main;
-    struct akl_ufun *mfir = &mf->fn_body.ufun;
+    struct akl_lisp_fun *mfir = &mf->fn_body.ufun;
     ctx->cx_stack = &ctx->cx_state->ai_stack;
     akl_ir_exec_branch(ctx, AKL_LIST_FIRST(&mfir->uf_body));
 }
