@@ -1,0 +1,11 @@
+obj-lib-y += aklisp.o gc.o compile.o \
+			lib.o parser.o           \
+			lexer.o list.o types.o   \
+			util.o  vector.o         \
+			module.o lib_spec.o #lib_file.o 
+
+obj-lib-$(CONFIG_OS_WIN)   += os_win.o
+obj-lib-$(CONFIG_OS_UNIX)  += os_unix.o
+obj-lib-$(CONFIG_OS_OTHER) += os_unix.o
+
+obj-app-y += main.o
