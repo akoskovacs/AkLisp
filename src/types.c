@@ -279,7 +279,7 @@ akl_new_function_value(struct akl_state *s, struct akl_function *f)
 
 struct akl_label *akl_new_label(struct akl_context *ctx)
 {
-    struct akl_ufun *uf;
+    struct akl_lisp_fun *uf;
     struct akl_label *l;
     assert(ctx && ctx->cx_state && ctx->cx_comp_func);
 

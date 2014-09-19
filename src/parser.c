@@ -147,7 +147,7 @@ static void akl_asm_parse_label(struct akl_context *ctx)
     char *label_name = akl_lex_get_atom(ctx->cx_dev);
     struct akl_label *label = akl_new_label(ctx);
     struct akl_function *fn = ctx->cx_comp_func;
-    struct akl_ufun *ufun;
+    struct akl_lisp_fun *ufun;
     if (fn == NULL)
         return;
 
@@ -194,7 +194,7 @@ akl_get_or_create_label(struct akl_context *ctx, char *lname)
     unsigned int ind;
     struct akl_function *fn = ctx->cx_comp_func;
     struct akl_label fl, *label;
-    struct akl_ufun *ufun;
+    struct akl_lisp_fun *ufun;
     void *ptr;
     if (fn == NULL)
         return NULL;
