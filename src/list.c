@@ -281,10 +281,15 @@ struct akl_value *akl_car(struct akl_list *l)
 
 void *akl_list_pop(struct akl_list *list)
 {
+    struct akl_list_entry *ent;
     if (list == NULL || list->li_last == NULL)
         return NULL;
 
-    return akl_list_remove_entry(list, list->li_last)->le_data;
+    ent = akl_list_remove_entry(list, list->li_last);
+    if (ent != NULL) {
+        return ent->le_data;
+    }
+    return NULL;
 }
 
 unsigned int
@@ -391,19 +396,22 @@ void akl_print_list(struct akl_state *s, struct akl_list *list)
 {
     struct akl_list_entry *ent;
     
-    assert(list);
+    AKL_ASSERT(s, AKL_NOTHING);
+
     if (list == NULL || AKL_IS_NIL(list)
-        || list->li_count == 0) {
+            || list->li_count == 0) {
         AKL_START_COLOR(s, AKL_GRAY);
         printf("NIL");
         AKL_END_COLOR(s);
         return;
     }
 
-    if (AKL_IS_QUOTED(list)) 
+    if (AKL_IS_QUOTED(list))
         printf("\'");
     printf("(");
     AKL_LIST_FOREACH(ent, list) {
+        if (ent == NULL || ent->le_data == NULL)
+            break;
         akl_print_value(s, AKL_ENTRY_VALUE(ent));
         if (ent->le_next != NULL)
             printf(" ");
