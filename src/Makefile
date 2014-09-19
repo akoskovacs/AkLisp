@@ -42,3 +42,4 @@ gen-file:
 PHONY: clean clean-cmake
 clean:
 	$(RM) $(OBJ_DIR) $(AKLISP_SHARED)
+	$(RM) ../aklisp
