@@ -143,7 +143,7 @@ char **akl_parse_params(struct akl_context *ctx, const char *fname)
 
 AKL_DEFINE_SFUN(defun, ctx)
 {
-    struct akl_ufun *ufun;
+    struct akl_lisp_fun *ufun;
     akl_token_t tok;
     struct akl_function *func = akl_new_function(ctx->cx_state);
     struct akl_value *fval = akl_new_function_value(ctx->cx_state, func);
