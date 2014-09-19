@@ -42,7 +42,8 @@ void akl_lex_free(struct akl_io_device *dev)
     dev->iod_buffer = NULL;
 }
 
-static void put_buffer(struct akl_io_device *dev, int pos, char ch)
+static void 
+put_buffer(struct akl_io_device *dev, int pos, char ch)
 {
     if (pos+1 >= dev->iod_buffer_size) {
         dev->iod_buffer_size = dev->iod_buffer_size
@@ -194,7 +195,8 @@ size_t copy_word(struct akl_io_device *dev)
     return i;
 }
 
-akl_token_t akl_lex(struct akl_io_device *dev)
+akl_token_t
+akl_lex(struct akl_io_device *dev)
 {
     int ch;
     /* We should take care of the '+', '++',
@@ -282,7 +284,8 @@ akl_token_t akl_lex(struct akl_io_device *dev)
     return tEOF;
 }
 
-akl_asm_token_t akl_asm_lex(struct akl_io_device *dev)
+akl_asm_token_t
+akl_asm_lex(struct akl_io_device *dev)
 {
     int ch;
     int op='+';
@@ -356,6 +359,7 @@ double akl_lex_get_number(struct akl_io_device *dev)
     } else {
         n = strtod(dev->iod_buffer, NULL);
     }
+
     dev->iod_buffer[0] = '\0';
     return n;
 }
