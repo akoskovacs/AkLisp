@@ -359,7 +359,7 @@ void         akl_vector_free(struct akl_state *, struct akl_vector *);
 void         akl_vector_grow(struct akl_vector *, unsigned int);
 void         akl_vector_truncate_by(struct akl_vector *, unsigned int);
 
-struct akl_ufun {
+struct akl_lisp_fun {
     /* Name of the arguments */
     char               **uf_args;
     /* Name of the local variables */
@@ -377,8 +377,8 @@ struct akl_function {
     enum AKL_FUNCTION_TYPE fn_type;
     /* Body of the function */
     union {
-        /* User-defined function (compiled) */
-        struct akl_ufun    ufun;
+        /* Bytecode lisp function */
+        struct akl_lisp_fun    ufun;
         /* C function (normal form) */
         akl_cfun_t         cfun;
         /* C function (special form) */
@@ -630,7 +630,7 @@ bool_t akl_atom_is_symbol(struct akl_atom *);
        ; (elem) && (elem) != AKL_LIST_LAST(list) \
        ; (elem) = AKL_LIST_NEXT(elem))
 
-#define AKL_ENTRY_VALUE(elem) (struct akl_value *)((elem)->le_data)
+#define AKL_ENTRY_VALUE(elem) (struct akl_value *)((elem) ? (elem)->le_data : NULL)
 
 typedef enum {
     tEOF,
@@ -720,6 +720,12 @@ struct akl_value      *akl_new_list_value(struct akl_state *, struct akl_list *)
 struct akl_value      *akl_new_atom_value(struct akl_state *, char *);
 struct akl_value      *akl_new_user_value(struct akl_state *, akl_utype_t, void *);
 struct akl_lex_info   *akl_new_lex_info(struct akl_state *, struct akl_io_device *);
+
+/* Aliases for value creation (with just the context) */
+#define AKL_NUMBER(ctx, num) ((ctx && ctx->cx_state) ? akl_new_number_value(ctx->cx_state, num) : NULL)
+#define AKL_STRING(ctx, str) ((ctx && ctx->cx_state) ? akl_new_string_value(ctx->cx_state, str) : NULL)
+#define AKL_ATOM(ctx, aname) ((ctx && ctx->cx_state) ? akl_new_atom_value(ctx->cx_state, aname) : NULL)
+#define AKL_LIST(ctx, l)     ((ctx && ctx->cx_state) ? akl_new_list_value(ctx->cx_state, l)     : NULL)
 
 /* GC functions */
 
