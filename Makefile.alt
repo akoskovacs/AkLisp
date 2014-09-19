@@ -41,7 +41,7 @@ export VER_MAJOR VER_MINOR VER_ADDITIONAL AKL_LIBRARY
 
 all: aklisp
 
-aklisp: 
+aklisp: config.h
 	@echo "Building AkLisp..."
 	$(CP) $(ALTCONF) $(CONF)
 	$(MAKE) -C src
@@ -61,6 +61,9 @@ help:
 	@echo "make test        - test the build"
 	@echo "make clean       - delete object files"
 	@echo "make clean-cmake - delete junk CMake files"
+
+config.h: $(ALTCONF)
+	$(LN) $< $@
 
 fix-make:
 	$(RM) Makefile

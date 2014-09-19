@@ -11,14 +11,17 @@ include Makefile.objs
 
 CONFIG_OS_UNIX := y
 
+obj-app = $(obj-app-y:%.o=$(OBJ_DIR)/%.o)
+obj-lib = $(obj-lib-y:%.o=$(OBJ_DIR)/%.o)
+
 all: aklisp 
 
 aklisp: $(AKL_LIBRARY) $(obj-app-y)
 	@echo "LINK aklisp"
-	$(Q)$(CC) $(obj-app-y) $(LDFLAGS) $(AKL_LIBRARY)
+	$(Q)$(CC) $(obj-app) $(LDFLAGS) $(AKL_LIBRARY) -o ../$@
 	
 libaklisp_static.a: $(obj-lib-y)
-	$(Q)$(AR) $(ARFLAGS) $@ $(obj-lib-y)
+	$(Q)$(AR) $(ARFLAGS) $@ $(obj-lib)
 
 $(AKLISP_SHARED): $(obj-lib-y)
 	@echo "LINK $@"
