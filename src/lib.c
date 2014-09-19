@@ -42,7 +42,7 @@ AKL_DEFINE_FUN(describe, cx, argc)
         akl_raise_error(cx, AKL_WARNING, "Global atom '%s' cannot found", sym->at_name);
         return AKL_NIL;
     }
-    return akl_new_string_value(cx->cx_state, fn->at_desc);
+    return AKL_STRING(cx, fn->at_desc);
 }
 
 extern void show_features(struct akl_state *, const char *fname); // @ util.c
@@ -111,13 +111,41 @@ AKL_DEFINE_FUN(plus, cx, argc)
 {
     double sum = 0.0;
     double *n;
-    struct akl_list_entry *ent;
     while ((n = akl_frame_pop_number(cx)) != NULL) {
        sum += *n;
     }
 
-    return akl_new_number_value(cx->cx_state, sum);
+    return AKL_NUMBER(cx, sum);
 }
+
+AKL_DEFINE_FUN(minus, cx, argc)
+{
+    double a,n;
+    struct akl_value *v = akl_frame_shift(cx);
+    if (v == NULL) {
+        return AKL_NUMBER(cx, 0);
+    }
+    if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
+        a = AKL_GET_NUMBER_VALUE(v);
+    } else {
+        goto not_a_number;
+    }
+
+    while ((v = akl_frame_shift(cx)) != NULL) {
+        if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
+            n = AKL_GET_NUMBER_VALUE(v);
+            a -= n;
+        } else {
+            goto not_a_number;
+        }
+    }
+    return AKL_NUMBER(cx, a);
+
+not_a_number:
+    akl_raise_error(cx, AKL_ERROR, "Argument is not a number!");
+    return AKL_NUMBER(cx, 0);
+}
+
 
 AKL_DEFINE_FUN(mul, cx, argc)
 {
@@ -127,7 +155,7 @@ AKL_DEFINE_FUN(mul, cx, argc)
        prod *= *n;
     }
 
-    return akl_new_number_value(cx->cx_state, prod);
+    return AKL_NUMBER(cx, prod);
 }
 
 AKL_DEFINE_FUN(write_times, cx, argc)
@@ -141,7 +169,7 @@ AKL_DEFINE_FUN(write_times, cx, argc)
     for (i = 0; i < (int)n; i++) {
         printf("%s\n", str);    
     }
-    return akl_new_nil_value(cx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(hello, cx, argc)
@@ -172,7 +200,7 @@ AKL_DEFINE_FUN(gt, ctx, argc)
     if (akl_compare_values(a1, a2) == 1)
         return akl_new_true_value(ctx->cx_state);
 
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(lt, ctx, argc)
@@ -184,7 +212,7 @@ AKL_DEFINE_FUN(lt, ctx, argc)
     if (akl_compare_values(a1, a2) == -1)
         return akl_new_true_value(ctx->cx_state);
 
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(eq, ctx, argc)
@@ -196,18 +224,7 @@ AKL_DEFINE_FUN(eq, ctx, argc)
     if (akl_compare_values(a1, a2) == 0)
         return akl_new_true_value(ctx->cx_state);
 
-    return akl_new_nil_value(ctx->cx_state);
-}
-
-AKL_DEFINE_FUN(minus, ctx, argc)
-{
-    int sum = 0;
-    struct akl_value *v;
-    while ((v = akl_frame_shift(ctx))) {
-        if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
-        }
-    }
-    return NULL;
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(length, ctx, argc)
@@ -1292,6 +1309,7 @@ static void akl_define_mod_path(struct akl_state *s)
 
 AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(plus,        "+", "Arithmetic addition"),
+    AKL_FUN(minus,       "-", "Arithmetic substraction"),
     AKL_FUN(mul,         "*", "Arithmetic product"),
     AKL_FUN(write_times, "write-times", "Write a string out n times"),
     AKL_FUN(eq,          "=", "Compare to values for equality"),
