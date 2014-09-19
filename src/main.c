@@ -108,7 +108,7 @@ static int akl_char_delete(int count, int key)
 static void init_readline(void)
 {
     rl_readline_name = "AkLisp";
-    rl_attempted_completion_function = (CPPFunction *)akl_completion;
+    rl_attempted_completion_function = (rl_completion_func_t*)akl_completion;
     rl_bind_key('(', akl_insert_rbrace);
     rl_bind_key('"', akl_insert_strterm);
     rl_bind_key('\b', akl_char_delete);
@@ -225,6 +225,7 @@ static void interactive_mode(void)
             akl_print_value(&state, akl_stack_pop(&state));
             akl_print_errors(&state);
             akl_clear_errors(&state);
+            akl_clear_ir(ctx);
             printf("\n");
             free(line);
         }
