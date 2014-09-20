@@ -1,0 +1,3 @@
+akl-mod-$(AKL_HELLO)  += hello
+akl-mod-$(AKL_CURSES) += curses/
+akl-mod-$(AKL_DIR)    += dir.o
