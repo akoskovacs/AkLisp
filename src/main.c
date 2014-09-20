@@ -227,7 +227,9 @@ static void interactive_mode(void)
             akl_clear_errors(&state);
             akl_clear_ir(ctx);
             printf("\n");
+#if HAVE_READLINE
             free(line);
+#endif //  HAVE_READLINE
         }
         lnum++;
     }
