@@ -4,7 +4,7 @@
 TARGET := ../aklisp
 AKL_MODULE_SEARCH_PATH := $(PREFIX)/AkLisp/modules/
 
-DEFINES := -include "../conf.h" -DVER_MAJOR=$(VER_MAJOR) \
+DEFINES := -include "../$(CONF)" -DVER_MAJOR=$(VER_MAJOR) \
 	       -DVER_MINOR=$(VER_MINOR) -DVER_ADDITIONAL=$(VER_ADDITIONAL)
 
 include Makefile.objs

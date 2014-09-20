@@ -5,17 +5,17 @@ VER_MINOR := 2
 VER_ADDITIONAL := "\"prealpha\""
 AKLISP_SHARED := libaklisp_shared.so.$(VER_MAJOR).$(VER_MINOR)
 
-CC = gcc
-AR = ar
+CC      = gcc
+AR      = ar
 ARFLAGS = rcs
-RM = rm -rf
-CP = cp
-LN = ln -s
+RM      = rm -rf
+CP      = cp
+LN      = ln -s
 ALTCONF = config.h.alt
-CONF = conf.h
-MKDIR = mkdir -p
+CONF    = config.h
+MKDIR   = mkdir -p
 OBJ_DIR = $(CURDIR)/objs
-CFLAGS = -ggdb
+CFLAGS  = -ggdb
 SHARED_LDFLAGS = -fPIC -shared #-Wl -soname
 STATIC_LDFLAGS = #
 ifneq ($(V),)
@@ -41,9 +41,8 @@ export VER_MAJOR VER_MINOR VER_ADDITIONAL AKL_LIBRARY
 
 all: aklisp
 
-aklisp: config.h
+aklisp: $(CONF)
 	@echo "Building AkLisp..."
-	$(CP) $(ALTCONF) $(CONF)
 	$(MAKE) -C src
 
 modules: aklisp
@@ -62,8 +61,8 @@ help:
 	@echo "make clean       - delete object files"
 	@echo "make clean-cmake - delete junk CMake files"
 
-config.h: $(ALTCONF)
-	$(LN) $< $@
+$(CONF): $(ALTCONF)
+	$(Q)$(LN) $< $@
 
 fix-make:
 	$(RM) Makefile
