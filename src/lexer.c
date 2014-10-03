@@ -117,7 +117,10 @@ size_t copy_number(struct akl_io_device *dev, char op)
 
     while ((ch = akl_io_getc(dev))) {
         /* The second character can be 'x' (because of the hexa numbers) */
-        if (isdigit(ch)) {
+        /* TODO: Rework the number parsing */
+        if (isdigit(ch) || ch == '.' 
+                || ch == 'e' || ch == 'E' 
+                || ch == '+' || ch == '-') { // TODO: Only after e|E
             put_buffer(dev, i++, ch);
         } else if (is_hexa) {
             put_buffer(dev, i++, ch);
