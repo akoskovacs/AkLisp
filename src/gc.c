@@ -130,12 +130,12 @@ akl_gc_type_t akl_gc_register_type(struct akl_state *s, akl_gc_marker_t marker, 
 {
     assert(s);
     struct akl_gc_type *t = (struct akl_gc_type *)akl_vector_reserve(&s->ai_gc_types);
-    t->gt_marker_fn = marker;
+    t->gt_marker_fn  = marker;
     t->gt_pool_count = 0;
-    t->gt_pool_last = NULL;
-    t->gt_pool_head = NULL;
-    t->gt_type_id = s->ai_gc_types.av_count-1;
-    t->gt_type_size = objsize;
+    t->gt_pool_last  = NULL;
+    t->gt_pool_head  = NULL;
+    t->gt_type_id    = s->ai_gc_types.av_count-1;
+    t->gt_type_size  = objsize;
     return t->gt_type_id;
 }
 
@@ -171,12 +171,15 @@ static void akl_gc_mark_value(struct akl_state *s, void *obj, bool_t m)
         return;
 
     switch (v->va_type) {
-        case TYPE_ATOM:
-        if (v->va_value.atom)
-            AKL_GC_SET_MARK(v->va_value.atom, m);
+        case AKL_VT_SYMBOL:
+        /* Symbols are not GC'd */
         break;
 
-        case TYPE_LIST:
+        case AKL_VT_VARIABLE:
+        /* Variables are also global */
+        break;
+
+        case AKL_VT_LIST:
         if (v->va_value.list)
             AKL_GC_SET_MARK(v->va_value.list, m);
         break;
@@ -185,15 +188,6 @@ static void akl_gc_mark_value(struct akl_state *s, void *obj, bool_t m)
         break;
     }
     AKL_GC_SET_MARK(v, m);
-}
-
-static void akl_gc_mark_atom(struct akl_state *s, void *obj, bool_t m)
-{
-    assert(obj);
-    struct akl_atom *atom = (struct akl_atom *)obj;
-    AKL_GC_SET_MARK(atom, m);
-    if (atom->at_value)
-        akl_gc_mark_object(s, atom->at_value, m);
 }
 
 static void akl_gc_mark_list_entry(struct akl_state *s, void *obj, bool_t m)
@@ -434,14 +428,16 @@ void akl_gc_sweep(struct akl_state *s)
 
 void akl_gc_enable(struct akl_state *s)
 {
-    if (s)
+    if (s) {
         AKL_SET_FEATURE(s, AKL_CFG_USE_GC);
+    }
 }
 
 void akl_gc_disable(struct akl_state *s)
 {
-    if (s)
+    if (s) {
         AKL_UNSET_FEATURE(s, AKL_CFG_USE_GC);
+    }
 }
 
 
@@ -471,13 +467,13 @@ struct akl_gc_pool *akl_gc_pool_create(struct akl_state *s, struct akl_gc_type *
 
 // TODO: Implement akl_gc_mark_function and akl_gc_mark_udata
 const akl_gc_marker_t base_type_markers[] = {
-    akl_gc_mark_value, akl_gc_mark_atom, akl_gc_mark_list
-  , akl_gc_mark_list_entry, akl_gc_mark_function, akl_gc_mark_udata
+    akl_gc_mark_value, akl_gc_mark_list, akl_gc_mark_list_entry
+  , akl_gc_mark_function, akl_gc_mark_udata
 };
 
 const size_t base_type_sizes[] = {
-    sizeof(struct akl_value), sizeof(struct akl_atom), sizeof(struct akl_list)
-  , sizeof(struct akl_list_entry), sizeof(struct akl_function), sizeof(struct akl_userdata)
+    sizeof(struct akl_value), sizeof(struct akl_list), sizeof(struct akl_list_entry)
+  , sizeof(struct akl_function), sizeof(struct akl_userdata)
 };
 
 void akl_gc_init(struct akl_state *s)

@@ -29,13 +29,13 @@ const char *akl_type_name[10] = {
 
 struct akl_value TRUE_VALUE = {
     { AKL_GC_VALUE , FALSE, FALSE , TRUE }
-  , NULL, TYPE_TRUE, { (double)1 }
+  , NULL, AKL_VT_TRUE, { (double)1 }
   , FALSE, FALSE
 };
 
 struct akl_value NIL_VALUE = {
     { AKL_GC_VALUE , FALSE, FALSE , TRUE }
-  , NULL, TYPE_NIL, { (double)0 }
+  , NULL, AKL_VT_NIL, { (double)0 }
   , FALSE, TRUE
 };
 
@@ -62,7 +62,8 @@ void akl_init_state(struct akl_state *s, const struct akl_mem_callbacks *cbs)
     s->ai_fn_main = NULL;
     akl_gc_init(s);
 
-    RB_INIT(&s->ai_atom_head);
+    RB_INIT(&s->ai_symbols);
+    RB_INIT(&s->ai_global_vars);
     s->ai_device = NULL;
     akl_init_list(&s->ai_modules);
     akl_init_vector(s, &s->ai_utypes, sizeof(struct akl_module *), 5);
@@ -145,16 +146,54 @@ akl_new_context(struct akl_state *s)
     return ctx;
 }
 
-struct akl_atom *
-akl_new_atom(struct akl_state *s, char *name)
+struct akl_symbol *
+akl_new_symbol(struct akl_state *s, char *name, bool_t is_cname)
 {
-    struct akl_atom *atom = (struct akl_atom *)akl_gc_malloc(s, AKL_GC_ATOM);
-    AKL_GC_INIT_OBJ(atom, AKL_GC_ATOM);
-    assert(name);
-    atom->at_value = NULL;
-    atom->at_name  = name;
-    atom->at_desc  = NULL;
-    return atom;
+    struct akl_symbol *sym;
+    struct akl_symbol *nsym, *r;
+    sym = akl_get_symbol(s, name);
+
+    if (sym == NULL) {
+        nsym = AKL_MALLOC(s, struct akl_symbol);
+        if (nsym) {
+            /* If the string is a constant char array, no free() called. */
+            nsym->sb_is_cdef = is_cname;
+            nsym->sb_name    = name;
+            SYM_TREE_RB_INSERT(&s->ai_symbols, nsym);
+            sym = nsym;
+        } else {
+            sym = NULL;
+        }
+    }
+    return sym;
+}
+
+struct akl_symbol *
+akl_get_symbol(struct akl_state *s, char *name)
+{
+    struct akl_symbol sym, *sptr;
+    sym.sb_name = name;
+    sptr = SYM_TREE_RB_FIND(&s->ai_symbols, &sym);
+    return sptr;
+}
+
+struct akl_variable *
+akl_new_var(struct akl_state *s, struct akl_symbol *sym)
+{
+    struct akl_variable *var = (struct akl_variable *)
+            akl_gc_malloc(s, AKL_GC_VARIABLE);
+    AKL_GC_INIT_OBJ(var, AKL_GC_VARIABLE);
+    var->vr_symbol = sym;
+    var->vr_desc   = NULL;
+    var->vr_value  = NULL;
+    return var;
+}
+
+struct akl_variable *
+akl_new_variable(struct akl_state *s, char *name, bool_t is_cname)
+{
+    struct akl_symbol *sym = akl_new_symbol(s, name, is_cname);
+    return akl_new_var(s, sym);
 }
 
 struct akl_list_entry *
@@ -194,7 +233,7 @@ struct akl_value *akl_new_value(struct akl_state *s)
 struct akl_value *akl_new_string_value(struct akl_state *in, char *str)
 {
     struct akl_value *val = akl_new_value(in);
-    val->va_type = TYPE_STRING;
+    val->va_type = AKL_VT_STRING;
     val->va_value.string = str;
     val->is_nil = FALSE;
     return val;
@@ -203,7 +242,7 @@ struct akl_value *akl_new_string_value(struct akl_state *in, char *str)
 struct akl_value *akl_new_number_value(struct akl_state *in, double num)
 {
     struct akl_value *val = akl_new_value(in);
-    val->va_type = TYPE_NUMBER;
+    val->va_type = AKL_VT_NUMBER;
     val->va_value.number = num;
     return val;
 }
@@ -212,7 +251,7 @@ struct akl_value *akl_new_list_value(struct akl_state *s, struct akl_list *lh)
 {
     struct akl_value *val = akl_new_value(s);
     assert(lh != NULL);
-    val->va_type = TYPE_LIST;
+    val->va_type = AKL_VT_LIST;
     val->va_value.list = lh;
     return val;
 }
@@ -241,20 +280,38 @@ struct akl_value *akl_new_user_value(struct akl_state *s, unsigned int type, voi
     value = akl_new_value(s);
     udata->ud_id = type;
     udata->ud_private = data;
-    value->va_type = TYPE_USERDATA;
+    value->va_type = AKL_VT_USERDATA;
     value->va_value.udata = udata;
     return value;
 }
 
 struct akl_value *
-akl_new_atom_value(struct akl_state *s, char *name)
+akl_new_symbol_value(struct akl_state *s, char *name, bool_t is_cname)
 {
-    assert(name);
     struct akl_value *val = akl_new_value(s);
-    struct akl_atom *atm = akl_new_atom(s, name);
-    val->va_type = TYPE_ATOM;
-    val->va_value.atom = atm;
+    AKL_ASSERT(val, NULL);
+    struct akl_symbol *sym  = akl_new_symbol(s, name, is_cname);
+    AKL_ASSERT(sym, NULL);
+
+    val->va_type          = AKL_VT_SYMBOL;
+    val->va_value.symbol  = sym;
     return val;
+}
+
+/** @brief Create a value for variable
+  * @param state Current interpreter state
+  * @param name  Name of the new variable
+  * @param is_cname True if the name is a constant string (no free())
+  * Special akl_new_*_value() function, it does point to struct akl_variable.
+  * Instead it will point to a symbol (the name of variable) as AKL_VT_VARIABLE type.
+*/
+struct akl_value *
+akl_new_variable_value(struct akl_state *s, char *name, bool_t is_cname)
+{
+    struct akl_value *sval;
+    sval          = akl_new_symbol_value(s, name, is_cname);
+    sval->va_type = AKL_VT_VARIABLE;
+    return sval;
 }
 
 struct akl_function *
@@ -272,7 +329,7 @@ struct akl_value *
 akl_new_function_value(struct akl_state *s, struct akl_function *f)
 {
     struct akl_value *v = akl_new_value(s);
-    v->va_type = TYPE_FUNCTION;
+    v->va_type = AKL_VT_FUNCTION;
     v->va_value.func = f;
     return v;
 }
@@ -402,21 +459,10 @@ akl_reset_file_interpreter(struct akl_state *in, const char *name, FILE *fp)
 
 /* ~~~===### Some getter and conversion functions ###===~~~ */
 
-char *akl_get_atom_name_value(struct akl_value *val)
+bool_t akl_var_is_function(struct akl_variable *var)
 {
-    struct akl_atom *atom = AKL_GET_ATOM_VALUE(val);
-    return (atom != NULL) ? atom->at_name : NULL;
-}
-
-bool_t akl_atom_is_function(struct akl_atom *atm)
-{
-    struct akl_value *v = (atm != NULL) ? atm->at_value : NULL;
-    return (v != NULL && v->va_type == TYPE_FUNCTION) ? TRUE : FALSE;
-}
-
-bool_t akl_atom_is_symbol(struct akl_atom *atm)
-{
-    return (atm && atm->at_value == NULL);
+    struct akl_value *v = (var != NULL) ? var->vr_value: NULL;
+    return (v != NULL) && (v->va_type == AKL_VT_FUNCTION);
 }
 
 /* NOTE: These functions give back a NULL pointer, if the conversion
@@ -426,24 +472,25 @@ struct akl_value *akl_to_number(struct akl_state *in, struct akl_value *v)
     char *str = NULL;
     if (v) {
         switch (v->va_type) {
-            case TYPE_STRING:
+            case AKL_VT_STRING:
             str = AKL_GET_STRING_VALUE(v);
             break;
 
-            case TYPE_ATOM:
-            if (v->va_value.atom != NULL)
-                str = v->va_value.atom->at_name;
+            case AKL_VT_SYMBOL:
+            if (v->va_value.symbol != NULL) {
+                str = v->va_value.symbol->sb_name;
+            }
             break;
 
-            case TYPE_NIL:
+            case AKL_VT_NIL:
             str = "0";
             break;
 
-            case TYPE_TRUE:
+            case AKL_VT_TRUE:
             str = "1";
             break;
 
-            case TYPE_NUMBER:
+            case AKL_VT_NUMBER:
             return v;
 
             default:
@@ -471,24 +518,25 @@ struct akl_value *akl_to_string(struct akl_state *in, struct akl_value *v)
     const char *str;
     if (v) {
         switch (v->va_type) {
-            case TYPE_NUMBER:
+            case AKL_VT_NUMBER:
             str = akl_num_to_str(in, AKL_GET_NUMBER_VALUE(v));
             break;
 
-            case TYPE_ATOM:
-            if (v->va_value.atom != NULL)
-                str = v->va_value.atom->at_name;
+            case AKL_VT_SYMBOL:
+            if (v->va_value.symbol != NULL) {
+                str = v->va_value.symbol->sb_name;
+            }
             break;
 
-            case TYPE_NIL:
+            case AKL_VT_NIL:
             str = "NIL";
             break;
 
-            case TYPE_TRUE:
+            case AKL_VT_TRUE:
             str = "T";
             break;
 
-            case TYPE_STRING:
+            case AKL_VT_STRING:
             return v;
 
             default:
@@ -502,15 +550,15 @@ struct akl_value *akl_to_string(struct akl_state *in, struct akl_value *v)
 
 struct akl_value *akl_to_symbol(struct akl_state *in, struct akl_value *v)
 {
-    struct akl_value *sym;
+    struct akl_value *val;
     char *name = NULL;
     if (v) {
         switch (v->va_type) {
-            case TYPE_NUMBER:
+            case AKL_VT_NUMBER:
             name = akl_num_to_str(in, AKL_GET_NUMBER_VALUE(v));
             break;
 
-            case TYPE_STRING:
+            case AKL_VT_STRING:
             /* TODO: Eliminate the strup()s */
             name = AKL_GET_STRING_VALUE(v);
             if (name == NULL)
@@ -518,26 +566,25 @@ struct akl_value *akl_to_symbol(struct akl_state *in, struct akl_value *v)
             name = strdup(name);
             break;
 
-            case TYPE_NIL:
+            case AKL_VT_NIL:
             name = strdup("NIL");
             break;
 
-            case TYPE_TRUE:
+            case AKL_VT_TRUE:
             name = strdup("T");
             break;
 
-            case TYPE_ATOM:
-            if (v->va_value.atom != NULL)
-                name = strdup(v->va_value.atom->at_name);
-            break;
+            case AKL_VT_SYMBOL:
+            /* No need to duplicate a symbol */
+            return v;
 
             default:
             break;
         }
         if (name) {
-            sym = akl_new_atom_value(in, name);
-            sym->is_quoted = TRUE;
-            return sym;
+            val = akl_new_symbol_value(in, name, FALSE);
+            val->is_quoted = TRUE;
+            return val;
         }
     }
     return NULL;
@@ -548,7 +595,7 @@ struct akl_value *akl_to_symbol(struct akl_state *in, struct akl_value *v)
 struct akl_userdata *akl_get_userdata_value(struct akl_value *value)
 {
     struct akl_userdata *data;
-    if (AKL_CHECK_TYPE(value, TYPE_USERDATA)) {
+    if (AKL_CHECK_TYPE(value, AKL_VT_USERDATA)) {
        data = value->va_value.udata;
        return data;
     }

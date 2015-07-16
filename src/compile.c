@@ -23,13 +23,6 @@
 #include "aklisp.h"
 #include <stdint.h>
 
-#define DEFINE_IR_INSTRUCTION(name, ctx) \
-    struct akl_ir_instruction * name = AKL_MALLOC((ctx)->cx_state \
-                                    , struct akl_ir_instruction); \
-    (name)->in_linfo = NULL;                                      \
-    akl_list_append((ctx)->cx_state, (ctx)->cx_ir, name )
-
-
 static void
 akl_ir_set_lex_info(struct akl_context *ctx, struct akl_lex_info *info)
 {
@@ -54,75 +47,85 @@ int argument_finder(char **args, const char *arg)
 
     return -1;
 }
+
+static struct akl_ir_instruction *
+new_instr(struct akl_context *ctx)
+{
+    struct akl_state *s = ctx->cx_state;
+    struct akl_ir_instruction *instr = AKL_MALLOC(s, struct akl_ir_instruction);
+    instr->in_linfo = NULL;
+    akl_list_append(s, (ctx)->cx_ir, instr);
+    return instr;
+
+}
+
 void akl_build_push(struct akl_context *ctx, struct akl_value *arg)
 {
-    DEFINE_IR_INSTRUCTION(push, ctx);
-    push->in_op = AKL_IR_PUSH;
+    struct akl_ir_instruction *push = new_instr(ctx);
+    push->in_op           = AKL_IR_PUSH;
     push->in_arg[0].value = arg;
 }
 
-void akl_build_set(struct akl_context *ctx, char *name, struct akl_value *v)
+void akl_build_set(struct akl_context *ctx, struct akl_symbol *sym, struct akl_value *v)
 {
-    DEFINE_IR_INSTRUCTION(set, ctx);
-    set->in_op = AKL_IR_SET;
-    set->in_str = name;
-    set->in_arg[0].value = v;
+    struct akl_ir_instruction *set = new_instr(ctx);
+    set->in_op            = AKL_IR_SET;
+    set->in_arg[0].symbol = sym;
+    set->in_arg[1].value  = v;
 }
 
-void akl_build_get(struct akl_context *ctx, char *name)
+void akl_build_get(struct akl_context *ctx, struct akl_symbol *sym)
 {
-    DEFINE_IR_INSTRUCTION(get, ctx);
-    get->in_op = AKL_IR_GET;
-    get->in_str = name;
+    struct akl_ir_instruction *get = new_instr(ctx);
+    get->in_op            = AKL_IR_GET;
+    get->in_arg[0].symbol = sym;
 }
 
-void akl_build_load(struct akl_context *ctx, char *name)
+void akl_build_load(struct akl_context *ctx, struct akl_symbol *sym)
 {
-    struct akl_function *fn = ctx->cx_comp_func;
+    struct akl_ir_instruction *load;
+    struct akl_function *fn   = ctx->cx_comp_func;
     struct akl_lisp_fun *ufun = NULL;
-    unsigned int ind;
-    struct akl_ir_instruction *load =
-            AKL_MALLOC(ctx->cx_state, struct akl_ir_instruction);
+    unsigned int         ind;
 
-    load->in_op = AKL_IR_LOAD;
-
-    if (fn->fn_type == AKL_FUNC_USER) {
+    /* Load instructions can work on function parameters and local variables
+       , but they must be  */
+    if (fn->fn_type == AKL_FUNC_USER || fn->fn_type == AKL_FUNC_LAMBDA) {
         ufun = &fn->fn_body.ufun;
-        /* The 'name' must be an argument or a local variable */
-        if ((ind = argument_finder(ufun->uf_args, name)) != -1) {
-            load->in_arg[0].ui_num = ind; // The found stack pointer
-            akl_list_append(ctx->cx_state, ctx->cx_ir, load);
+        /* Get the frame offset for the currently compiled function's argument. */
+        if ((ind = argument_finder(ufun->uf_args, sym->sb_name)) != -1) {
+            load                   = new_instr(ctx);
+            load->in_op            = AKL_IR_LOAD;
+            load->in_arg[0].ui_num = ind;
         } else {
-            /* Not found as a local variable, must be a global one. */
-            akl_free(ctx->cx_state, load, sizeof(*load));
-            akl_build_get(ctx, name);
+            /* Not a parameter or local variable, must be a global one. */
+            akl_build_get(ctx, sym);
         }
     }
 }
 
-/*
- * If the function is not exist, the at_atom field of the 'fn' parameter is
- * NIL, therefore we must bind the function at a later time
-*/
-void akl_build_call(struct akl_context *ctx, struct akl_atom *atm, int argc)
+void akl_build_call(struct akl_context *ctx, struct akl_symbol *sym
+                    , struct akl_function *fn, int argc)
 {
-    DEFINE_IR_INSTRUCTION(call, ctx);
+    struct akl_ir_instruction *call = new_instr(ctx);
     call->in_op = AKL_IR_CALL;
-    call->in_arg[0].atom = atm;
+    call->in_arg[0].symbol = sym;
+    /* If function already fetched, this will make things faster. */
+    call->in_fun           = fn;
     call->in_arg[1].ui_num = argc;
 }
 
 /* It can also mean 'jmp' if the second (the false branch is NULL) */
 void akl_build_jump(struct akl_context *ctx, akl_jump_t jt, struct akl_label *l)
 {
-    DEFINE_IR_INSTRUCTION(branch, ctx);
+    struct akl_ir_instruction *branch = new_instr(ctx);
     branch->in_op = (akl_ir_instruction_t)jt;
     branch->in_arg[0].label = l;
 }
 
 void akl_build_branch(struct akl_context *ctx, struct akl_label *lt, struct akl_label *lf)
 {
-    DEFINE_IR_INSTRUCTION(branch, ctx);
+    struct akl_ir_instruction *branch = new_instr(ctx);
     branch->in_op = AKL_IR_BRANCH;
     branch->in_arg[0].label = lt;
     branch->in_arg[1].label = lf;
@@ -130,27 +133,79 @@ void akl_build_branch(struct akl_context *ctx, struct akl_label *lt, struct akl_
 
 void akl_build_ret(struct akl_context *ctx)
 {
-    DEFINE_IR_INSTRUCTION(ret, ctx);
+    struct akl_ir_instruction *ret = new_instr(ctx);
     ret->in_op = AKL_IR_RET;
 }
 
 void akl_build_nop(struct akl_context *ctx)
 {
-    DEFINE_IR_INSTRUCTION(nop, ctx);
+    struct akl_ir_instruction *nop = new_instr(ctx);
     nop->in_op = AKL_IR_NOP;
+}
+
+enum PREFETCH_STATUS {
+   PF_FN_NOT_FOUND, PF_FN_NORMAL, PF_FN_SFORM, PF_NOT_FN
+};
+
+static enum PREFETCH_STATUS
+prefetch_function(struct akl_context *cx, struct akl_value *val, struct akl_function **fn)
+{
+    struct akl_symbol    *sym;
+    struct akl_variable  *var;
+
+    struct akl_state     *s;
+    struct akl_io_device *dev;
+    s   = cx->cx_state;
+    dev = cx->cx_dev;
+
+    sym = val->va_value.symbol;
+    var = akl_get_global_var(s, sym);
+    if (var == NULL) {
+        *fn = NULL;
+        return PF_FN_NOT_FOUND;
+    }
+
+    /* It's the first list element, must be some kind of a function */
+    val = var->vr_value;
+    if (AKL_CHECK_TYPE(val, AKL_VT_FUNCTION)) {
+        *fn = val->va_value.func;
+        if (*fn) {
+            if ((*fn)->fn_type == AKL_FUNC_SPECIAL) {
+                /* It's really a special form.
+                   akl_compile_list() must call this. */
+                return PF_FN_SFORM;
+            } else {
+                /* It's a function, but no need to call it now. */
+                return PF_FN_NORMAL;
+            }
+        }
+    } else {
+        *fn = NULL;
+        return PF_NOT_FN;
+    }
 }
 
 /* Build the intermediate representation for an unquoted list */
 void akl_compile_list(struct akl_context *cx)
 {
-    bool_t is_quoted = FALSE;
-    char *name;
     akl_token_t tok;
-    int argc = 0;
-    struct akl_atom *afn = NULL;   /* Must be a function */
-    struct akl_function *fun = NULL;
     struct akl_value *v;
+    enum PREFETCH_STATUS pf_st;
+    int    argc              = 0;
+    char  *name              = NULL;
+    bool_t felem             = TRUE;
+    bool_t is_quoted         = FALSE;
+    struct akl_variable *vfn = NULL; /* Function variable */
+    struct akl_function *fun = NULL;
+    struct akl_symbol   *sym = NULL;
     struct akl_lex_info *call_info = NULL;
+
+    struct akl_state *s;
+    struct akl_io_device *dev;
+
+    assert(cx);
+    s   = cx->cx_state;
+    dev = cx->cx_dev;
 
     while ((tok = akl_lex(cx->cx_dev))) {
         if (tok == tQUOTE) {
@@ -159,48 +214,83 @@ void akl_compile_list(struct akl_context *cx)
         }
 
         switch (tok) {
-            case tATOM:
+        case tATOM:
+            v = akl_parse_token(cx, tok, is_quoted);
+            if (felem) {
+                /* Prepare lexical information for the function call */
+                call_info = akl_new_lex_info(s, dev);
+
+                /* First place in the list, must be a function name */
+                pf_st = prefetch_function(cx, v, &fun);
+                if (pf_st == PF_FN_SFORM) {
+                    /* It's a special form, call it immediately. */
+                    akl_call_sform(cx, v->va_value.symbol, fun);
+                    v = akl_frame_pop(cx);
+                    if (AKL_CHECK_TYPE(v, AKL_VT_FUNCTION)) {
+                        /* Special function gave back another function.
+                           Could be a lambda, build a 'call' for this at the end. */
+                        fun = v->va_value.func;
+                    } else {
+                        /* Nothing more to do in this list. */
+                        return;
+                    }
+                } else if (pf_st == PF_FN_NOT_FOUND) {
+                    /* No global functions with this name, try to resolve it later. */
+                    sym = akl_new_symbol(s, akl_lex_get_atom(dev), FALSE);
+                }
+            } else {
+                akl_build_load(cx, akl_new_symbol(s, akl_lex_get_atom(dev), FALSE));
+                argc++;
+                break;
+            }
+
+            // TODO: Delete this
+            if (0) {
             if (is_quoted) {
                 /* It just used as a symbol, nothing special... */
                 akl_build_push(cx, akl_parse_token(cx, tok, TRUE));
-                argc++;
-                break;
-            } else {
-                /* If this atom is at the first place (ie. NULL), it must
-                  be some sort of function. Find it out and if it is a
-                  special form, execute it. */
-                if (afn == NULL) {
-                    name = akl_lex_get_atom(cx->cx_dev);
-                    call_info = akl_new_lex_info(cx->cx_state, cx->cx_dev);
-                    afn = akl_get_global_atom(cx->cx_state, name);
-                    /* The previous function copied the name. Must free it. */
-                    akl_free(cx->cx_state, name, 0);
-                    if (afn == NULL)
-                        break;
-
-                    name = afn->at_name;
-
-                    /* If the function is a special form, we must execute it, now. */
-                    v = afn->at_value;
-                    if (AKL_CHECK_TYPE(v, TYPE_FUNCTION) && v->va_value.func != NULL) {
-                        fun = v->va_value.func;
-                        if (fun->fn_type == AKL_FUNC_SPECIAL) {
-                            cx->cx_func_name = name;
-                            cx->cx_func = fun;
-                            fun->fn_body.scfun(cx);
-                            return;
-                        }
-                    } /* else: error */
-                    break;
-                }
-                /* Not the first place, it must be a reference to a value */
-                /* TODO: Global definitions */
-                akl_build_load(cx, akl_lex_get_atom(cx->cx_dev));
-                argc++;
-            }
+            argc++;
             break;
+        } else {
+            /* If this atom is at the first place (ie. NULL), it must
+              be some sort of function. Find it out and if it is a
+              special form, execute it. */
+            if (vfn == NULL) {
+                name = akl_lex_get_atom(cx->cx_dev);
+                call_info = akl_new_lex_info(cx->cx_state, cx->cx_dev);
+                vfn = akl_get_global_variable(cx->cx_state, name);
+                /* The previous function copied the name. Must free it. */
+                akl_free(cx->cx_state, name, 0);
+#if 0
+                if (afn == NULL)
+                    break;
 
-            case tLBRACE:
+                name = afn->at_name;
+
+                /* If the function is a special form, we must execute it, now. */
+                v = afn->at_value;
+#endif
+                if (AKL_CHECK_TYPE(v, AKL_VT_FUNCTION) && v->va_value.func != NULL) {
+                    fun = v->va_value.func;
+                    if (fun->fn_type == AKL_FUNC_SPECIAL) {
+                        cx->cx_func_name = name;
+                        cx->cx_func = fun;
+                        fun->fn_body.scfun(cx);
+                        return;
+                    }
+                } /* else: error */
+                break;
+            }
+            /* Not the first place, it must be a reference to a value */
+            /* TODO: Global definitions */
+            akl_build_load(cx, akl_new_symbol(s, akl_lex_get_atom(cx->cx_dev), FALSE));
+            argc++;
+        }
+
+        }
+        break;
+
+        case tLBRACE:
             /* The following list can be quoted, then it will be handled
               as an ordinary value */
             if (is_quoted) {
@@ -210,27 +300,28 @@ void akl_compile_list(struct akl_context *cx)
                 akl_compile_list(cx);
             }
             argc++;
-            break;
+        break;
 
-            case tRBRACE:
+        case tRBRACE:
             /* No function name, no function to call */
-            if (afn == NULL) {
+            if (sym == NULL) {
                 akl_build_push(cx, akl_new_nil_value(cx->cx_state));
+                akl_raise_error(cx, AKL_WARNING, "No function to call.");
                 return;
             }
             /* We are run out of arguments, it's time for a function call */
-            akl_build_call(cx, afn, argc);
+            akl_build_call(cx, sym, fun, argc);
             akl_ir_set_lex_info(cx, call_info);
-            call_info = NULL;
-            return;
+        return;
 
-            /* tNUMBER, tSTRING, tETC... */
-            default:
+        /* tNUMBER, tSTRING, tETC... */
+        default:
             akl_build_push(cx, akl_parse_token(cx, tok, TRUE));
             argc++;
             break;
         }
         is_quoted = FALSE;
+        felem = FALSE;
     }
 }
 

@@ -348,6 +348,11 @@ char *akl_lex_get_atom(struct akl_io_device *dev)
     return akl_lex_get_string(dev);
 }
 
+struct akl_symbol *
+akl_lex_get_symbol(struct akl_io_device *dev)
+{
+}
+
 double akl_lex_get_number(struct akl_io_device *dev)
 {
     double n;

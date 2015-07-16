@@ -45,11 +45,9 @@
                             ((AKL_CHECK_TYPE(val, type) \
                             ? (val)->va_value.member : 0))
 
-#define AKL_GET_ATOM_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_ATOM, atom))
-#define AKL_GET_NUMBER_VALUE(val) (AKL_GET_VALUE_MEMBER(val, TYPE_NUMBER, number))
-#define AKL_GET_STRING_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_STRING, string))
-#define AKL_GET_CFUN_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_CFUN, cfunc))
-#define AKL_GET_LIST_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, TYPE_LIST, list))
+#define AKL_GET_NUMBER_VALUE(val) (AKL_GET_VALUE_MEMBER(val, AKL_VT_NUMBER, number))
+#define AKL_GET_STRING_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, AKL_VT_STRING, string))
+#define AKL_GET_LIST_VALUE(val) (AKL_GET_VALUE_MEMBER_PTR(val, AKL_VT_LIST, list))
 #define AKL_STACK_SIZE 32
 #define AKL_SET_FEATURE(state, feature) ((state)->ai_config |= (feature))
 #define AKL_UNSET_FEATURE(state, feature) ((state)->ai_config &= ~(feature))
@@ -57,11 +55,19 @@
 #define AKL_NOTHING  /* empty for assert */
 #define AKL_ASSERT(expr, retval) \
     assert(expr);                \
-    if (!(expr))                 \
-        return retval            \
+    if (!(expr)) {               \
+        return retval; }
+/*
+ * Make constant string parameter passing easy.
+ * Mostly for functions with 'char *str, bool_t is_cstr'
+ * style arguments.
+ * XXX: Used only in function calls.
+*/
+#define AKL_CSTR(str) (char *)str,TRUE
+/* Same as above, but only for mutable strings. */
+#define AKL_MSTR(str) (char *)str,FALSE
 
 struct akl_list;
-struct akl_atom;
 struct akl_value;
 struct akl_io_device;
 struct akl_state;
@@ -70,14 +76,15 @@ struct akl_function;
 struct akl_context;
 
 enum AKL_VALUE_TYPE {
-    TYPE_NIL,
-    TYPE_ATOM,
-    TYPE_NUMBER,
-    TYPE_STRING,
-    TYPE_LIST,
-    TYPE_TRUE,
-    TYPE_FUNCTION,
-    TYPE_USERDATA
+    AKL_VT_NIL,
+    AKL_VT_SYMBOL,
+    AKL_VT_VARIABLE,
+    AKL_VT_NUMBER,
+    AKL_VT_STRING,
+    AKL_VT_LIST,
+    AKL_VT_TRUE,
+    AKL_VT_FUNCTION,
+    AKL_VT_USERDATA
 };
 
 const char *akl_type_name[10];
@@ -101,7 +108,7 @@ typedef int (*akl_cmp_fn_t)(void *, void *);
 #define AKL_IS_TRUE(type)   (!AKL_IS_NIL(type))
 /*
  * This section contains the most important data structures
- * for a generational mark-and-sweep garbage collector.
+ * for the mark-and-sweep garbage collector.
  */
 /* Size of the GC pools, must be the power of 2 */
 #define AKL_GC_POOL_SIZE 64
@@ -115,14 +122,13 @@ typedef int (*akl_cmp_fn_t)(void *, void *);
     (obj)->gc_obj.gc_type_id = id; (obj)->gc_obj.gc_static = FALSE; \
     (obj)->gc_obj.gc_mark = FALSE ; (obj)->gc_obj.gc_le_is_obj = FALSE;
 
-
+/* GC'd object's finalizer */
 typedef void (*akl_gc_destructor_t)(struct akl_state *, void *obj);
 /* Mark and unmark GC'd objects */
 typedef void (*akl_gc_marker_t)(struct akl_state *, void *, bool_t);
 /*
  * Every structure, which is suitable for collection, have to
  * embed this structure as the first variable, with the name of 'gc_obj'.
- * BE AWARE: This is object oriented! :-)
 */
 typedef unsigned int akl_gc_type_t;
 struct akl_gc_object {
@@ -163,13 +169,13 @@ struct akl_list_iterator {
 };
 
 struct akl_userdata {
-    unsigned int ud_id; /* Exact user type */
+    unsigned int ud_id;      /* Exact user type identifer */
     void        *ud_private; /* Arbitrary userdata */
 };
 
 struct akl_lex_info {
     const char  *li_name;
-    unsigned int li_line; /* Line count */
+    unsigned int li_line;  /* Line count */
     unsigned int li_count; /* Column count */
 };
 
@@ -179,7 +185,7 @@ extern struct akl_value {
     enum AKL_VALUE_TYPE      va_type;
     union {
         double               number;
-        struct akl_atom     *atom;
+        struct akl_symbol   *symbol;
         char                *string;
         struct akl_function *func;
         struct akl_userdata *udata;
@@ -191,23 +197,35 @@ extern struct akl_value {
 } NIL_VALUE, TRUE_VALUE;
 #define AKL_NIL &NIL_VALUE
 
-struct akl_atom {
+struct akl_symbol {
+    char                   *sb_name;
+    /* Symbols only exist in one instance and
+     * only in the symbol tree.
+     * You can simply compare two symbols by their pointers.
+     */
+    RB_ENTRY(akl_symbol)    sb_entry;
+    /* We must know the the constness of the name. */
+    bool_t                  sb_is_cdef : 1;
+};
+
+struct akl_symbol *akl_new_symbol(struct akl_state *, char *, bool_t);
+struct akl_symbol *akl_get_symbol(struct akl_state *s, char *name);
+
+struct akl_variable {
     AKL_GC_DEFINE_OBJ;
-    struct akl_value  *at_value;
-    char              *at_name;
-    char              *at_desc; /* Documentation (mostly functions) */
-    RB_ENTRY(akl_atom) at_entry;
-    bool_t             at_is_const : 1;  /* Is a constant atom? */
-    /* We must need to know, the the constness of the
-    strings too (at_name & at_desc too).
-    free() or not to free(), this is the question? */
-    bool_t             at_is_cdef : 1;
+    struct akl_symbol      *vr_symbol;        /* Name (as a symbol in the symbol tree) */
+    struct akl_value       *vr_value;         /* Associated value */
+    struct akl_lex_info    *vr_lex_info;      /* Lexical information (definition position) */
+    RB_ENTRY(akl_variable)  vr_entry;         /* Red-Black tree entry in the global variable tree */
+    char                   *vr_desc;          /* Documentation (mostly functions) */
+    bool_t                  vr_is_cdesc : 1;  /* True when vr_desc is const char */
+    bool_t                  vr_is_const : 1;  /* True on immutable "variables" */
 };
 
 /* To properly handle both file and string sources, we
   must have to create an abstraction for the Lexical Analyzer*/
 struct akl_io_device {
-    device_type_t iod_type;
+    device_type_t     iod_type;
     union {
         FILE         *file;
         const char   *string;
@@ -223,6 +241,7 @@ struct akl_io_device {
     unsigned int      iod_column;
 };
 
+/* Stack frame information */
 struct akl_frame {
     unsigned int af_begin;
     unsigned int af_end;
@@ -254,10 +273,11 @@ void akl_dump_ir(struct akl_context *, struct akl_function *);
 void akl_clear_ir(struct akl_context *);
 void akl_dump_stack(struct akl_context *);
 
+/* User-definied value type */
 struct akl_utype {
-    const char         *ut_name;
-    akl_utype_t         ut_id;
-    akl_gc_destructor_t ut_de_fun; /* Destructor for the given type */
+    const char         *ut_name;   /* Name of this utype */
+    akl_utype_t         ut_id;     /* ID of this utype */
+    akl_gc_destructor_t ut_de_fun; /* Destructor function, called by the GC on finialization */
 };
 
 enum AKL_FUNCTION_TYPE {
@@ -268,7 +288,7 @@ enum AKL_FUNCTION_TYPE {
     AKL_FUNC_LAMBDA   /* User-defined lambdas */
 };
 
-/* Used for declaration */
+/* Used only for declaring functions implemented in C */
 struct akl_fun_decl {
     enum AKL_FUNCTION_TYPE fd_type;
     union {
@@ -380,20 +400,22 @@ struct akl_function {
         /* Bytecode lisp function */
         struct akl_lisp_fun    ufun;
         /* C function (normal form) */
-        akl_cfun_t         cfun;
+        akl_cfun_t             cfun;
         /* C function (special form) */
-        akl_sfun_t         scfun;
+        akl_sfun_t             scfun;
     } fn_body;
     /* Argument count */
 #define AKL_ARG_OPTIONAL -1
 #define AKL_ARG_REST     -2
 };
 
+void
+akl_call_sform(struct akl_context *, struct akl_symbol *, struct akl_function *);
 struct akl_value *
 akl_call_function_bound(struct akl_context *);
 /* The second argument is the function's own local context. */
 struct akl_value *
-akl_call_atom(struct akl_context *, struct akl_context *, struct akl_atom *, unsigned int);
+akl_call_symbol(struct akl_context *, struct akl_context *, struct akl_symbol *, unsigned int);
 struct akl_value *
 akl_call_function(struct akl_context *, struct akl_context *, const char *, unsigned int);
 
@@ -456,7 +478,7 @@ akl_nomem_action_t akl_def_nomem_handler(struct akl_state *);
 #define AKL_GC_NR_BASE_TYPES 6
 typedef enum {
        AKL_GC_VALUE = 0,
-       AKL_GC_ATOM,
+       AKL_GC_VARIABLE,
        AKL_GC_LIST,
        AKL_GC_LIST_ENTRY,
        AKL_GC_FUNCTION,
@@ -478,7 +500,8 @@ void   akl_set_mem_callbacks(struct akl_state *, const struct akl_mem_callbacks 
 struct akl_state {
     const struct akl_mem_callbacks *ai_mem_fn;
     struct akl_io_device           *ai_device;
-    RB_HEAD(ATOM_TREE, akl_atom)    ai_atom_head;
+    RB_HEAD(SYM_TREE, akl_symbol)   ai_symbols;
+    RB_HEAD(VAR_TREE, akl_variable) ai_global_vars;
     unsigned int                    ai_gc_malloc_size; /* Totally malloc()'d bytes */
     struct akl_vector               ai_gc_types;
 
@@ -507,10 +530,10 @@ struct akl_label *akl_new_labels(struct akl_context *, int);
 struct akl_label *akl_new_label(struct akl_context *);
 
 struct akl_label {
-    struct akl_list *la_ir;
+    struct akl_list       *la_ir;
     struct akl_list_entry *la_branch;
-    unsigned la_ind;
-    char *la_name; // Only used when assembling
+    unsigned               la_ind;
+    char                  *la_name; // Only used when assembling
 };
 
 typedef enum {
@@ -521,9 +544,9 @@ typedef enum {
     AKL_IR_GET,
     AKL_IR_SET,
     AKL_IR_BRANCH,
-    AKL_IR_JMP, /* Unconditional jump */
-    AKL_IR_JT,  /* Jump if true */
-    AKL_IR_JN,   /* Jump if false, (not true, nil) */
+    AKL_IR_JMP,    /* Unconditional jump */
+    AKL_IR_JT,     /* Jump if true */
+    AKL_IR_JN,     /* Jump if false, (not true, nil) */
     AKL_IR_HEAD,
     AKL_IR_TAIL,
     AKL_IR_RET
@@ -539,50 +562,81 @@ typedef enum {
 } akl_jump_t;
 
 struct akl_ir_instruction {
-    akl_ir_instruction_t in_op;
-    char        *in_str; /* Name of something (the function's for call,
-                           the atom's for get and set) */
+    akl_ir_instruction_t     in_op;  /* Operation */
+    /* Optional (used if the function already resolved) */
+    struct akl_function     *in_fun;
     union {
-        struct akl_value    *value;
-        struct akl_atom     *atom;
-        struct akl_label    *label;
-        unsigned int         ui_num;
+        struct akl_value    *value;  /* Generic value (mostly used by push) */
+        struct akl_symbol   *symbol; /* Name of the variable of function    */
+        struct akl_label    *label;  /* Label for the next instruction      */
+        unsigned int         ui_num; /* Stack pointer or argument count     */
     } in_arg[2];
-    struct akl_lex_info *in_linfo;
+    struct akl_lex_info     *in_linfo; /* Lexical information of this instruction */
 };
 
 void akl_compile_list(struct akl_context *);
 void akl_build_branch(struct akl_context *, struct akl_label *, struct akl_label *);
 void akl_build_jump(struct akl_context *, akl_jump_t, struct akl_label *);
-void akl_build_call(struct akl_context *, struct akl_atom *, int);
-void akl_build_set(struct akl_context *, char *, struct akl_value *);
-void akl_build_get(struct akl_context *, char *);
-void akl_build_load(struct akl_context *, char *);
+/* Call by symbol or function */
+void akl_build_call(struct akl_context *, struct akl_symbol *, struct akl_function *, int);
+void akl_build_set(struct akl_context *, struct akl_symbol *, struct akl_value *);
+void akl_build_get(struct akl_context *, struct akl_symbol *);
+void akl_build_load(struct akl_context *, struct akl_symbol *);
 void akl_build_push(struct akl_context *, struct akl_value *);
 void akl_build_nop(struct akl_context *);
 void akl_build_ret(struct akl_context *);
 
-static inline int cmp_atom(struct akl_atom *f, struct akl_atom *s)
+/* Helper functions for the Red-Black trees */
+
+/* Order symbols by name. You can compare
+ * symbols by their address.
+ * XXX: Used by the tree builder functions.
+*/
+static inline int
+akl_rb_cmp_sym(struct akl_symbol *f, struct akl_symbol *s)
 {
-    return strcasecmp(f->at_name, s->at_name);
+    return strcasecmp(f->sb_name, s->sb_name);
 }
 
-RB_PROTOTYPE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
+/* Order global variables, by the symbol's address  */
+static inline int
+akl_rb_cmp_var(struct akl_variable *f, struct akl_variable *s)
+{
+    return akl_rb_cmp_sym(f->vr_symbol, f->vr_symbol);
+#if 0
+    if (f->vr_symbol == s->vr_symbol) {
+        return 0;
+    } else if (f->vr_symbol < s->vr_symbol) {
+        return -1;
+    } else {
+        return 1;
+    }
+#endif
+}
 
+/* Generate prototypes for the Red-Black trees */
+RB_PROTOTYPE(SYM_TREE, akl_symbol,   sb_entry, akl_rb_cmp_sym);
+RB_PROTOTYPE(VAR_TREE, akl_variable, vr_entry, akl_rb_cmp_var);
+
+struct akl_variable *akl_set_global_var(struct akl_state *s, struct akl_symbol *
+                        , char *desc, bool_t is_cdesc
+                        , struct akl_value *v);
+struct akl_variable *akl_set_global_variable(struct akl_state *s
+                        , char *name, bool_t is_cname
+                        , char *desc, bool_t is_cdesc
+                        , struct akl_value *v);
 void   akl_add_global_cfun(struct akl_state *, akl_cfun_t, const char *, const char *);
 void   akl_add_global_sfun(struct akl_state *, akl_sfun_t, const char *, const char *);
 void   akl_remove_function(struct akl_state *, akl_cfun_t);
-struct akl_atom *
-akl_get_global_atom(struct akl_state *, const char *);
-struct akl_atom *
-akl_add_global_atom(struct akl_state *, struct akl_atom *);
-struct akl_atom *
-akl_add_global_variable(struct akl_state *s, const char *name, const char *desc, struct akl_value *v);
-void   akl_do_on_all_atoms(struct akl_state *, void (*fn)(struct akl_atom *));
-void   akl_remove_global_atom(struct akl_state *, struct akl_atom *);
-bool_t akl_is_equal_with(struct akl_atom *, const char **);
-bool_t akl_atom_is_function(struct akl_atom *);
-bool_t akl_atom_is_symbol(struct akl_atom *);
+struct akl_variable *
+akl_find_global_var(struct akl_state *, const struct akl_symbol *);
+struct akl_variable *
+akl_get_global_variable(struct akl_state *, const char *);
+struct akl_variable *
+akl_get_global_var(struct akl_state *s, const struct akl_symbol *sym);
+void   akl_do_on_all_vars(struct akl_state *, void (*fn)(struct akl_variable *));
+bool_t akl_is_strings_include(struct akl_symbol *, const char **);
+bool_t akl_var_is_function(struct akl_variable *);
 
 #define AKL_LIST_FIRST(list) ((list != NULL) ? (list)->li_head : NULL)
 #define AKL_LIST_LAST(list) ((list != NULL) ? (list)->li_last : NULL)
@@ -709,7 +763,8 @@ struct akl_function   *akl_new_function(struct akl_state *);
 struct akl_value      *akl_new_function_value(struct akl_state *, struct akl_function *);
 void                   akl_init_list(struct akl_list *);
 struct akl_list       *akl_new_list(struct akl_state *);
-struct akl_atom       *akl_new_atom(struct akl_state *, char *);
+struct akl_variable   *akl_new_variable(struct akl_state *, char *, bool_t);
+struct akl_variable   *akl_new_var(struct akl_state *, struct akl_symbol *);
 struct akl_list_entry *akl_new_list_entry(struct akl_state *);
 struct akl_value      *akl_new_value(struct akl_state *);
 struct akl_value      *akl_new_nil_value(struct akl_state *s);
@@ -717,7 +772,8 @@ struct akl_value      *akl_new_true_value(struct akl_state *s);
 struct akl_value      *akl_new_string_value(struct akl_state *, char *);
 struct akl_value      *akl_new_number_value(struct akl_state *, double);
 struct akl_value      *akl_new_list_value(struct akl_state *, struct akl_list *);
-struct akl_value      *akl_new_atom_value(struct akl_state *, char *);
+struct akl_value      *akl_new_symbol_value(struct akl_state *, char *, bool_t);
+struct akl_value      *akl_new_variable_value(struct akl_state *, char *, bool_t);
 struct akl_value      *akl_new_user_value(struct akl_state *, akl_utype_t, void *);
 struct akl_lex_info   *akl_new_lex_info(struct akl_state *, struct akl_io_device *);
 
@@ -728,7 +784,6 @@ struct akl_lex_info   *akl_new_lex_info(struct akl_state *, struct akl_io_device
 #define AKL_LIST(ctx, l)     ((ctx && ctx->cx_state) ? akl_new_list_value(ctx->cx_state, l)     : NULL)
 
 /* GC functions */
-
 void   akl_gc_init(struct akl_state *);
 akl_gc_type_t akl_gc_register_type(struct akl_state *, akl_gc_marker_t, size_t);
 //void akl_gc_deregister_type(struct akl_state *, akl_gc_type_t);
@@ -753,7 +808,6 @@ struct akl_value *akl_to_atom(struct akl_state *, struct akl_value *);
 struct akl_value *akl_to_symbol(struct akl_state *, struct akl_value *);
 
 akl_utype_t akl_get_utype_value(struct akl_value *);
-char       *akl_get_atom_name_value(struct akl_value *);
 void       *akl_get_udata_value(struct akl_value *);
 struct      akl_userdata *akl_get_userdata_value(struct akl_value *);
 bool_t      akl_check_user_type(struct akl_value *, akl_utype_t);
@@ -773,7 +827,7 @@ struct akl_value *akl_list_shift(struct akl_list *);
 unsigned int akl_list_count(struct akl_list *);
 
 struct akl_value *akl_list_index_value(struct akl_list *, int);
-void *akl_list_last(struct akl_list *);
+void  *akl_list_last(struct akl_list *);
 bool_t akl_list_is_empty(struct akl_list *);
 struct akl_list_entry *akl_list_index(struct akl_list *, int);
 struct akl_list_entry *akl_list_find(struct akl_list *, akl_cmp_fn_t, void *, unsigned int *);
@@ -785,7 +839,7 @@ struct akl_list_entry *
        akl_list_remove(struct akl_list *, akl_cmp_fn_t, void *);
 struct akl_value *akl_duplicate_value(struct akl_state *, struct akl_value *);
 struct akl_list *akl_list_duplicate(struct akl_state *, struct akl_list *);
-void *akl_list_pop(struct akl_list *);
+void  *akl_list_pop(struct akl_list *);
 
 int    akl_io_getc(struct akl_io_device *);
 int    akl_io_ungetc(int, struct akl_io_device *);
@@ -806,8 +860,8 @@ enum AKL_ALERT_TYPE {
 
 struct akl_error {
     struct akl_lex_info *err_info;
-    enum AKL_ALERT_TYPE err_type;
-    const char *err_msg;
+    enum AKL_ALERT_TYPE  err_type;
+    const char          *err_msg;
 };
 
 void akl_raise_error(struct akl_context *, enum AKL_ALERT_TYPE, const char *fmt, ...);
@@ -816,8 +870,10 @@ void akl_print_errors(struct akl_state *);
 
 /* Create a new user type and register it for the interpreter. The returned
   integer will identify this new type. */
-unsigned int akl_register_type(struct akl_state *, const char *, akl_gc_destructor_t);
-void akl_deregister_type(struct akl_state *, unsigned int);
+unsigned int
+akl_register_type(struct akl_state *, const char *, akl_gc_destructor_t);
+void
+akl_deregister_type(struct akl_state *, unsigned int);
 
 enum AKL_INIT_FLAGS {
     AKL_LIB_BASIC       = 0x001,
@@ -869,7 +925,7 @@ void akl_free_module(struct akl_state *, struct akl_module *);
     struct akl_value * AKL_CAT(AKL_CFUN_PREFIX, fname)(struct akl_context * ctx, int argc)
 
 #define AKL_DEFINE_SFUN(fname, ctx) \
-    static void AKL_CAT(AKL_SFUN_PREFIX, fname)(struct akl_context * ctx)
+    struct akl_value * AKL_CAT(AKL_SFUN_PREFIX, fname)(struct akl_context * ctx)
 
 #define AKL_DECLARE_FUNS(vname) \
     static const struct akl_fun_decl vname[] =

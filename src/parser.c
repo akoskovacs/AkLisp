@@ -34,6 +34,13 @@ akl_parse_token(struct akl_context *ctx, akl_token_t tok, bool_t is_quoted)
 {
     struct akl_value *value = NULL;
     struct akl_list *l = NULL;
+    struct akl_state *s;
+    struct akl_io_device *dev;
+    AKL_ASSERT(ctx, NULL);
+
+    s   = ctx->cx_state;
+    dev = ctx->cx_dev;
+
     switch (tok) {
         case tEOF:
         akl_lex_free(ctx->cx_dev);
@@ -41,15 +48,21 @@ akl_parse_token(struct akl_context *ctx, akl_token_t tok, bool_t is_quoted)
         return NULL;
 
         case tATOM:
-        value = akl_new_atom_value(ctx->cx_state, akl_lex_get_atom(ctx->cx_dev));
+        /* If the atom is quoted, like :symbol, or 'symbol we have to point to an akl_symbol.
+           Otherwise, it's a variable. */
+        if (is_quoted) {
+            value = akl_new_symbol_value(s, akl_lex_get_atom(dev), FALSE);
+        } else {
+            value = akl_new_variable_value(s, akl_lex_get_atom(dev), FALSE);
+        }
         break;
 
         case tNUMBER:
-        value = akl_new_number_value(ctx->cx_state, akl_lex_get_number(ctx->cx_dev));
+        value = AKL_NUMBER(ctx, akl_lex_get_number(dev));
         break;
 
         case tSTRING:
-        value = akl_new_string_value(ctx->cx_state, akl_lex_get_string(ctx->cx_dev));
+        value = AKL_STRING(ctx, akl_lex_get_string(dev));
         break;
 
         /* We should care only about quoted lists */
@@ -98,7 +111,7 @@ struct akl_list *akl_parse_list(struct akl_context *ctx)
     while ((value = akl_parse_value(ctx)) != NULL) {
 
         /* If the next value is a list, reparent it... */
-        if (AKL_CHECK_TYPE(value, TYPE_LIST)) {
+        if (AKL_CHECK_TYPE(value, AKL_VT_LIST)) {
             lval = AKL_GET_LIST_VALUE(value);
             lval->li_parent = list;
         }
@@ -138,7 +151,7 @@ const char *akl_ir_instruction_set[] = {
   , "ret"  , NULL
 };
 
-#define AKL_ASSEMBLER
+//#define AKL_ASSEMBLER
 #ifdef AKL_ASSEMBLER
 
 /* Parses '.loop_1:' labels */
@@ -280,7 +293,7 @@ void akl_asm_parse_instr(struct akl_context *ctx)
 
             }
         }
-        atom = akl_new_atom(s, fname); 
+        atom = akl_new_variable(s, fname);
         break;
 
         case AKL_IR_GET:
@@ -305,7 +318,7 @@ void akl_asm_parse_func(struct akl_context *ctx)
     struct akl_state *s = ctx->cx_state;
     struct akl_io_device *dev = ctx->cx_dev;
 
-    struct akl_atom *atom = akl_new_atom(s, akl_lex_get_atom(dev));
+    struct akl_atom *atom = akl_new_variable(s, akl_lex_get_atom(dev));
     struct akl_function *fn = akl_new_function(s);
 
     fn->fn_type = AKL_FUNC_USER;
@@ -346,7 +359,6 @@ void akl_asm_parse(struct akl_context *ctx)
 void akl_asm_parse_instr(struct akl_context *ctx) {}
 void akl_asm_parse_decl(struct akl_context *ctx) {}
 void akl_asm_parse_func(struct akl_context *ctx) {}
-void akl_asm_parse_instr(struct akl_context *ctx) {}
 #endif // AKL_ASSEMBLY
 
 #if 0

@@ -39,6 +39,7 @@ AKL_DEFINE_SFUN(when, ctx)
     akl_build_jump(ctx, AKL_JMP_FALSE, label+0);
     akl_build_label(ctx, label+0);
     akl_compile_next(ctx);
+    return NULL;
 }
 
 AKL_DEFINE_SFUN(set, ctx)
@@ -54,6 +55,7 @@ AKL_DEFINE_SFUN(set, ctx)
         return;
     }
     vname = akl_lex_get_atom(dev);
+    return NULL;
 }
 
 AKL_DEFINE_SFUN(sif, ctx)
@@ -77,6 +79,7 @@ AKL_DEFINE_SFUN(sif, ctx)
 
     /* .L2: Continue... */
     akl_build_label(ctx, label+2);
+    return NULL;
 }
 
 AKL_DEFINE_SFUN(swhile, ctx)
@@ -99,6 +102,7 @@ AKL_DEFINE_SFUN(swhile, ctx)
 
     /* .L1: Getting out of the loop... */
     akl_build_label(ctx, label+2);
+    return NULL;
 }
 
 char **akl_parse_params(struct akl_context *ctx, const char *fname)
@@ -147,15 +151,16 @@ AKL_DEFINE_SFUN(defun, ctx)
     akl_token_t tok;
     struct akl_function *func = akl_new_function(ctx->cx_state);
     struct akl_value *fval = akl_new_function_value(ctx->cx_state, func);
-    struct akl_atom *fatm;
+    struct akl_symbol *fsym;
+    struct akl_variable *fvar;
 
     func->fn_type = AKL_FUNC_USER;
     ufun = &func->fn_body.ufun;
     akl_init_list(&ufun->uf_body);
 
     if (akl_lex(ctx->cx_dev) == tATOM) {
-        fatm = akl_new_atom(ctx->cx_state, akl_lex_get_atom(ctx->cx_dev));
-        fatm->at_value = fval;
+        fvar = akl_new_variable(ctx->cx_state, akl_lex_get_atom(ctx->cx_dev), FALSE);
+        fsym = fvar->vr_symbol;
     } else {
         /* TODO: Error! */
         akl_raise_error(ctx, AKL_ERROR, "Unexpected token, "
@@ -164,29 +169,29 @@ AKL_DEFINE_SFUN(defun, ctx)
     }
 
     ctx->cx_comp_func = func;
-    ufun->uf_args = akl_parse_params(ctx, fatm->at_name);
+    ufun->uf_args = akl_parse_params(ctx, fsym->sb_name);
     ctx->cx_ir = &ufun->uf_body;
     /* Eat the next left brace and interpret the body... */
     tok = akl_lex(ctx->cx_dev);
     if (tok == tSTRING) {
-        fatm->at_desc = akl_lex_get_string(ctx->cx_dev);
-        fatm->at_is_cdef = FALSE;
+        fvar->vr_desc = akl_lex_get_string(ctx->cx_dev);
+        fvar->vr_is_cdesc = FALSE;
         tok = akl_lex(ctx->cx_dev);
     }
 
-    akl_add_global_atom(ctx->cx_state, fatm);
     if (tok == tLBRACE) {
         akl_compile_list(ctx);
     } else {
-        ; /* Todo: Error: no body */
-        akl_remove_global_atom(ctx->cx_state, fatm);
+        /* Todo: Error: no body */
+        //akl_remove_global_atom(ctx->cx_state, fatm);
     }
     akl_build_push(ctx, fval);
+    return NULL;
 }
 
 AKL_DECLARE_FUNS(akl_spec_forms) {
     AKL_SFUN(sif, "if", "Conditional expression"),
-    AKL_SFUN(when, "when", "Conditionally evaulate an expression"),
+    AKL_SFUN(when, "when", "Conditionally evaluate an expression"),
     AKL_SFUN(swhile, "while", "Conditional loop expression"),
     AKL_SFUN(defun, "defun!", "Define a new function"),
     AKL_END_FUNS()

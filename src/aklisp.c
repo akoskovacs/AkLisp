@@ -24,20 +24,18 @@
 
 #include <stdarg.h>
 
-static struct akl_atom *recent_value;
 static void akl_ir_exec_branch(struct akl_context *, struct akl_list_entry *);
 
-static void update_recent_value(struct akl_state *in, struct akl_value *val)
+static void update_recent_value(struct akl_state *s, struct akl_value *val)
 {
-    if (!recent_value) {
-        recent_value = akl_new_atom(in, "$?");
-        recent_value->at_desc = "Previously returned value";
-        recent_value->at_is_const = TRUE;
-        akl_add_global_atom(in, recent_value);
-        AKL_GC_SET_STATIC(recent_value);
+    static struct akl_variable *recent_var = NULL;
+    if (!recent_var) {
+        recent_var = akl_set_global_variable(s,  AKL_CSTR("$?")
+            , AKL_CSTR("Previously returned value"), val);
+        AKL_GC_SET_STATIC(recent_var);
     }
-    /* Update $? */
-    recent_value->at_value = val;
+    /* Update '$?' with the recently used value */
+    recent_var->vr_value = val;
 }
 
 /* ~~~===### Stack handling ###===~~~ */
@@ -179,7 +177,7 @@ akl_frame_top(struct akl_context *ctx)
 double *akl_frame_pop_number(struct akl_context *ctx)
 {
     struct akl_value *v = akl_frame_pop(ctx);
-    if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
+    if (AKL_CHECK_TYPE(v, AKL_VT_NUMBER)) {
         return &v->va_value.number;
     }
 //    akl_frame_push(ctx, v);
@@ -201,7 +199,7 @@ struct akl_list *akl_frame_pop_list(struct akl_context *ctx)
 enum AKL_VALUE_TYPE akl_stack_top_type(struct akl_context *ctx)
 {
     struct akl_value *v = akl_frame_pop(ctx);
-    return (v) ? v->va_type : TYPE_NIL;
+    return (v) ? v->va_type : AKL_VT_NIL;
 }
 
 int akl_get_args(struct akl_context *ctx, int argc, ...)
@@ -244,7 +242,7 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
     va_list ap;
     int cnt = 1;
 
-    struct akl_atom **atom; struct akl_function **fun; struct akl_userdata **udata;
+    struct akl_symbol **sym; struct akl_function **fun; struct akl_userdata **udata;
     struct akl_list **list; double *num; bool_t *b; char **str;
 
     if (argc != akl_frame_get_count(ctx)) {
@@ -266,7 +264,7 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
         }
         /* The expected type must be the same with the current type,
             unless if that is a nil or a true */
-        if ((t != TYPE_NIL || t != TYPE_TRUE) && t != vp->va_type) {
+        if ((t != AKL_VT_NIL || t != AKL_VT_TRUE) && t != vp->va_type) {
             ctx->cx_lex_info = vp->va_lex_info;
             akl_raise_error(ctx, AKL_ERROR, "%s: Expected %s but got %s"
                 , ctx->cx_func_name, akl_type_name[t], akl_type_name[vp->va_type]);
@@ -274,42 +272,42 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
         }
         /* Set the caller's pointer to the right value (with the right type) */
         switch (t) {
-            case TYPE_ATOM:
-            atom = va_arg(ap, struct akl_atom **);
-            *atom = AKL_GET_ATOM_VALUE(vp);
+            case AKL_VT_SYMBOL:
+            sym = va_arg(ap, struct akl_symbol **);
+            *sym = vp->va_value.symbol;
             break;
 
-            case TYPE_FUNCTION:
+            case AKL_VT_FUNCTION:
             fun = va_arg(ap, struct akl_function **);
             *fun = vp->va_value.func;
             break;
 
-            case TYPE_LIST:
+            case AKL_VT_LIST:
             list = va_arg(ap, struct akl_list **);
             *list = AKL_GET_LIST_VALUE(vp);
             break;
 
-            case TYPE_USERDATA:
+            case AKL_VT_USERDATA:
             udata = va_arg(ap, struct akl_userdata **);
             *udata = akl_get_userdata_value(vp);
             break;
 
-            case TYPE_NUMBER:
+            case AKL_VT_NUMBER:
             num = va_arg(ap, double *);
             *num = AKL_GET_NUMBER_VALUE(vp);
             break;
 
-            case TYPE_STRING:
+            case AKL_VT_STRING:
             str = va_arg(ap, char **);
             *str = AKL_GET_STRING_VALUE(vp);
             break;
 
-            case TYPE_NIL:
+            case AKL_VT_NIL:
             b = va_arg(ap, bool_t *);
             *b = AKL_IS_NIL(vp) ? TRUE : FALSE;
             break;
 
-            case TYPE_TRUE:
+            case AKL_VT_TRUE:
             b = va_arg(ap, bool_t *);
             *b = AKL_IS_NIL(vp) ? FALSE : TRUE;
             break;
@@ -333,6 +331,14 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
         akl_frame_init(ctx, &cx->cx_uframe, argc);\
     }
 
+struct akl_context *
+akl_bound_function(struct akl_context *cx, struct akl_symbol *sym
+                   , struct akl_function *fn)
+{
+    return cx;
+}
+
+/* XXX: Use this function with care. */
 struct akl_value *akl_call_function_bound(struct akl_context *cx)
 {
     assert(cx);
@@ -372,36 +378,53 @@ struct akl_value *akl_call_function_bound(struct akl_context *cx)
     return value;
 }
 
-struct akl_value *akl_call_atom(struct akl_context *ctx, struct akl_context *cx
-					, struct akl_atom *atm, unsigned int argc)
+struct akl_value *akl_call_symbol(struct akl_context *ctx, struct akl_context *cx
+					, struct akl_symbol *sym, unsigned int argc)
 {
-    assert(ctx && atm && atm->at_name);
-    struct akl_value *v;
+    assert(ctx && sym);
+    struct akl_variable *v;
+    struct akl_value *val;
     CTX_USE_OR_CREATE(ctx, cx, argc);
-    if (atm == NULL || atm->at_name == NULL || atm->at_value == NULL) {
-        akl_raise_error(ctx, AKL_ERROR, "Function \'%s\' is not found", atm->at_name);
+    if (sym == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "Function \'%s\' is not found", sym->sb_name);
         return NULL;
     }
 
-    cx->cx_func_name = atm->at_name;
-    v = atm->at_value;
-    if (!akl_atom_is_function(atm) || v == NULL) {
-        akl_raise_error(ctx, AKL_ERROR, "Atom \'%s\' is not a function", atm->at_name);
+    cx->cx_func_name = sym->sb_name;
+    v = akl_get_global_var(ctx->cx_state, sym);
+    if (v == NULL || !akl_var_is_function(v)) {
+        akl_raise_error(ctx, AKL_ERROR, "Varibale \'%s\' is not a function", sym->sb_name);
         return NULL;
     }
-
-    cx->cx_func = v->va_value.func;
+    val = v->vr_value;
+    cx->cx_func = (val != NULL) ? val->va_value.func : NULL;
 
     return akl_call_function_bound(cx);
 }
 
-struct akl_value *akl_call_function(struct akl_context *ctx, struct akl_context *cx
-                                    , const char *fname, unsigned int argc)
+void
+akl_call_sform(struct akl_context *ctx, struct akl_symbol *fsym
+               , struct akl_function *sform)
+{
+    struct akl_context cx;
+    akl_init_context(&cx);
+    cx = *ctx;
+    if (fsym != NULL) {
+        cx.cx_func_name = fsym->sb_name;
+    }
+    cx.cx_func   = sform;
+    cx.cx_parent = ctx;
+    sform->fn_body.scfun(&cx);
+}
+
+struct akl_value *
+akl_call_function(struct akl_context *ctx, struct akl_context *cx
+                            , const char *fname, unsigned int argc)
 {
     assert(ctx && fname);
-    struct akl_atom *atm = akl_get_global_atom(cx->cx_state, fname);
+    struct akl_symbol *sym = akl_get_symbol(ctx->cx_state, (char *)fname);
     CTX_USE_OR_CREATE(ctx, cx, argc);
-    return akl_call_atom(ctx, cx, atm, argc);
+    return akl_call_symbol(ctx, cx, sym, argc);
 }
 
 #define MOVE_IP(ip) ((ip) = AKL_LIST_NEXT(ip))
@@ -409,17 +432,20 @@ struct akl_value *akl_call_function(struct akl_context *ctx, struct akl_context 
         if ((ent) == (ent)->le_next) { \
             fprintf(stderr, "Error, loop in %s()!\n", __func__); \
             return;\
-        } \
+        }
+#define OPERAND(ind, name) (in)->in_arg[ind].name
 
 static void
 akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
 {
-    struct akl_list *ir = ctx->cx_ir;
-    struct akl_state *s = ctx->cx_state;
+    struct akl_list  *ir = ctx->cx_ir;
+    struct akl_state *s  = ctx->cx_state;
+
     struct akl_label *lt, *ln;
     struct akl_ir_instruction *in;
     struct akl_value *v, *lv;
-    struct akl_atom *a;
+    struct akl_variable *var;
+    struct akl_symbol *sym;
 
     if (ir == NULL || ip == NULL)
         return;
@@ -428,75 +454,80 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
         in = (struct akl_ir_instruction *)ip->le_data;
         LOOP_WATCHDOG(ip);
         switch (in->in_op) {
-            case AKL_IR_NOP:
+        case AKL_IR_NOP:
             MOVE_IP(ip);
-            break;
+        break;
 
-            case AKL_IR_SET:
-            akl_add_global_variable(s, in->in_str, NULL, in->in_arg[0].value);
+        case AKL_IR_SET:
+            akl_set_global_var(s, OPERAND(0, symbol), NULL, TRUE, OPERAND(1, value));
             MOVE_IP(ip);
-            break;
+        break;
 
-            case AKL_IR_GET:
-            a = akl_get_global_atom(s, in->in_str);
-            if (!a || !a->at_name) {
-                akl_raise_error(ctx, AKL_ERROR, "Variable '%s' is undefined", in->in_str);
+        case AKL_IR_GET:
+            sym = OPERAND(0, symbol);
+            var = akl_get_global_var(s, sym);
+            if (!var) {
+                akl_raise_error(ctx, AKL_ERROR, "Variable '%s' is undefined", sym->sb_name);
                 akl_stack_push(s, akl_new_nil_value(s));
             } else {
-                akl_stack_push(s, a->at_value);
+                akl_stack_push(s, var->vr_value);
             }
             MOVE_IP(ip);
-            break;
+        break;
 
-            case AKL_IR_PUSH:
-            if (in->in_arg[0].value == NULL) {
+        case AKL_IR_PUSH:
+            if (OPERAND(0, value) == NULL) {
                 akl_raise_error(ctx, AKL_WARNING, "Interpreter error: NULL pushed to stack");
                 return;
             }
-            akl_stack_push(s, in->in_arg[0].value);
+            akl_stack_push(s, OPERAND(0, value));
             MOVE_IP(ip);
-            break;
+        break;
 
-            case AKL_IR_LOAD:
+        case AKL_IR_LOAD:
             /* TODO: Error if ui_num < 0 */
-            v = akl_frame_at(ctx, in->in_arg[0].ui_num);
+            v = akl_frame_at(ctx, OPERAND(0, ui_num));
             if (v)
                 akl_stack_push(s, v);
             MOVE_IP(ip);
-            break;
+        break;
 
-            case AKL_IR_CALL:
+        case AKL_IR_CALL:
             ctx->cx_lex_info = in->in_linfo;
-            akl_call_atom(ctx, NULL, in->in_arg[0].atom, in->in_arg[1].ui_num);
+            if (in->in_fun) {
+                akl_call_function_bound(akl_bound_function(ctx, OPERAND(0, symbol), in->in_fun));
+            } else {
+                akl_call_symbol(ctx, NULL, OPERAND(0, symbol), OPERAND(1, ui_num));
+            }
             MOVE_IP(ip);
-            break;
+        break;
 
-            case AKL_IR_HEAD:
+        case AKL_IR_HEAD:
             v = akl_frame_at(ctx, in->in_arg[0].ui_num);
             if (v) {
                 akl_stack_push(s, akl_car(AKL_GET_LIST_VALUE(v)));
             }
             MOVE_IP(ip);
-            break;
+        break;
 
-            case AKL_IR_TAIL:
-            v = akl_frame_at(ctx, in->in_arg[0].ui_num);
+        case AKL_IR_TAIL:
+            v = akl_frame_at(ctx, OPERAND(0, ui_num));
             if (v) {
                 lv = akl_new_list_value(ctx->cx_state
                         , akl_cdr(ctx->cx_state, AKL_GET_LIST_VALUE(v)));
                 akl_stack_push(s, lv);
             }
             MOVE_IP(ip);
-            break;
+        break;
 
-            case AKL_IR_JMP:
-            lt = in->in_arg[0].label;
+        case AKL_IR_JMP:
+            lt = OPERAND(0, label);
             ir = lt->la_ir;
             ip = lt->la_branch;
-            break;
+        break;
 
-            case AKL_IR_JT:
-            lt = in->in_arg[0].label;
+        case AKL_IR_JT:
+            lt = OPERAND(0, label);
             v = akl_frame_top(ctx);
             /* TODO: Error on other types */
             if (AKL_IS_TRUE(v)) {
@@ -504,10 +535,10 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
                 ir = lt->la_ir;
                 ip = lt->la_branch;
             }
-            break;
+        break;
 
-            case AKL_IR_JN:
-            ln = in->in_arg[0].label;
+        case AKL_IR_JN:
+            ln = OPERAND(0, label);
             v = akl_frame_top(ctx);
             /* TODO: Error on other types */
             if (AKL_IS_NIL(v)) {
@@ -515,9 +546,9 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
                 ir = ln->la_ir;
                 ip = ln->la_branch;
             }
-            break;
+        break;
 
-            case AKL_IR_BRANCH:
+        case AKL_IR_BRANCH:
             lt = in->in_arg[0].label;
             ln = in->in_arg[1].label;
             v = akl_frame_pop(ctx);
@@ -529,32 +560,32 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
                 ir = lt->la_ir;
                 ip = lt->la_branch;
             }
-            break;
+        break;
 
-            case AKL_IR_RET:
+        case AKL_IR_RET:
             /* TODO */
             MOVE_IP(ip);
-            break;
+        break;
 
-            default:
+        default:
             akl_raise_error(ctx, AKL_ERROR, "Unkown instruction '%#x'", in->in_op);
-            return;
+        return;
         }
     }
 }
 
 #define DUMP_JMP(jname, in) \
     printf("%s .L%d", jname  \
-    , (in)->in_arg[0].label->la_ind);
+    , OPERAND(0, label)->la_ind);
 
 void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
 {
     struct akl_list *ir;
     struct akl_list_entry *ent;
     struct akl_ir_instruction *in;
-    struct akl_atom *atom;
     struct akl_label *l = NULL;
     struct akl_lisp_fun *uf = NULL;
+    struct akl_symbol *sym;
     int lind = 0;
 
     if (fun->fn_type == AKL_FUNC_CFUN 
@@ -590,11 +621,11 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
             break;
 
             case AKL_IR_CALL:
-            atom = in->in_arg[0].atom;
-            if (atom == NULL || atom->at_name == NULL)
+            sym = OPERAND(0, symbol);
+            if (sym == NULL || sym->sb_name == NULL)
                 break;
 
-            printf("call %s, %d", atom->at_name, in->in_arg[1].ui_num);
+            printf("call %s, %d", sym->sb_name, OPERAND(1, ui_num));
             break;
 
             case AKL_IR_JMP:
@@ -610,34 +641,33 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
             break;
 
             case AKL_IR_BRANCH:
-            printf("br .L%d, .L%d", in->in_arg[0].label->la_ind
-                , in->in_arg[1].label->la_ind);
+            printf("br .L%d, .L%d", OPERAND(0, label)->la_ind, OPERAND(1, label)->la_ind);
             break;
 
             case AKL_IR_LOAD:
-            printf("load %%%d", in->in_arg[0].ui_num);
+            printf("load %%%d", OPERAND(0, ui_num));
             break;
 
             case AKL_IR_SET:
-            printf("set %s", in->in_str);
-            akl_print_value(ctx->cx_state, in->in_arg[0].value);
+            printf("set %s", OPERAND(0, symbol)->sb_name);
+            akl_print_value(ctx->cx_state, OPERAND(1, value));
             break;
 
             case AKL_IR_GET:
-            printf("get %s", in->in_str);
+            printf("get %s", OPERAND(0, symbol)->sb_name);
             break;
 
             case AKL_IR_PUSH:
             printf("push ");
-            akl_print_value(ctx->cx_state, in->in_arg[0].value);
+            akl_print_value(ctx->cx_state, OPERAND(0, value));
             break;
 
             case AKL_IR_HEAD:
-            printf("head %d", in->in_arg[0].ui_num);
+            printf("head %d", OPERAND(0, ui_num));
             break;
 
             case AKL_IR_TAIL:
-            printf("tail %d", in->in_arg[0].ui_num);
+            printf("tail %d", OPERAND(0, ui_num));
             break;
 
             case AKL_IR_RET:
@@ -727,33 +757,31 @@ int akl_compare_values(void *c1, void *c2)
     struct akl_value *v2 = (struct akl_value *)c2;
     if (v1->va_type == v2->va_type) {
         switch (v1->va_type) {
-            case TYPE_NUMBER:
+            case AKL_VT_NUMBER:
             return compare_numbers(AKL_GET_NUMBER_VALUE(v1)
                                    , AKL_GET_NUMBER_VALUE(v2));
 
-            case TYPE_STRING:
+            case AKL_VT_STRING:
             a = AKL_GET_STRING_VALUE(v1);
             b = AKL_GET_STRING_VALUE(v2);
             if (a == NULL || b == NULL)
                 return -1;
             return strcmp(a, b);
 
-            case TYPE_ATOM:
-            a = akl_get_atom_name_value(v1);
-            b = akl_get_atom_name_value(v2);
-            if (a == NULL || b == NULL)
-                return -1;
-            return strcasecmp(a, b);
+            case AKL_VT_SYMBOL:
+            /* Symbols only differ by their pointers */
+            return compare_numbers((unsigned long)v1->va_value.symbol
+                                   , (unsigned long)v1->va_value.symbol);
 
-            case TYPE_USERDATA:
+            case AKL_VT_USERDATA:
             /* TODO: userdata compare function */
             return compare_numbers(akl_get_utype_value(v1)
                                    , akl_get_utype_value(v2));
 
-            case TYPE_NIL:
+            case AKL_VT_NIL:
             return 0;
 
-            case TYPE_TRUE:
+            case AKL_VT_TRUE:
             return 0;
 
             default:
