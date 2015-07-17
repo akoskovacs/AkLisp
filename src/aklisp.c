@@ -332,10 +332,13 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
     }
 
 struct akl_context *
-akl_bound_function(struct akl_context *cx, struct akl_symbol *sym
+akl_bound_function(struct akl_context *ctx, struct akl_symbol *sym
                    , struct akl_function *fn)
 {
-    return cx;
+    static struct akl_context cx;
+    cx.cx_func = fn;
+    cx.cx_func_name = sym->sb_name;
+    return &cx;
 }
 
 /* XXX: Use this function with care. */
@@ -495,8 +498,8 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
         case AKL_IR_CALL:
             ctx->cx_lex_info = in->in_linfo;
             if (in->in_fun) {
-                akl_call_function_bound(akl_bound_function(ctx, OPERAND(0, symbol), in->in_fun));
-            } else {
+            //    akl_call_function_bound(akl_bound_function(ctx, OPERAND(0, symbol), in->in_fun));
+            //} else {
                 akl_call_symbol(ctx, NULL, OPERAND(0, symbol), OPERAND(1, ui_num));
             }
             MOVE_IP(ip);

@@ -36,8 +36,8 @@ set_global(struct akl_state *s, char *desc, bool_t is_cdesc
     var->vr_desc     = desc;
     var->vr_is_cdesc = is_cdesc;
 
-    struct akl_variable *v2= VAR_TREE_RB_INSERT(&s->ai_global_vars, var);
-    return v2;
+    VAR_TREE_RB_INSERT(&s->ai_global_vars, var);
+    return var;
 }
 
 struct akl_variable *

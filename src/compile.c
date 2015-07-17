@@ -234,6 +234,8 @@ void akl_compile_list(struct akl_context *cx)
                         /* Nothing more to do in this list. */
                         return;
                     }
+                } else if (pf_st == PF_FN_NORMAL) {
+                    sym = v->va_value.symbol;
                 } else if (pf_st == PF_FN_NOT_FOUND) {
                     /* No global functions with this name, try to resolve it later. */
                     sym = akl_new_symbol(s, akl_lex_get_atom(dev), FALSE);
