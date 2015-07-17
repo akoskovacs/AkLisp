@@ -32,8 +32,17 @@
 #include <stdarg.h>
 #include "akl_tree.h"
 
-#define AKL_MALLOC(s, type) (type *)akl_alloc(s, sizeof(type))
-#define AKL_FREE(s, obj) akl_free(s, (void *)obj, sizeof *obj)
+#ifndef AKL_MALLOC
+# define AKL_MALLOC(s, type) (type *)akl_alloc(s, sizeof(type))
+#endif // AKL_MALLOC
+
+#ifndef AKL_FREE
+# define AKL_FREE(s, obj) akl_free(s, (void *)obj, sizeof *obj)
+#endif // AKL_FREE
+
+#ifndef AKL_STRDUP
+# define AKL_STRDUP(str) strdup(str);
+#endif // AKL_STRDUP
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
 #define AKL_TYPE(value) (value->va_type)
@@ -210,6 +219,7 @@ struct akl_symbol {
 
 struct akl_symbol *akl_new_symbol(struct akl_state *, char *, bool_t);
 struct akl_symbol *akl_get_symbol(struct akl_state *s, char *name);
+struct akl_symbol *akl_get_or_create_symbol(struct akl_state *s, char *name);
 
 struct akl_variable {
     AKL_GC_DEFINE_OBJ;
@@ -730,7 +740,7 @@ akl_asm_token_t akl_asm_lex(struct akl_io_device *);
 void    akl_lex_free(struct akl_io_device *);
 char   *akl_lex_get_string(struct akl_io_device *);
 double  akl_lex_get_number(struct akl_io_device *);
-char   *akl_lex_get_atom(struct akl_io_device *);
+struct akl_symbol *akl_lex_get_symbol(struct akl_io_device *);
 
 akl_token_t akl_compile_next(struct akl_context *);
 struct akl_value *

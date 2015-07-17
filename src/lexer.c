@@ -341,19 +341,18 @@ akl_asm_lex(struct akl_io_device *dev)
 
 char *akl_lex_get_string(struct akl_io_device *dev)
 {
-    char *str = strdup(dev->iod_buffer);
+    char *str = AKL_STRDUP(dev->iod_buffer);
     dev->iod_buffer[0] = '\0';
     return str;
-}
-
-char *akl_lex_get_atom(struct akl_io_device *dev)
-{
-    return akl_lex_get_string(dev);
 }
 
 struct akl_symbol *
 akl_lex_get_symbol(struct akl_io_device *dev)
 {
+    struct akl_symbol *sym;
+    sym = akl_get_or_create_symbol(dev->iod_state, dev->iod_buffer);
+    dev->iod_buffer[0] = '\0';
+    return sym;
 }
 
 double akl_lex_get_number(struct akl_io_device *dev)

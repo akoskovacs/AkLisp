@@ -146,24 +146,31 @@ akl_new_context(struct akl_state *s)
     return ctx;
 }
 
+static struct akl_symbol *
+get_or_create_symbol(struct akl_state *s, char *name) 
+{
+    struct akl_symbol *sym = akl_get_symbol(s, name);
+
+    if (sym == NULL) {
+        sym = AKL_MALLOC(s, struct akl_symbol);
+        if (sym) {
+            sym->sb_name    = NULL;
+            sym->sb_is_cdef = TRUE;
+            SYM_TREE_RB_INSERT(&s->ai_symbols, sym);
+        }
+    }
+    return sym;
+}
+
 struct akl_symbol *
 akl_new_symbol(struct akl_state *s, char *name, bool_t is_cname)
 {
-    struct akl_symbol *sym;
-    struct akl_symbol *nsym, *r;
-    sym = akl_get_symbol(s, name);
-
-    if (sym == NULL) {
-        nsym = AKL_MALLOC(s, struct akl_symbol);
-        if (nsym) {
-            /* If the string is a constant char array, no free() called. */
-            nsym->sb_is_cdef = is_cname;
-            nsym->sb_name    = name;
-            SYM_TREE_RB_INSERT(&s->ai_symbols, nsym);
-            sym = nsym;
-        } else {
-            sym = NULL;
-        }
+    struct akl_symbol *sym = get_or_create_symbol(s, name);
+    /* If the symbol already exsisted, no need to modifiy it's name */
+    if (sym != NULL && sym->sb_name != NULL) {
+        sym->sb_name    = name;
+        /* If the string is a constant char array, no free() called. */
+        sym->sb_is_cdef = is_cname;
     }
     return sym;
 }
@@ -175,6 +182,18 @@ akl_get_symbol(struct akl_state *s, char *name)
     sym.sb_name = name;
     sptr = SYM_TREE_RB_FIND(&s->ai_symbols, &sym);
     return sptr;
+}
+
+/* Only copies the string, when a new symbol is created */
+struct akl_symbol *
+akl_get_or_create_symbol(struct akl_state *s, char *name)
+{
+    struct akl_symbol *sym = get_or_create_symbol(s, name);
+    if (sym != NULL && sym->sb_name != NULL) {
+        sym->sb_name    = AKL_STRDUP(name);
+        sym->sb_is_cdef = FALSE;
+    }
+    return sym;
 }
 
 struct akl_variable *
