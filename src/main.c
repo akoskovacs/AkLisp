@@ -41,22 +41,22 @@ static struct akl_state state;
 static char *
 akl_generator(const char *text, int st)
 {
-    static struct akl_atom *atom;
+    static struct akl_symbol *sym;
     static size_t tlen = 0;
     /* If this is the first run, initialize the 'atom' with
       the first element of the red black tree. */
     if (!st) {
-        atom = RB_MIN(ATOM_TREE, &state.ai_atom_head);
+        sym = RB_MIN(SYM_TREE, &state.ai_symbols);
         tlen = strlen(text);
     } else {
-        atom = RB_NEXT(ATOM_TREE, &state.ai_atom_head, atom);
+        sym = RB_NEXT(SYM_TREE, &state.ai_symbols, sym);
     }
 
-    while (atom != NULL) {
-        if (strncasecmp(atom->at_name, text, tlen) == 0)
-            return strdup(atom->at_name);
+    while (sym != NULL) {
+        if (strncasecmp(sym->sb_name, text, tlen) == 0)
+            return strdup(sym->sb_name);
 
-        atom = RB_NEXT(ATOM_TREE, &state->ai_atom_head, atom);
+        sym = RB_NEXT(SYM_TREE, &state.ai_symbols, sym);
     }
     return NULL;
 }
@@ -181,7 +181,7 @@ static void cmd_parse_define(const char *opt)
     AKL_ASSERT(opt, AKL_NOTHING);
     var[0] = value[0] = '\0';
     sscanf(opt, "%63[A-Za-z_+-*]=%63[A-Za-z0-9 ]", var, value);
-    akl_add_global_variable(&state, var, NULL, akl_new_string_value(&state, value));
+    akl_set_global_variable(&state, var, FALSE, NULL, FALSE, akl_new_string_value(&state, value));
     printf("define %s as %s\n", var, value);
 }
 #endif // HAVE_GETOPT_H
@@ -299,10 +299,10 @@ int main(int argc, char* const* argv)
         }
         AKL_UNSET_FEATURE(&state, AKL_CFG_INTERACTIVE);
 
-        akl_add_global_variable(&state, "*args*", "The list of command-line arguments"
+        akl_set_global_variable(&state, AKL_CSTR("*args*"), AKL_CSTR("The list of command-line arguments")
             , akl_new_list_value(&state, &args));
 
-        akl_add_global_variable(&state, "*file*", "The current file"
+        akl_set_global_variable(&state, AKL_CSTR("*file*"), AKL_CSTR("The current file")
             , akl_new_string_value(&state, strdup(fname)));
 
         dev = akl_new_file_device(&state, fname, fp);

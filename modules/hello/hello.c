@@ -25,12 +25,12 @@
 #include <aklisp.h>
 #include <stdio.h>
 
-AKL_DEFINE_FUN(hello, ctx, argc)
+AKL_DEFINE_FUN(hello, cx, argc)
 {
     printf("Hello, world from 'hello' module!\n");
     /* Every function must return something, 
       the type of 'akl_value' */
-    return AKL_NIL;
+    return AKL_NUMBER(cx, 42);
 }
 
 AKL_DEFINE_FUN(string_times, ctx, argc)

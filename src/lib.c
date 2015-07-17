@@ -33,16 +33,17 @@ AKL_DEFINE_FUN(exit, cx, argc)
 
 AKL_DEFINE_FUN(describe, cx, argc)
 {
-    struct akl_atom *sym, *fn;
-    if (akl_get_args_strict(cx, 1, TYPE_ATOM, &sym) == -1) {
+    struct akl_symbol *sym;
+    struct akl_variable *fn;
+    if (akl_get_args_strict(cx, 1, AKL_VT_SYMBOL, &sym) == -1) {
        return AKL_NIL;
     }
-    fn = akl_get_global_atom(cx->cx_state, sym->at_name);
-    if (!fn || !fn->at_desc) {
-        akl_raise_error(cx, AKL_WARNING, "Global atom '%s' cannot found", sym->at_name);
+    fn = akl_get_global_var(cx->cx_state, sym);
+    if (!fn || !fn->vr_desc) {
+        akl_raise_error(cx, AKL_WARNING, "Global atom '%s' cannot found", sym->sb_name);
         return AKL_NIL;
     }
-    return AKL_STRING(cx, fn->at_desc);
+    return AKL_STRING(cx, fn->vr_desc);
 }
 
 extern void show_features(struct akl_state *, const char *fname); // @ util.c
@@ -50,14 +51,14 @@ extern void show_features(struct akl_state *, const char *fname); // @ util.c
 // To set specific interpreter features
 AKL_DEFINE_FUN(akl_cfg, cx, argc)
 {
-    struct akl_atom *sym;
+    struct akl_symbol *sym;
     const char *sname;
     struct akl_state *s = cx->cx_state;
-    if (akl_get_args_strict(cx, 1, TYPE_ATOM, &sym) == -1) {
+    if (akl_get_args_strict(cx, 1, AKL_VT_SYMBOL, &sym) == -1) {
        show_features(s, cx->cx_func_name);
        return AKL_NIL;
     }
-    sname = sym->at_name;
+    sname = sym->sb_name;
     if (akl_set_feature(s, sname)) {
         return akl_new_true_value(s);
     } else {
@@ -91,11 +92,11 @@ AKL_DEFINE_FUN(display, cx, argc)
     struct akl_value *v;
     while ((v = akl_frame_shift(cx)) != NULL) {
         switch (v->va_type) {
-            case TYPE_NUMBER:
+            case AKL_VT_NUMBER:
             printf("%g ", AKL_GET_NUMBER_VALUE(v));
             break;
 
-            case TYPE_STRING:
+            case AKL_VT_STRING:
             printf("%s ", AKL_GET_STRING_VALUE(v));
             break;
 
@@ -125,14 +126,14 @@ AKL_DEFINE_FUN(minus, cx, argc)
     if (v == NULL) {
         return AKL_NUMBER(cx, 0);
     }
-    if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
+    if (AKL_CHECK_TYPE(v, AKL_VT_NUMBER)) {
         a = AKL_GET_NUMBER_VALUE(v);
     } else {
         goto not_a_number;
     }
 
     while ((v = akl_frame_shift(cx)) != NULL) {
-        if (AKL_CHECK_TYPE(v, TYPE_NUMBER)) {
+        if (AKL_CHECK_TYPE(v, AKL_VT_NUMBER)) {
             n = AKL_GET_NUMBER_VALUE(v);
             a -= n;
         } else {
@@ -163,7 +164,7 @@ AKL_DEFINE_FUN(write_times, cx, argc)
     double n;
     int i;
     char *str;
-    if (akl_get_args_strict(cx, 2, TYPE_NUMBER, &n, TYPE_STRING, &str))
+    if (akl_get_args_strict(cx, 2, AKL_VT_NUMBER, &n, AKL_VT_STRING, &str))
         return AKL_NIL;
 
     for (i = 0; i < (int)n; i++) {
@@ -233,11 +234,11 @@ AKL_DEFINE_FUN(length, ctx, argc)
     struct akl_value *vp;
     akl_get_args(ctx, 1, &vp);
     switch (AKL_TYPE(vp)) {
-        case TYPE_STRING:
+        case AKL_VT_STRING:
         t = AKL_GET_STRING_VALUE(vp);
         return akl_new_number_value(ctx->cx_state, (double)strlen(t));
 
-        case TYPE_LIST:
+        case AKL_VT_LIST:
         return akl_new_number_value(ctx->cx_state
                           , (double)akl_list_count(AKL_GET_LIST_VALUE(vp)));
         default:
@@ -258,28 +259,33 @@ AKL_DEFINE_FUN(list, ctx, argc)
 
 AKL_DEFINE_FUN(map, ctx, argc)
 {
-    struct akl_atom *a;
+    struct akl_symbol *sym;
     struct akl_list *lp;
     // TODO: Change TYPE_* to bit masks.
-    akl_get_args_strict(ctx, 2, TYPE_ATOM, &a, TYPE_LIST, &lp);
-    return akl_call_atom(ctx, NULL, a, akl_list_count(lp));
+    if (akl_get_args_strict(ctx, 2, AKL_VT_SYMBOL, &sym, AKL_VT_LIST, &lp) == -1) {
+       return NULL;
+    }
+    return akl_call_symbol(ctx, NULL, sym, akl_list_count(lp));
 }
 
 AKL_DEFINE_FUN(disassemble, ctx, argc)
 {
-    struct akl_atom *a;
+    struct akl_symbol *sym;
+    struct akl_variable *var;
     struct akl_value *v;
     struct akl_function *fn;
     if (argc == 1) {
-        if (akl_get_args_strict(ctx, 1, TYPE_ATOM, &a) == -1)
+        if (akl_get_args_strict(ctx, 1, AKL_VT_SYMBOL, &sym) == -1) {
             return NULL;
+        }
 
-        a = akl_get_global_atom(ctx->cx_state, a->at_name);
-        v = a->at_value;
-        if (AKL_CHECK_TYPE(v, TYPE_FUNCTION))
+        var = akl_get_global_var(ctx->cx_state, sym);
+        v = var->vr_value;
+        if (AKL_CHECK_TYPE(v, AKL_VT_FUNCTION)) {
             fn = v->va_value.func;
-        else
+        } else {
             return AKL_NIL;
+        }
     } else {
         fn = ctx->cx_state->ai_fn_main;
     }

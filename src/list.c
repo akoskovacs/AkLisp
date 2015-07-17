@@ -104,42 +104,41 @@ akl_list_shift(struct akl_list *list)
 struct akl_value *akl_duplicate_value(struct akl_state *in, struct akl_value *oval)
 {
     struct akl_value *nval;
-    struct akl_atom *natom, *oatom;
     if (oval == NULL)
         return NULL;
 
     switch (oval->va_type) {
-        case TYPE_LIST:
+        case AKL_VT_LIST:
         return akl_new_list_value(in
                   , akl_list_duplicate(in, AKL_GET_LIST_VALUE(oval)));
 
-        case TYPE_ATOM:
-        oatom = AKL_GET_ATOM_VALUE(oval);
-        natom = akl_new_atom(in, strdup(oatom->at_name));
-        natom->at_desc = strdup(oatom->at_desc);
-        natom->at_value = akl_duplicate_value(in, oatom->at_value);
-        return akl_new_atom_value(in, strdup(oatom->at_name));
+        case AKL_VT_SYMBOL:
+        nval = akl_new_value(in);
+        nval->va_type         = AKL_VT_SYMBOL;
+        /* The symbol itself, never duplicated. */
+        nval->va_value.symbol = oval->va_value.symbol;
+        return nval;
 
-        case TYPE_NUMBER:
+        case AKL_VT_NUMBER:
         return akl_new_number_value(in, AKL_GET_NUMBER_VALUE(oval));
 
-        case TYPE_STRING:
+        case AKL_VT_STRING:
         return akl_new_string_value(in, AKL_GET_STRING_VALUE(oval));
 
-        case TYPE_FUNCTION:
+        case AKL_VT_FUNCTION:
         nval = akl_new_value(in);
         *nval = *oval;
         return nval;
 
-        case TYPE_USERDATA:
+        case AKL_VT_USERDATA:
         /* TODO: Should provide specific copy function */
         return akl_new_user_value(in, akl_get_utype_value(oval)
                                  , akl_get_userdata_value(oval)->ud_private);
 
-        case TYPE_NIL:
+        case AKL_VT_NIL:
         return &NIL_VALUE;
 
-        case TYPE_TRUE:
+        case AKL_VT_TRUE:
         return &TRUE_VALUE;
     }
     return NULL;
@@ -316,10 +315,10 @@ struct akl_list *akl_cdr(struct akl_state *s, struct akl_list *l)
     return nhead;
 }
 
-/* Is this atom name can be found in the strs? */
-bool_t akl_is_equal_with(struct akl_atom *atom, const char **strs)
+/* Is this symbol can be found in the string array, by name? */
+bool_t akl_is_strings_include(struct akl_symbol *sym, const char **strs)
 {
-   const char *aname = (atom != NULL) ? atom->at_name : NULL;
+   const char *aname = (sym != NULL) ? sym->sb_name : NULL;
    if (aname && strs) {
        while (*strs) {
            if (strcmp(aname, *strs) == 0)
@@ -332,6 +331,7 @@ bool_t akl_is_equal_with(struct akl_atom *atom, const char **strs)
 
 void akl_print_value(struct akl_state *s, struct akl_value *val)
 {
+    struct akl_symbol *sym;
     if (val == NULL || AKL_IS_NIL(val)) {
         AKL_START_COLOR(s, AKL_GRAY);
         printf("NIL");
@@ -340,40 +340,45 @@ void akl_print_value(struct akl_state *s, struct akl_value *val)
     }
 
     switch (val->va_type) {
-        case TYPE_NUMBER:
+        case AKL_VT_NUMBER:
         AKL_START_COLOR(s, AKL_YELLOW);
         printf("%g", AKL_GET_NUMBER_VALUE(val));
         AKL_END_COLOR(s);
         break;
 
-        case TYPE_STRING:
+        case AKL_VT_STRING:
         AKL_START_COLOR(s, AKL_GREEN);
         printf("\"%s\"", AKL_GET_STRING_VALUE(val));
         AKL_END_COLOR(s);
         break;
 
-        case TYPE_LIST:
+        case AKL_VT_LIST:
         akl_print_list(s, AKL_GET_LIST_VALUE(val));
         break;
 
-        case TYPE_ATOM:
+        case AKL_VT_SYMBOL:
         if (AKL_IS_QUOTED(val)) {
             AKL_START_COLOR(s, AKL_YELLOW);
-            printf(":%s", akl_get_atom_name_value(val));
+            sym = val->va_value.symbol;
+            if (sym && sym->sb_name) {
+                printf(":%s", sym->sb_name);
+            }
         } else {
             AKL_START_COLOR(s, AKL_PURPLE);
-            printf("%s", akl_get_atom_name_value(val));
+            if (sym && sym->sb_name) {
+                printf(":%s", sym->sb_name);
+            }
         }
         AKL_END_COLOR(s);
         break;
 
-        case TYPE_TRUE:
+        case AKL_VT_TRUE:
         AKL_START_COLOR(s, AKL_BRIGHT_GREEN);
         printf("T");
         AKL_END_COLOR(s);
         break;
 
-        case TYPE_USERDATA:
+        case AKL_VT_USERDATA:
         AKL_START_COLOR(s, AKL_YELLOW);
         struct akl_utype *type = NULL;
         akl_utype_t tid = akl_get_utype_value(val);
@@ -385,7 +390,7 @@ void akl_print_value(struct akl_state *s, struct akl_value *val)
         AKL_END_COLOR(s);
         break;
 
-        case TYPE_NIL: case TYPE_FUNCTION:
+        case AKL_VT_NIL: case AKL_VT_FUNCTION:
         //case TYPE_CFUN: case TYPE_BUILTIN:
         /* Nothing to do... */
         break;

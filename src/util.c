@@ -22,64 +22,70 @@
  ************************************************************************/
 #include "aklisp.h"
 
-RB_GENERATE(ATOM_TREE, akl_atom, at_entry, cmp_atom);
+RB_GENERATE(SYM_TREE, akl_symbol, sb_entry, akl_rb_cmp_sym);
+RB_GENERATE(VAR_TREE, akl_variable, vr_entry, akl_rb_cmp_var);
 
-struct akl_atom *
-akl_add_global_atom(struct akl_state *in, struct akl_atom *atom)
+static struct akl_variable *
+set_global(struct akl_state *s, char *desc, bool_t is_cdesc
+           , struct akl_value *v, struct akl_variable *var)
 {
-    AKL_GC_SET_STATIC(atom);
-    return ATOM_TREE_RB_INSERT(&in->ai_atom_head, atom);
+    if (var == NULL) {
+        return NULL;
+    }
+    var->vr_value    = v;
+    var->vr_desc     = desc;
+    var->vr_is_cdesc = is_cdesc;
+
+    VAR_TREE_RB_INSERT(&s->ai_global_vars, var);
+    return var;
 }
 
-void
-akl_remove_global_atom(struct akl_state *in, struct akl_atom *atom)
+struct akl_variable *
+akl_set_global_var(struct akl_state *s, struct akl_symbol *sym
+                        , char *desc, bool_t is_cdesc
+                        , struct akl_value *v)
 {
-    ATOM_TREE_RB_REMOVE(&in->ai_atom_head, atom);
+    AKL_ASSERT(s && sym && v, NULL);
+    return set_global(s, desc, is_cdesc, v, akl_new_var(s, sym));
 }
 
-struct akl_atom *
-akl_add_global_variable(struct akl_state *s, const char *name
-                        , const char *desc, struct akl_value *v)
+struct akl_variable *
+akl_set_global_variable(struct akl_state *s
+                        , char *name, bool_t is_cname
+                        , char *desc, bool_t is_cdesc
+                        , struct akl_value *v)
 {
-    assert(s && name && v);
-    struct akl_atom *a = akl_new_atom(s, (char *)name);
-    a->at_is_cdef = TRUE;
-    a->at_desc = (char *)desc;
-    a->at_value = v;
-    akl_add_global_atom(s, a);
-    return a;
+    AKL_ASSERT(s && v, NULL);
+    return set_global(s, desc, is_cdesc, v
+                      , akl_new_variable(s, name, is_cname));
 }
 
 void
 akl_remove_function(struct akl_state *in, akl_cfun_t fn)
 {
+#if 0
     struct akl_atom *atom;
     RB_FOREACH(atom, ATOM_TREE, &in->ai_atom_head) {
         if (atom->at_value && atom->at_value->va_value.func->fn_body.cfun == fn)
             akl_remove_global_atom(in, atom);
     }
+#endif
 }
 
 static struct akl_function *
-akl_add_global_function(struct akl_state *s, const char *name
-    , const char *desc)
+akl_add_global_function(struct akl_state *s, const char *name, const char *desc)
 {
-    struct akl_atom *atom = akl_new_atom(s, (char *)name);
-    struct akl_function *f = akl_new_function(s);
-    if (desc != NULL)
-        atom->at_desc = (char *)desc;
-    atom->at_value = akl_new_function_value(s, f);
-
-    akl_add_global_atom(s, atom);
-    return f;
+    struct akl_value    *vf  = akl_new_function_value(s, akl_new_function(s));
+    struct akl_variable *var = akl_set_global_variable(s, AKL_CSTR(name), AKL_CSTR(desc), vf);
+    return (vf != NULL) ? vf->va_value.func : NULL;
 }
-
 
 void
 akl_add_global_cfun(struct akl_state *s, akl_cfun_t fn
     , const char *name, const char *desc)
 {
     struct akl_function *fun = akl_add_global_function(s, name, desc);
+    assert(fun);
     fun->fn_type = AKL_FUNC_CFUN;
     fun->fn_body.cfun = fn;
 }
@@ -89,28 +95,46 @@ akl_add_global_sfun(struct akl_state *s, akl_sfun_t fn
     , const char *name, const char *desc)
 {
     struct akl_function *fun = akl_add_global_function(s, name, desc);
+    assert(fun);
     fun->fn_type = AKL_FUNC_SPECIAL;
     fun->fn_body.scfun = fn;
 }
 
-struct akl_atom *
-akl_get_global_atom(struct akl_state *in, const char *name)
+/**
+ * @brief Find a global variable by a symbol
+ * @param s Current interpreter state
+ * @param sym A symbol to find by
+ * @return The found variable, or NULL otherwise
+ */
+struct akl_variable *
+akl_get_global_var(struct akl_state *s, const struct akl_symbol *sym)
 {
-    struct akl_atom atm, *res;
-    if (name == NULL)
-        return NULL;
+    struct akl_variable var;
+    var.vr_symbol = sym;
+    return VAR_TREE_RB_FIND(&s->ai_global_vars, &var);
+}
 
-    atm.at_name = (char *)name;
-    res = ATOM_TREE_RB_FIND(&in->ai_atom_head, &atm);
-    return res;
+/**
+ * @brief Get a global variable by it's name
+ * @param s Current interpreter state
+ * @param name Name of the variable
+ * @return The found variable, or NULL
+ */
+struct akl_variable *
+akl_get_global_variable(struct akl_state *s, const char *name)
+{
+    struct akl_symbol sym;
+    AKL_ASSERT(name, NULL);
+    sym.sb_name = name;
+    return akl_get_global_var(s, &sym);
 }
 
 void
-akl_do_on_all_atoms(struct akl_state *in, void (*fn) (struct akl_atom *))
+akl_do_on_all_vars(struct akl_state *s, void (*fn) (struct akl_variable *))
 {
-    struct akl_atom *atm;
-    RB_FOREACH(atm, ATOM_TREE, &in->ai_atom_head) {
-       fn(atm);
+    struct akl_symbol *sym;
+    RB_FOREACH(sym, VAR_TREE, &s->ai_global_vars) {
+       fn(sym);
     }
 }
 
