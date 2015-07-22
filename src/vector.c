@@ -41,9 +41,9 @@ void akl_init_vector(struct akl_state *s, struct akl_vector *vec, unsigned int n
         size = sizeof(void *);
 
     vec->av_vector = (char *)akl_calloc(s, nmemb, size);
-    vec->av_size = size;
+    vec->av_size = nmemb;
     vec->av_count = 0;
-    vec->av_msize = nmemb;
+    vec->av_msize = size;
     vec->av_state = s;
 }
 
@@ -85,7 +85,6 @@ void *akl_vector_reserve_more(struct akl_vector *vec, int cnt)
 {
     assert(cnt >= 0);
     void *start = akl_vector_reserve(vec);
-    cnt--;
     while (cnt--) {
         /* I don't care. The space must be contignous */
         (void)akl_vector_reserve(vec);

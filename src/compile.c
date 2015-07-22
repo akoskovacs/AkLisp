@@ -221,7 +221,7 @@ void akl_compile_list(struct akl_context *cx)
                 if (pf_st == PF_FN_SFORM) {
                     /* It's a special form, call it immediately. */
                     akl_call_sform(cx, v->va_value.symbol, fun);
-                    v = akl_frame_pop(cx);
+#if 0
                     if (AKL_CHECK_TYPE(v, AKL_VT_FUNCTION)) {
                         /* Special function gave back another function.
                            Could be a lambda, build a 'call' for this at the end. */
@@ -230,6 +230,7 @@ void akl_compile_list(struct akl_context *cx)
                         /* Nothing more to do in this list. */
                         return;
                     }
+#endif
                 } else if (pf_st == PF_FN_NORMAL) {
                     sym = v->va_value.symbol;
                 } else if (pf_st == PF_FN_NOT_FOUND) {

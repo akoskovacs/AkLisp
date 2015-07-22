@@ -463,7 +463,7 @@ struct akl_gc_pool *akl_gc_pool_create(struct akl_state *s, struct akl_gc_type *
 {
     struct akl_gc_pool *pool = AKL_MALLOC(s, struct akl_gc_pool);
     pool->gp_next = NULL;
-    akl_init_vector(s, &pool->gp_pool, type->gt_type_size, AKL_GC_POOL_SIZE);
+    akl_init_vector(s, &pool->gp_pool, AKL_GC_POOL_SIZE, type->gt_type_size);
     memset(pool->gp_freemap, 0, AKL_GC_POOL_SIZE/BITS_IN_UINT);
 
     if (type->gt_pool_last)
@@ -496,7 +496,7 @@ void akl_gc_init(struct akl_state *s)
     s->ai_gc_malloc_size = 0;
 
     akl_gc_disable(s);
-    akl_init_vector(s, &s->ai_gc_types, sizeof(struct akl_gc_type), AKL_GC_NR_BASE_TYPES);
+    akl_init_vector(s, &s->ai_gc_types, AKL_GC_NR_BASE_TYPES, sizeof(struct akl_gc_type));
     for (i = 0; i < AKL_GC_NR_BASE_TYPES; i++) {
         akl_gc_register_type(s, base_type_markers[i], base_type_sizes[i]);
     }

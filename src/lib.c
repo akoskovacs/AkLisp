@@ -1283,7 +1283,7 @@ struct akl_list *akl_split(struct akl_state *s, const char *str, const char *sp)
     struct akl_vector sv;
     int i;
     int ch;
-    akl_init_vector(s, &sv, sizeof(char), 100);
+    akl_init_vector(s, &sv, 100, sizeof(char));
     if (!sp) {
         return NULL;
     }

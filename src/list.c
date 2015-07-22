@@ -357,16 +357,16 @@ void akl_print_value(struct akl_state *s, struct akl_value *val)
         break;
 
         case AKL_VT_SYMBOL:
+        sym = val->va_value.symbol;
         if (AKL_IS_QUOTED(val)) {
             AKL_START_COLOR(s, AKL_YELLOW);
-            sym = val->va_value.symbol;
             if (sym && sym->sb_name) {
                 printf(":%s", sym->sb_name);
             }
         } else {
             AKL_START_COLOR(s, AKL_PURPLE);
             if (sym && sym->sb_name) {
-                printf(":%s", sym->sb_name);
+                printf("%s", sym->sb_name);
             }
         }
         AKL_END_COLOR(s);

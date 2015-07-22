@@ -66,8 +66,8 @@ void akl_init_state(struct akl_state *s, const struct akl_mem_callbacks *cbs)
     RB_INIT(&s->ai_global_vars);
     s->ai_device = NULL;
     akl_init_list(&s->ai_modules);
-    akl_init_vector(s, &s->ai_utypes, sizeof(struct akl_module *), 5);
-    akl_init_vector(s, &s->ai_stack, sizeof(struct akl_value **), AKL_STACK_SIZE);
+    akl_init_vector(s, &s->ai_utypes, 5, sizeof(struct akl_module *));
+    akl_init_vector(s, &s->ai_stack, AKL_STACK_SIZE, sizeof(struct akl_value **));
     s->ai_errors   = NULL;
     akl_init_context(&s->ai_context);
     akl_init_os(s);
@@ -192,7 +192,7 @@ struct akl_symbol *
 akl_get_or_create_symbol(struct akl_state *s, char *name)
 {
     struct akl_symbol *sym = get_or_create_symbol(s, name);
-    if (sym != NULL && sym->sb_name != NULL) {
+    if (sym != NULL && sym->sb_name == NULL) {
         sym->sb_name    = AKL_STRDUP(name);
         sym->sb_is_cdef = FALSE;
     }
@@ -380,7 +380,6 @@ struct akl_label *akl_new_labels(struct akl_context *ctx, int n)
     struct akl_label *labels;
     assert(n >= 1);
     labels = akl_new_label(ctx);
-    --n;
     while (--n)
         (void)akl_new_label(ctx);
 

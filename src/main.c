@@ -215,11 +215,11 @@ static void interactive_mode(void)
             dev = akl_new_string_device(&state, "stdio", line);
             /*akl_list_append(in, inst->ai_program, il);*/
             ctx = akl_compile(&state, dev);
-            if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_INSTR))
+            //if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_INSTR))
                 akl_dump_ir(ctx, state.ai_fn_main);
             akl_execute(ctx);
 //            akl_clear_ir(ctx);
-            if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_STACK))
+            //if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_STACK))
                 akl_dump_stack(ctx);
             printf(" => ");
             akl_print_value(&state, akl_stack_pop(&state));
