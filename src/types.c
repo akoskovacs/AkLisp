@@ -70,6 +70,7 @@ void akl_init_state(struct akl_state *s, const struct akl_mem_callbacks *cbs)
     akl_init_vector(s, &s->ai_stack, sizeof(struct akl_value **), AKL_STACK_SIZE);
     s->ai_errors   = NULL;
     akl_init_context(&s->ai_context);
+    akl_init_os(s);
 }
 
 struct akl_state *akl_new_state(const struct akl_mem_callbacks *cbs)
@@ -154,9 +155,11 @@ get_or_create_symbol(struct akl_state *s, char *name)
     if (sym == NULL) {
         sym = AKL_MALLOC(s, struct akl_symbol);
         if (sym) {
-            sym->sb_name    = NULL;
+            sym->sb_name    = name; /* SYM_TREE_RB_INSERT() needs this */
             sym->sb_is_cdef = TRUE;
             SYM_TREE_RB_INSERT(&s->ai_symbols, sym);
+            /* The caller has to know, that this is a new symbol */
+            sym->sb_name    = NULL;
         }
     }
     return sym;
@@ -167,11 +170,12 @@ akl_new_symbol(struct akl_state *s, char *name, bool_t is_cname)
 {
     struct akl_symbol *sym = get_or_create_symbol(s, name);
     /* If the symbol already exsisted, no need to modifiy it's name */
-    if (sym != NULL && sym->sb_name != NULL) {
+    if (sym != NULL && sym->sb_name == NULL) {
         sym->sb_name    = name;
         /* If the string is a constant char array, no free() called. */
         sym->sb_is_cdef = is_cname;
     }
+    printf("name: %s, addr %p\n", sym->sb_name, sym);
     return sym;
 }
 
@@ -212,7 +216,8 @@ struct akl_variable *
 akl_new_variable(struct akl_state *s, char *name, bool_t is_cname)
 {
     struct akl_symbol *sym = akl_new_symbol(s, name, is_cname);
-    return akl_new_var(s, sym);
+    struct akl_variable *v = akl_new_var(s, sym);
+    return v;
 }
 
 struct akl_list_entry *
@@ -686,11 +691,9 @@ static int utype_finder_name(void *t, void *name)
 int akl_get_typeid(struct akl_state *in, const char *tname)
 {
     struct akl_utype *utype = NULL;
-    unsigned int ind;
+    int ind;
     utype = (struct akl_utype *)
         akl_vector_find(&in->ai_utypes, utype_finder_name, (void *)tname, &ind);
-    if (utype)
-        return ind;
 
-    return -1;
+    return ind;
 }

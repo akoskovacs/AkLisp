@@ -47,14 +47,16 @@ AKL_DEFINE_SFUN(set, ctx)
     assert(ctx && ctx->cx_state && ctx->cx_dev);
     struct akl_state *s       = ctx->cx_state;
     struct akl_io_device *dev = ctx->cx_dev;
-    char *vname;
     struct akl_value *value;
+    struct akl_symbol *sym;
     akl_token_t tok = akl_lex(dev);
     if (tok != tATOM) {
         akl_raise_error(ctx, AKL_ERROR, "Unexpected token, (need a valid atom for set!)");
-        return;
+        return NULL;
     }
-    vname = akl_lex_get_atom(dev);
+    sym = akl_lex_get_symbol(dev);
+    value = akl_parse_value(ctx);
+    akl_build_set(ctx, sym, value);
     return NULL;
 }
 
@@ -87,7 +89,7 @@ AKL_DEFINE_SFUN(swhile, ctx)
     akl_token_t tok;
     struct akl_label *label = akl_new_labels(ctx, 3);
     if ((tok = akl_lex(ctx->cx_dev)) != tLBRACE) {
-        return; /* Panic */
+        return NULL; /* Panic */
     }
     /* .L0: Condition: */
     akl_build_label(ctx, label+0);
@@ -105,18 +107,18 @@ AKL_DEFINE_SFUN(swhile, ctx)
     return NULL;
 }
 
-char **akl_parse_params(struct akl_context *ctx, const char *fname)
+void
+akl_parse_params(struct akl_context *ctx, const char *fname, struct akl_vector *args)
 {
     assert(ctx && ctx->cx_state && ctx->cx_dev);
     akl_token_t tok;
     int i = 0;
     const int DEF_ARGC = 3;
-    char **args = NULL;
     tok = akl_lex(ctx->cx_dev);
 
     /* Empty argument list (0 args) */
     if (tok == tNIL) {
-        return NULL;
+        return;
     }
 
     if (fname == NULL) {
@@ -127,22 +129,17 @@ char **akl_parse_params(struct akl_context *ctx, const char *fname)
     if (tok != tLBRACE) {
         akl_raise_error(ctx, AKL_ERROR, "Expected an argument list for function definition \'%s\'"
                         , fname);
-        return NULL;
+        return;
     }
-    args = (char **)akl_calloc(ctx->cx_state, DEF_ARGC, sizeof(char *));
+
+    akl_init_vector(ctx->cx_state, args, DEF_ARGC, sizeof(struct akl_symbol *));
 
     while ((tok = akl_lex(ctx->cx_dev)) != tRBRACE) {
+        /* TODO: pattern matching... */
         if (tok == tATOM) {
-           args[i] = akl_lex_get_atom(ctx->cx_dev);
-           if (++i >= DEF_ARGC) {
-               args = akl_realloc(ctx->cx_state, args, i+DEF_ARGC);
-           }
-        } else {
-            /* TODO: hoho, pattern matching... */
+           akl_vector_push(args, akl_lex_get_symbol(ctx->cx_dev));
         }
-        args[i] = NULL;
     }
-    return args;
 }
 
 AKL_DEFINE_SFUN(defun, ctx)
@@ -159,17 +156,18 @@ AKL_DEFINE_SFUN(defun, ctx)
     akl_init_list(&ufun->uf_body);
 
     if (akl_lex(ctx->cx_dev) == tATOM) {
-        fvar = akl_new_variable(ctx->cx_state, akl_lex_get_atom(ctx->cx_dev), FALSE);
+        akl_lex_get_symbol(ctx->cx_dev);
+        fvar = akl_new_var(ctx->cx_state, akl_lex_get_symbol(ctx->cx_dev));
         fsym = fvar->vr_symbol;
     } else {
         /* TODO: Error! */
         akl_raise_error(ctx, AKL_ERROR, "Unexpected token, "
                         "defun! needs a parameter list and a function body");
-        return;
+        return NULL;
     }
 
     ctx->cx_comp_func = func;
-    ufun->uf_args = akl_parse_params(ctx, fsym->sb_name);
+    akl_parse_params(ctx, fsym->sb_name, &ufun->uf_args);
     ctx->cx_ir = &ufun->uf_body;
     /* Eat the next left brace and interpret the body... */
     tok = akl_lex(ctx->cx_dev);

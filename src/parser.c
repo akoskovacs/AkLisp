@@ -50,11 +50,10 @@ akl_parse_token(struct akl_context *ctx, akl_token_t tok, bool_t is_quoted)
         case tATOM:
         /* If the atom is quoted, like :symbol, or 'symbol we have to point to an akl_symbol.
            Otherwise, it's a variable. */
-        if (is_quoted) {
-            value = akl_new_symbol_value(s, akl_lex_get_atom(dev), FALSE);
-        } else {
-            value = akl_new_variable_value(s, akl_lex_get_atom(dev), FALSE);
-        }
+        value = akl_new_value(s);
+        AKL_ASSERT(value, NULL);
+        value->va_value.symbol = akl_lex_get_symbol(dev);
+        value->va_type = AKL_VT_SYMBOL;
         break;
 
         case tNUMBER:

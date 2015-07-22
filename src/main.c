@@ -247,7 +247,7 @@ int main(int argc, char* const* argv)
 
     akl_init_state(&state, NULL);
     akl_init_list(&args);
-    akl_library_init(&state, AKL_LIB_ALL);
+    akl_init_library(&state, AKL_LIB_ALL);
 
 #ifdef HAVE_GETOPT_H
     while((c = getopt_long(argc, argv, "aD:C:e:chiv", akl_options, &opt_index)) != -1) {

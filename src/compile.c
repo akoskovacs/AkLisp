@@ -34,18 +34,17 @@ akl_ir_set_lex_info(struct akl_context *ctx, struct akl_lex_info *info)
     }
 }
 
-int argument_finder(char **args, const char *arg)
+static int
+compare_symbols(void *f, void *s)
 {
-    int i = 0;
-    if (!args || !arg)
-        return -1;
+    return !(f == s);
+}
 
-    for (i = 0; args[i]; i++) {
-        if (strcmp(args[i], arg) == 0)
-            return i;
-    }
-
-    return -1;
+int argument_finder(struct akl_lisp_fun *fn, struct akl_symbol *sym)
+{
+    int i;
+    akl_vector_find(&fn->uf_args, compare_symbols, sym, &i);
+    return i;
 }
 
 static struct akl_ir_instruction *
@@ -56,7 +55,6 @@ new_instr(struct akl_context *ctx)
     instr->in_linfo = NULL;
     akl_list_append(s, (ctx)->cx_ir, instr);
     return instr;
-
 }
 
 void akl_build_push(struct akl_context *ctx, struct akl_value *arg)
@@ -93,7 +91,7 @@ void akl_build_load(struct akl_context *ctx, struct akl_symbol *sym)
     if (fn->fn_type == AKL_FUNC_USER || fn->fn_type == AKL_FUNC_LAMBDA) {
         ufun = &fn->fn_body.ufun;
         /* Get the frame offset for the currently compiled function's argument. */
-        if ((ind = argument_finder(ufun->uf_args, sym->sb_name)) != -1) {
+        if ((ind = argument_finder(ufun, sym)) != -1) {
             load                   = new_instr(ctx);
             load->in_op            = AKL_IR_LOAD;
             load->in_arg[0].ui_num = ind;
@@ -179,10 +177,9 @@ prefetch_function(struct akl_context *cx, struct akl_value *val, struct akl_func
                 return PF_FN_NORMAL;
             }
         }
-    } else {
-        *fn = NULL;
-        return PF_NOT_FN;
     }
+    *fn = NULL;
+    return PF_NOT_FN;
 }
 
 /* Build the intermediate representation for an unquoted list */
@@ -192,7 +189,6 @@ void akl_compile_list(struct akl_context *cx)
     struct akl_value *v;
     enum PREFETCH_STATUS pf_st;
     int    argc              = 0;
-    char  *name              = NULL;
     bool_t felem             = TRUE;
     bool_t is_quoted         = FALSE;
     struct akl_variable *vfn = NULL; /* Function variable */
@@ -238,10 +234,10 @@ void akl_compile_list(struct akl_context *cx)
                     sym = v->va_value.symbol;
                 } else if (pf_st == PF_FN_NOT_FOUND) {
                     /* No global functions with this name, try to resolve it later. */
-                    sym = akl_new_symbol(s, akl_lex_get_atom(dev), FALSE);
+                    sym = akl_lex_get_symbol(dev);
                 }
             } else {
-                akl_build_load(cx, akl_new_symbol(s, akl_lex_get_atom(dev), FALSE));
+                akl_build_load(cx, akl_lex_get_symbol(dev));
                 argc++;
                 break;
             }
@@ -258,24 +254,13 @@ void akl_compile_list(struct akl_context *cx)
               be some sort of function. Find it out and if it is a
               special form, execute it. */
             if (vfn == NULL) {
-                name = akl_lex_get_atom(cx->cx_dev);
+                sym = akl_lex_get_symbol(cx->cx_dev);
                 call_info = akl_new_lex_info(cx->cx_state, cx->cx_dev);
-                vfn = akl_get_global_variable(cx->cx_state, name);
-                /* The previous function copied the name. Must free it. */
-                akl_free(cx->cx_state, name, 0);
-#if 0
-                if (afn == NULL)
-                    break;
-
-                name = afn->at_name;
-
-                /* If the function is a special form, we must execute it, now. */
-                v = afn->at_value;
-#endif
+                vfn = akl_get_global_var(cx->cx_state, sym);
                 if (AKL_CHECK_TYPE(v, AKL_VT_FUNCTION) && v->va_value.func != NULL) {
                     fun = v->va_value.func;
                     if (fun->fn_type == AKL_FUNC_SPECIAL) {
-                        cx->cx_func_name = name;
+                        cx->cx_func_name = sym->sb_name;
                         cx->cx_func = fun;
                         fun->fn_body.scfun(cx);
                         return;
@@ -285,7 +270,7 @@ void akl_compile_list(struct akl_context *cx)
             }
             /* Not the first place, it must be a reference to a value */
             /* TODO: Global definitions */
-            akl_build_load(cx, akl_new_symbol(s, akl_lex_get_atom(cx->cx_dev), FALSE));
+            akl_build_load(cx, akl_lex_get_symbol(dev));
             argc++;
         }
 
@@ -363,7 +348,6 @@ struct akl_context *akl_compile(struct akl_state *s, struct akl_io_device *dev)
     do {
         tok = akl_compile_next(cx);
     } while (tok != tEOF);
-
     return cx;
 }
 

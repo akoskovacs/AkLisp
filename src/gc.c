@@ -203,11 +203,23 @@ static void akl_gc_mark_list_entry(struct akl_state *s, void *obj, bool_t m)
     }
 }
 
-static void akl_gc_mark_function(struct akl_state *s, void *obj, bool_t m)
+static void
+akl_gc_mark_variable(struct akl_state *s, void *obj, bool_t m)
+{
+    struct akl_variable *var = (struct akl_variable *)obj;
+    AKL_GC_SET_MARK(var, m);
+    if (var->vr_value) {
+        akl_gc_mark_value(s, var->vr_value, m);
+    }
+}
+
+static void
+akl_gc_mark_function(struct akl_state *s, void *obj, bool_t m)
 {
 }
 
-static void akl_gc_mark_udata(struct akl_state *s, void *obj, bool_t m)
+static void
+akl_gc_mark_udata(struct akl_state *s, void *obj, bool_t m)
 {
 }
 
@@ -467,13 +479,14 @@ struct akl_gc_pool *akl_gc_pool_create(struct akl_state *s, struct akl_gc_type *
 
 // TODO: Implement akl_gc_mark_function and akl_gc_mark_udata
 const akl_gc_marker_t base_type_markers[] = {
-    akl_gc_mark_value, akl_gc_mark_list, akl_gc_mark_list_entry
+    akl_gc_mark_value, akl_gc_mark_variable, akl_gc_mark_list, akl_gc_mark_list_entry
   , akl_gc_mark_function, akl_gc_mark_udata
 };
 
 const size_t base_type_sizes[] = {
-    sizeof(struct akl_value), sizeof(struct akl_list), sizeof(struct akl_list_entry)
-  , sizeof(struct akl_function), sizeof(struct akl_userdata)
+    sizeof(struct akl_value), sizeof(struct akl_variable), sizeof(struct akl_list)
+  , sizeof(struct akl_list_entry), sizeof(struct akl_function)
+  , sizeof(struct akl_userdata)
 };
 
 void akl_gc_init(struct akl_state *s)

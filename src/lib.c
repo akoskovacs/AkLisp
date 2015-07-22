@@ -1341,7 +1341,7 @@ AKL_DECLARE_FUNS(akl_debug_funs) {
     AKL_END_FUNS()
 };
 
-void akl_library_init(struct akl_state *s, enum AKL_INIT_FLAGS flags)
+void akl_init_library(struct akl_state *s, enum AKL_INIT_FLAGS flags)
 {
     akl_declare_functions(s, akl_basic_funs);
     akl_declare_functions(s, akl_debug_funs);

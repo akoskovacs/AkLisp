@@ -21,11 +21,14 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ************************************************************************/
 #include "aklisp.h"
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <dlfcn.h>
-#if HAVE_EXECINFO_H && HAVE_UCONTEXT_H
+#define HAVE_EXECINFO_H
+#define HAVE_UCONTEXT_H
+#ifdef HAVE_EXECINFO_H
+# ifdef HAVE_UCONTEXT_H
 char* exe = 0;
 /* get REG_EIP from ucontext.h */
 #define __USE_GNU
@@ -35,7 +38,7 @@ char* exe = 0;
 static int init_exec_name() 
 {
     char *link = (char *)malloc(256);
-    char *exe = (char *)malloc(256);
+    exe = (char *)malloc(256);
     snprintf(link, 256, "/proc/%d/exe", getpid());
     if(readlink(link, exe, 256)==-1) {
         fprintf(stderr,"ERRORRRRR\n");
@@ -46,8 +49,9 @@ static int init_exec_name()
 
 static const char* get_exec_name()
 {
-    if (exe == 0)
+    if (exe == 0) {
         init_exec_name();
+    }
     return exe;
 }
 
@@ -63,81 +67,84 @@ void bt_sighandler(int sig, siginfo_t *info,
   if (sig == SIGSEGV)
     printf("Got signal %d, faulty address is %p, "
            "from %p\n", sig, info->si_addr, 
-           uc->uc_mcontext.gregs[REG_EIP]);
+           uc->uc_mcontext.gregs[REG_RIP]);
   else
     printf("Got signal %d#92;\n", sig);
 
   trace_size = backtrace(trace, 16);
   /* overwrite sigaction with caller's address */
-  trace[1] = (void *) uc->uc_mcontext.gregs[REG_EIP];
+  trace[1] = (void *) uc->uc_mcontext.gregs[REG_RIP];
 
   messages = backtrace_symbols(trace, trace_size);
   /* skip first stack frame (points here) */
-  printf("[bt] Execution path:#92;\n");
+  printf("[backtrace] Execution path:\n");
+  char syscom[256];
   for (i=1; i<trace_size; ++i)
   {
-    printf("[bt] %s#92;\n", messages[i]);
-    char syscom[256];
-    sprintf(syscom,"addr2line %p -e %s", trace[i] , get_exec_name() ); //last parameter is the name of this app
+    printf("[backtrace] %s\n", messages[i]);
+    sprintf(syscom,"addr2line %p -e %s -p\n", trace[i] , get_exec_name()); //last parameter is the name of this app
     system(syscom);
-
   }
   exit(0);
 }
-#endif 
+# endif
+#endif
 
-AKL_CFUN_DEFINE(getpid, in, args __unused)
+AKL_DEFINE_FUN(getpid, ctx, argc __unused)
 {
-    return akl_new_number_value(in, (int)getpid());
+    return AKL_NUMBER(ctx, (int)getpid());
 }
 
-AKL_CFUN_DEFINE(sleep, in, args)
+AKL_DEFINE_FUN(sleep, ctx, argc)
 {
-    struct akl_value *a1 = AKL_FIRST_VALUE(args);
-    sleep(AKL_GET_NUMBER_VALUE(a1));
+    sleep(*akl_frame_pop_number(ctx));
     return &NIL_VALUE;
 }
 
-AKL_CFUN_DEFINE(getenv, in, args)
+AKL_DEFINE_FUN(getenv, ctx, argc)
 {
-    struct akl_value *a1 = AKL_FIRST_VALUE(args);
     char *env;
-    if (AKL_CHECK_TYPE(a1, TYPE_STRING)) {
-        env = getenv(AKL_GET_STRING_VALUE(a1));
-        if (env)
-            return akl_new_string_value(in, strdup(env));
+    env = getenv(akl_frame_pop_string(ctx));
+    if (env) {
+        return AKL_STRING(ctx, strdup(env));
     }
     return &NIL_VALUE;
 }
 
-AKL_CFUN_DEFINE(setenv, ctx, argc)
+AKL_DEFINE_FUN(setenv, ctx, argc)
 {
     char *ename, *evalue;
-    akl_get_args_strict(ctx, 2, TYPE_STRING, &ename, TYPE_STRING, &evalue);
+    if (akl_get_args_strict(ctx, 2, AKL_VT_STRING, &ename, AKL_VT_STRING, &evalue)) {
+        return NULL;
+    }
     if (!ename || !evalue || !setenv(ename, evalue, 1))
         return &TRUE_VALUE;
     return &NIL_VALUE;
 }
 
 extern char **environ;
-AKL_CFUN_DEFINE(env, ctx, argc)
+AKL_DEFINE_FUN(env, ctx, argc)
 {
     char **var = environ;
+    struct akl_state *s = ctx->cx_state;
+    struct akl_list *vars = akl_new_list(s);
+    struct akl_value *v;
     while (*var) {
-       v = akl_new_string_value(in, strdup(*var)); 
-       akl_list_append_value(in, vars, v);
+       v = akl_new_string_value(s, AKL_STRDUP(*var)); 
+       akl_list_append_value(s, vars, v);
        var++;
     }
     vars->is_quoted = TRUE;
-    return akl_new_list_value(in, vars);
+    return akl_new_list_value(s, vars);
 }
 
 struct akl_module *akl_load_module_desc(struct akl_state *s, char *modpath)
 {
    /* We are on our way, lazy load */
-   struct buf stat;
-   void *handle = dlopen(modname, RTLD_LAZY);
+   struct stat buf;
+   void *handle = dlopen(modpath, RTLD_LAZY);
    struct akl_module *mod_desc;
+   char *error;
    if (!handle) {
        return NULL;
    }
@@ -146,19 +153,19 @@ struct akl_module *akl_load_module_desc(struct akl_state *s, char *modpath)
    /* Get back the module descripor, called '__module_desc' */
    mod_desc = (struct akl_module *)dlsym(handle, "__module_desc");
    if (mod_desc == NULL || ((error = dlerror()) != NULL)) {
-       AKL_FREE(s, mod_path);
+       AKL_FREE(s, modpath);
        return NULL;
    }
-   fstat(modpath, &stat);
+   stat(modpath, &buf);
    mod_desc->am_handle = handle;
-   mod_desc->am_path = modname;
-   mod_desc->am_size = stat.st_size;
+   mod_desc->am_path = modpath;
+   mod_desc->am_size = buf.st_size;
    return mod_desc;
 }
 
 char *akl_get_module_path(struct akl_state *s, const char *modname)
 {
-   char *mod_path = (char *)akl_malloc(in
+   char *mod_path = (char *)akl_alloc(s
        , sizeof(AKL_MODULE_SEARCH_PATH) + strlen(modname) + 5); /* must be enough */
    strcpy(mod_path, AKL_MODULE_SEARCH_PATH);
    strcat(mod_path, modname);
@@ -176,8 +183,8 @@ char *akl_get_module_path(struct akl_state *s, const char *modname)
            /* No way! Assume that the user gave a relative or an absolute path...*/
            modname = realpath(modname, NULL); /* Get it's absolute path */
            if (access(modname, R_OK) != 0) { /* No access, give up! */
-               akl_free(s, mod_path);
-               return &NIL_VALUE;
+               akl_free(s, mod_path, strlen(mod_path));
+               return NULL;
            }
        }
    }
@@ -188,12 +195,13 @@ void akl_module_free(struct akl_state *s, struct akl_module *mod)
     if (mod->am_handle)
         dlclose(mod->am_handle);
     AKL_FREE(s, mod);
-    akl_free(s, mod->am_path);
+    //akl_free(s, mod->am_path, strlen(mod->am_path));
 }
 
-void akl_init_os(struct akl_state *in)
+void akl_init_os(struct akl_state *s)
 {
-#if HAVE_UCONTEXT_H && HAVE_EXECINFO_H
+#ifdef HAVE_UCONTEXT_H
+# ifdef HAVE_EXECINFO_H
  /* Install our signal handler */
   struct sigaction sa;
 
@@ -204,8 +212,9 @@ void akl_init_os(struct akl_state *in)
   sigaction(SIGSEGV, &sa, NULL);
   sigaction(SIGUSR1, &sa, NULL);
   /* ... add any other signal here */
+# endif
 #endif
-
+#if 0
   AKL_ADD_CFUN(in, getpid, "GETPID", "Get the process id");
   AKL_ADD_CFUN(in, sleep, "SLEEP", "Sleeping for a given time (in seconds)");
   AKL_ADD_CFUN(in, getenv, "GETENV", "Get the value of an environment variable");
@@ -213,4 +222,5 @@ void akl_init_os(struct akl_state *in)
   AKL_ADD_CFUN(in, env, "ENV", "Get all environment variable as a list");
   AKL_ADD_CFUN(in, load, "LOAD", "Load an AkLisp dynamic library");
   AKL_ADD_CFUN(in, unload, "UNLOAD", "Unload an AkLisp dynamic library");
+#endif
 }

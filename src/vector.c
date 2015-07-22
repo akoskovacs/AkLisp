@@ -132,12 +132,12 @@ void akl_vector_push_vec(struct akl_vector *vec, struct akl_vector *v)
 
 /** @brief Find a specific element in a vector
   * @param vec The vector
-  * @param cmp_fn Comparison function
+  * @param cmp_fn Comparison function (gives 0 when the arguments are the same)
   * @param arg The argument second argument of the comparison function
   * @param ind Pointer to an unsigned int, which will store the index
 */
 void *akl_vector_find(struct akl_vector *vec
-      , akl_cmp_fn_t cmp_fn, void *arg, unsigned int *ind)
+      , akl_cmp_fn_t cmp_fn, void *arg, int *ind)
 {
     unsigned int i;
     void *at;
@@ -145,10 +145,14 @@ void *akl_vector_find(struct akl_vector *vec
     for (i = 0; i < vec->av_count; i++) {
         at = akl_vector_at(vec, i);
         if (!cmp_fn(at, arg)) {
-            if (ind != NULL)
+            if (ind != NULL) {
                 *ind = i;
+            }
             return at;
         }
+    }
+    if (ind != NULL) {
+        *ind = -1;
     }
     return NULL;
 }

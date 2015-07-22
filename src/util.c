@@ -56,8 +56,11 @@ akl_set_global_variable(struct akl_state *s
                         , struct akl_value *v)
 {
     AKL_ASSERT(s && v, NULL);
-    return set_global(s, desc, is_cdesc, v
+    struct akl_variable *var;
+    var = set_global(s, desc, is_cdesc, v
                       , akl_new_variable(s, name, is_cname));
+    printf("var name: %s, var sym: %p, var addr: %p\n", var->vr_symbol->sb_name, var->vr_symbol, var);
+    return var;
 }
 
 void
@@ -75,9 +78,10 @@ akl_remove_function(struct akl_state *in, akl_cfun_t fn)
 static struct akl_function *
 akl_add_global_function(struct akl_state *s, const char *name, const char *desc)
 {
-    struct akl_value    *vf  = akl_new_function_value(s, akl_new_function(s));
-    struct akl_variable *var = akl_set_global_variable(s, AKL_CSTR(name), AKL_CSTR(desc), vf);
-    return (vf != NULL) ? vf->va_value.func : NULL;
+    struct akl_function *f   = akl_new_function(s);
+    struct akl_value    *vf  = akl_new_function_value(s, f);
+    akl_set_global_variable(s, AKL_CSTR(name), AKL_CSTR(desc), vf);
+    return f;
 }
 
 void
@@ -107,7 +111,7 @@ akl_add_global_sfun(struct akl_state *s, akl_sfun_t fn
  * @return The found variable, or NULL otherwise
  */
 struct akl_variable *
-akl_get_global_var(struct akl_state *s, const struct akl_symbol *sym)
+akl_get_global_var(struct akl_state *s, struct akl_symbol *sym)
 {
     struct akl_variable var;
     var.vr_symbol = sym;
@@ -121,7 +125,7 @@ akl_get_global_var(struct akl_state *s, const struct akl_symbol *sym)
  * @return The found variable, or NULL
  */
 struct akl_variable *
-akl_get_global_variable(struct akl_state *s, const char *name)
+akl_get_global_variable(struct akl_state *s, char *name)
 {
     struct akl_symbol sym;
     AKL_ASSERT(name, NULL);
@@ -132,8 +136,17 @@ akl_get_global_variable(struct akl_state *s, const char *name)
 void
 akl_do_on_all_vars(struct akl_state *s, void (*fn) (struct akl_variable *))
 {
+    struct akl_variable *var;
+    RB_FOREACH(var, VAR_TREE, &s->ai_global_vars) {
+       fn(var);
+    }
+}
+
+void
+akl_do_on_all_syms(struct akl_state *s, void (*fn)(struct akl_symbol *))
+{
     struct akl_symbol *sym;
-    RB_FOREACH(sym, VAR_TREE, &s->ai_global_vars) {
+    RB_FOREACH(sym, SYM_TREE, &s->ai_symbols) {
        fn(sym);
     }
 }

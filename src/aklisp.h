@@ -41,7 +41,7 @@
 #endif // AKL_FREE
 
 #ifndef AKL_STRDUP
-# define AKL_STRDUP(str) strdup(str);
+# define AKL_STRDUP(str) strdup(str)
 #endif // AKL_STRDUP
 
 #define AKL_CHECK_TYPE(v1, type) (((v1) && (v1)->va_type == (type)) ? TRUE : FALSE)
@@ -377,7 +377,7 @@ bool_t		 akl_vector_is_empty(struct akl_vector *);
 bool_t       akl_vector_is_grow_need(struct akl_vector *);
 void        *akl_vector_remove(struct akl_vector *, unsigned int);
 void        *akl_vector_pop(struct akl_vector *);
-void        *akl_vector_find(struct akl_vector *, akl_cmp_fn_t, void *, unsigned int *);
+void        *akl_vector_find(struct akl_vector *, akl_cmp_fn_t, void *, int *);
 void         akl_vector_push_vec(struct akl_vector *, struct akl_vector *);
 void        *akl_vector_at(struct akl_vector *, unsigned int);
 void         akl_vector_set(struct akl_vector *, unsigned int, void *);
@@ -391,7 +391,8 @@ void         akl_vector_truncate_by(struct akl_vector *, unsigned int);
 
 struct akl_lisp_fun {
     /* Name of the arguments */
-    char               **uf_args;
+    //char               **uf_args;
+    struct akl_vector    uf_args;
     /* Name of the local variables */
     /* TODO: struct akl_vector   uf_locals; */
     /* List of the instructions,
@@ -605,28 +606,20 @@ void akl_build_ret(struct akl_context *);
 static inline int
 akl_rb_cmp_sym(struct akl_symbol *f, struct akl_symbol *s)
 {
+    AKL_ASSERT(f && s && f->sb_name && s->sb_name, 1);
     return strcasecmp(f->sb_name, s->sb_name);
 }
 
-/* Order global variables, by the symbol's address  */
 static inline int
 akl_rb_cmp_var(struct akl_variable *f, struct akl_variable *s)
 {
-    return akl_rb_cmp_sym(f->vr_symbol, f->vr_symbol);
-#if 0
-    if (f->vr_symbol == s->vr_symbol) {
-        return 0;
-    } else if (f->vr_symbol < s->vr_symbol) {
-        return -1;
-    } else {
-        return 1;
-    }
-#endif
+    AKL_ASSERT(f && s && f->vr_symbol && s->vr_symbol, 1);
+    return akl_rb_cmp_sym(f->vr_symbol, s->vr_symbol);
 }
 
 /* Generate prototypes for the Red-Black trees */
-RB_PROTOTYPE(SYM_TREE, akl_symbol,   sb_entry, akl_rb_cmp_sym);
 RB_PROTOTYPE(VAR_TREE, akl_variable, vr_entry, akl_rb_cmp_var);
+RB_PROTOTYPE(SYM_TREE, akl_symbol,   sb_entry, akl_rb_cmp_sym);
 
 struct akl_variable *akl_set_global_var(struct akl_state *s, struct akl_symbol *
                         , char *desc, bool_t is_cdesc
@@ -639,12 +632,11 @@ void   akl_add_global_cfun(struct akl_state *, akl_cfun_t, const char *, const c
 void   akl_add_global_sfun(struct akl_state *, akl_sfun_t, const char *, const char *);
 void   akl_remove_function(struct akl_state *, akl_cfun_t);
 struct akl_variable *
-akl_find_global_var(struct akl_state *, const struct akl_symbol *);
+akl_get_global_variable(struct akl_state *, char *);
 struct akl_variable *
-akl_get_global_variable(struct akl_state *, const char *);
-struct akl_variable *
-akl_get_global_var(struct akl_state *s, const struct akl_symbol *sym);
+akl_get_global_var(struct akl_state *s, struct akl_symbol *sym);
 void   akl_do_on_all_vars(struct akl_state *, void (*fn)(struct akl_variable *));
+void   akl_do_on_all_syms(struct akl_state *s, void (*fn)(struct akl_symbol *));
 bool_t akl_is_strings_include(struct akl_symbol *, const char **);
 bool_t akl_var_is_function(struct akl_variable *);
 
@@ -906,7 +898,7 @@ struct akl_module *akl_find_module(struct akl_state *, const char *);
 bool_t akl_unload_module(struct akl_state *, const char *, bool_t);
 
 /* These function must be implemented in an os_*.c file */
-void akl_library_init(struct akl_state *, enum AKL_INIT_FLAGS);
+void akl_init_library(struct akl_state *, enum AKL_INIT_FLAGS);
 void akl_spec_library_init(struct akl_state *, enum AKL_INIT_FLAGS);
 void akl_declare_functions(struct akl_state *, const struct akl_fun_decl *);
 void akl_init_os(struct akl_state *);
@@ -942,7 +934,7 @@ void akl_free_module(struct akl_state *, struct akl_module *);
 
 #define AKL_FUN(cfun, name, desc) { AKL_FUNC_CFUN, { AKL_CAT(AKL_CFUN_PREFIX, cfun) }, name, desc }
 #define AKL_NE_FUN(cfun, name, desc) { AKL_FUNC_NOEVAL, { AKL_CAT(AKL_CFUN_PREFIX, cfun) }, name, desc }
-#define AKL_SFUN(scfun, name, desc) { AKL_FUNC_SPECIAL, { .sfun = AKL_CAT(AKL_SFUN_PREFIX, scfun) }, name, desc }
+#define AKL_SFUN(scfun, name, desc) { AKL_FUNC_SPECIAL, { (akl_cfun_t)AKL_CAT(AKL_SFUN_PREFIX, scfun) }, name, desc }
 #define AKL_END_FUNS() { 0, { NULL }, NULL, NULL }
 
 #if USE_COLORS
