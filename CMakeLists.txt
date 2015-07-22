@@ -38,8 +38,8 @@ if (!UNIX)
 endif ()
 
 set(SOURCES 
-#    ${SDIR}${PLATSRC}
-    ${SDIR}os_other.c
+    ${SDIR}${PLATSRC}
+#    ${SDIR}os_other.c
     ${SDIR}aklisp.c
     ${SDIR}lib.c
     ${SDIR}gc.c
