@@ -173,6 +173,20 @@ AKL_DEFINE_FUN(write_times, cx, argc)
     return AKL_NIL;
 }
 
+AKL_DEFINE_FUN(print_symbol_ptr, cx, argc)
+{
+    struct akl_value *val;
+    struct akl_symbol *sym;
+    val = akl_frame_pop(cx);
+    if (AKL_CHECK_TYPE(val, AKL_VT_SYMBOL)) {
+        sym = val->va_value.symbol;
+        printf("name: %s, ptr: %p\n", sym->sb_name, (void *)sym);
+    } else {
+        akl_raise_error(cx, AKL_WARNING, "Parameter is not a symbol");
+    }
+    return val;
+}
+
 AKL_DEFINE_FUN(hello, cx, argc)
 {
     printf("This is a hello world function!\n");
@@ -1338,6 +1352,7 @@ AKL_DECLARE_FUNS(akl_debug_funs) {
     AKL_FUN(about,        "about", "Informations about the interpreter"),
     AKL_FUN(print,        "print", "Print a value in Lisp form"),
     AKL_FUN(display,      "display", "Display a value without formatting (with newline)"),
+    AKL_FUN(print_symbol_ptr,  "print-symbol-ptr", "Display the symbol's internal pointer"),
     AKL_END_FUNS()
 };
 
