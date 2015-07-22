@@ -775,6 +775,7 @@ struct akl_value      *akl_new_string_value(struct akl_state *, char *);
 struct akl_value      *akl_new_number_value(struct akl_state *, double);
 struct akl_value      *akl_new_list_value(struct akl_state *, struct akl_list *);
 struct akl_value      *akl_new_symbol_value(struct akl_state *, char *, bool_t);
+struct akl_value      *akl_new_sym_value(struct akl_state *, struct akl_symbol *);
 struct akl_value      *akl_new_variable_value(struct akl_state *, char *, bool_t);
 struct akl_value      *akl_new_user_value(struct akl_state *, akl_utype_t, void *);
 struct akl_lex_info   *akl_new_lex_info(struct akl_state *, struct akl_io_device *);

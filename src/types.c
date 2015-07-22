@@ -309,16 +309,24 @@ struct akl_value *akl_new_user_value(struct akl_state *s, unsigned int type, voi
 }
 
 struct akl_value *
+akl_new_sym_value(struct akl_state *s, struct akl_symbol *sym)
+{
+    struct akl_value *val = akl_new_value(s);
+    AKL_ASSERT(sym, NULL);
+    AKL_ASSERT(val, NULL);
+
+    val->va_type          = AKL_VT_SYMBOL;
+    val->va_value.symbol  = sym;
+    return val;
+}
+
+struct akl_value *
 akl_new_symbol_value(struct akl_state *s, char *name, bool_t is_cname)
 {
     struct akl_value *val = akl_new_value(s);
     AKL_ASSERT(val, NULL);
     struct akl_symbol *sym  = akl_new_symbol(s, name, is_cname);
-    AKL_ASSERT(sym, NULL);
-
-    val->va_type          = AKL_VT_SYMBOL;
-    val->va_value.symbol  = sym;
-    return val;
+    return akl_new_sym_value(s, sym);
 }
 
 /** @brief Create a value for variable
@@ -357,6 +365,15 @@ akl_new_function_value(struct akl_state *s, struct akl_function *f)
     return v;
 }
 
+void akl_init_label(struct akl_label *l, int ind)
+{
+    l->la_ir     = NULL;
+    l->la_branch = NULL;
+    l->la_name   = NULL;
+    l->la_ind    = ind;
+}
+
+#if 0
 struct akl_label *akl_new_label(struct akl_context *ctx)
 {
     struct akl_lisp_fun *uf;
@@ -368,21 +385,25 @@ struct akl_label *akl_new_label(struct akl_context *ctx)
         uf->uf_labels = akl_new_vector(ctx->cx_state, 4, sizeof(struct akl_label));
     }
     l = akl_vector_reserve(uf->uf_labels);
-    l->la_ir     = NULL;
-    l->la_branch = NULL;
-    l->la_name   = NULL;
-    l->la_ind    = akl_vector_count(uf->uf_labels)-1;
+    akl_init_label(l, akl_vector_count(uf)-1);
     return l;
 }
+#endif
 
 struct akl_label *akl_new_labels(struct akl_context *ctx, int n)
 {
     struct akl_label *labels;
-    assert(n >= 1);
-    labels = akl_new_label(ctx);
-    while (--n)
-        (void)akl_new_label(ctx);
-
+    struct akl_lisp_fun *uf;
+    int i;
+    assert(ctx && ctx->cx_state && ctx->cx_comp_func);
+    uf = &ctx->cx_comp_func->fn_body.ufun;
+    if (uf->uf_labels == NULL) {
+        uf->uf_labels = akl_new_vector(ctx->cx_state, 4, sizeof(struct akl_label));
+    }
+    labels = (struct akl_label *)akl_vector_reserve_more(uf->uf_labels, n);
+    for (i = 0; i < n; i++) {
+        akl_init_label(labels+i, i);
+    }
     return labels;
 }
 
