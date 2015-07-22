@@ -175,7 +175,6 @@ akl_new_symbol(struct akl_state *s, char *name, bool_t is_cname)
         /* If the string is a constant char array, no free() called. */
         sym->sb_is_cdef = is_cname;
     }
-    printf("name: %s, addr %p\n", sym->sb_name, sym);
     return sym;
 }
 

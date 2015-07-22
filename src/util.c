@@ -59,7 +59,6 @@ akl_set_global_variable(struct akl_state *s
     struct akl_variable *var;
     var = set_global(s, desc, is_cdesc, v
                       , akl_new_variable(s, name, is_cname));
-    printf("var name: %s, var sym: %p, var addr: %p\n", var->vr_symbol->sb_name, var->vr_symbol, var);
     return var;
 }
 
