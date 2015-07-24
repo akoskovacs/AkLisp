@@ -327,8 +327,8 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
         cx = &lc;                             \
         akl_init_context(cx);                  \
         lc = *ctx;                              \
-        akl_frame_init(ctx, &cx->cx_frame, argc);\
-        akl_frame_init(ctx, &cx->cx_uframe, argc);\
+        akl_init_frame(ctx, &cx->cx_frame, argc);\
+        akl_init_frame(ctx, &cx->cx_uframe, argc);\
     }
 
 struct akl_context *
@@ -471,9 +471,9 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             var = akl_get_global_var(s, sym);
             if (!var) {
                 akl_raise_error(ctx, AKL_ERROR, "Variable '%s' is undefined", sym->sb_name);
-                akl_stack_push(s, akl_new_nil_value(s));
+                akl_frame_push(ctx, akl_new_nil_value(s));
             } else {
-                akl_stack_push(s, var->vr_value);
+                akl_frame_push(ctx, var->vr_value);
             }
             MOVE_IP(ip);
         break;
@@ -483,7 +483,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
                 akl_raise_error(ctx, AKL_WARNING, "Interpreter error: NULL pushed to stack");
                 return;
             }
-            akl_stack_push(s, OPERAND(0, value));
+            akl_frame_push(ctx, OPERAND(0, value));
             MOVE_IP(ip);
         break;
 
@@ -491,7 +491,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             /* TODO: Error if ui_num < 0 */
             v = akl_frame_at(ctx, OPERAND(0, ui_num));
             if (v)
-                akl_stack_push(s, v);
+                akl_frame_push(ctx, v);
             MOVE_IP(ip);
         break;
 
@@ -508,7 +508,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
         case AKL_IR_HEAD:
             v = akl_frame_at(ctx, in->in_arg[0].ui_num);
             if (v) {
-                akl_stack_push(s, akl_car(AKL_GET_LIST_VALUE(v)));
+                akl_frame_push(ctx, akl_car(AKL_GET_LIST_VALUE(v)));
             }
             MOVE_IP(ip);
         break;
@@ -518,7 +518,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             if (v) {
                 lv = akl_new_list_value(ctx->cx_state
                         , akl_cdr(ctx->cx_state, AKL_GET_LIST_VALUE(v)));
-                akl_stack_push(s, lv);
+                akl_frame_push(ctx, lv);
             }
             MOVE_IP(ip);
         break;
@@ -729,6 +729,8 @@ void akl_execute(struct akl_context *ctx)
     struct akl_function *mf = ctx->cx_state->ai_fn_main;
     struct akl_lisp_fun *mfir = &mf->fn_body.ufun;
     ctx->cx_stack = &ctx->cx_state->ai_stack;
+    akl_init_frame(ctx, &ctx->cx_uframe, 4);
+    akl_init_frame(ctx, &ctx->cx_frame, 4);
     akl_ir_exec_branch(ctx, AKL_LIST_FIRST(&mfir->uf_body));
 }
 

@@ -238,44 +238,14 @@ void akl_compile_list(struct akl_context *cx)
                     sym = akl_lex_get_symbol(dev);
                 }
             } else {
-                akl_build_load(cx, akl_lex_get_symbol(dev));
+                if (is_quoted) {
+                    akl_build_push(cx, v);
+                } else {
+                    akl_build_load(cx, akl_lex_get_symbol(dev));
+                }
                 argc++;
                 break;
             }
-
-            // TODO: Delete this
-            if (0) {
-            if (is_quoted) {
-                /* It just used as a symbol, nothing special... */
-                akl_build_push(cx, akl_parse_token(cx, tok, TRUE));
-            argc++;
-            break;
-        } else {
-            /* If this atom is at the first place (ie. NULL), it must
-              be some sort of function. Find it out and if it is a
-              special form, execute it. */
-            if (vfn == NULL) {
-                sym = akl_lex_get_symbol(cx->cx_dev);
-                call_info = akl_new_lex_info(cx->cx_state, cx->cx_dev);
-                vfn = akl_get_global_var(cx->cx_state, sym);
-                if (AKL_CHECK_TYPE(v, AKL_VT_FUNCTION) && v->va_value.func != NULL) {
-                    fun = v->va_value.func;
-                    if (fun->fn_type == AKL_FUNC_SPECIAL) {
-                        cx->cx_func_name = sym->sb_name;
-                        cx->cx_func = fun;
-                        fun->fn_body.scfun(cx);
-                        return;
-                    }
-                } /* else: error */
-                break;
-            }
-            /* Not the first place, it must be a reference to a value */
-            /* TODO: Global definitions */
-            akl_build_load(cx, akl_lex_get_symbol(dev));
-            argc++;
-        }
-
-        }
         break;
 
         case tLBRACE:

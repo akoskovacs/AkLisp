@@ -120,7 +120,7 @@ void akl_init_context(struct akl_context *ctx)
 }
 
 void
-akl_frame_init(struct akl_context *ctx, struct akl_frame **f, unsigned int argc)
+akl_init_frame(struct akl_context *ctx, struct akl_frame **f, unsigned int argc)
 {
     /* On first run, there is nothing in the stack */
     /* TODO: Fix for argv */

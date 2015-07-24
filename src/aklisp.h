@@ -257,7 +257,7 @@ struct akl_frame {
     unsigned int af_end;
 };
 
-void akl_frame_init(struct akl_context *, struct akl_frame **, unsigned int);
+void akl_init_frame(struct akl_context *, struct akl_frame **, unsigned int);
 
 /* Contextual environment */
 struct akl_context {
@@ -900,7 +900,7 @@ bool_t akl_unload_module(struct akl_state *, const char *, bool_t);
 
 /* These function must be implemented in an os_*.c file */
 void akl_init_library(struct akl_state *, enum AKL_INIT_FLAGS);
-void akl_spec_library_init(struct akl_state *, enum AKL_INIT_FLAGS);
+void akl_init_spec_library(struct akl_state *, enum AKL_INIT_FLAGS);
 void akl_declare_functions(struct akl_state *, const struct akl_fun_decl *);
 void akl_init_os(struct akl_state *);
 void akl_init_file(struct akl_state *);

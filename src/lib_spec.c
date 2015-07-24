@@ -86,19 +86,23 @@ AKL_DEFINE_SFUN(sif, ctx)
 
 AKL_DEFINE_SFUN(swhile, ctx)
 {
-    akl_token_t tok;
+//  akl_token_t tok;
     struct akl_label *label = akl_new_labels(ctx, 3);
+#if 0
     if ((tok = akl_lex(ctx->cx_dev)) != tLBRACE) {
         return NULL; /* Panic */
     }
+#endif
     /* .L0: Condition: */
-    akl_build_label(ctx, label+0);
     akl_compile_next(ctx);
+    akl_build_label(ctx, label+0);
     akl_build_branch(ctx, label+2, label+1);
-
+    akl_compile_next(ctx);
+#if 0
     while ((tok = akl_lex(ctx->cx_dev)) != tRBRACE) {
         akl_compile_list(ctx);
     }
+#endif
     /* Jump back to the condition: (with an unconditional) */
     akl_build_jump(ctx, AKL_JMP, label+0);
 
