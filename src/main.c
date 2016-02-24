@@ -29,6 +29,9 @@
 #include <getopt.h>
 #endif // HAVE_GETOPT_H
 
+#define ALWAYS_DUMP_STACK 1
+#define ALWAYS_DUMP_INSTR 1
+
 #define PROMPT_MAX 10
 static struct akl_state state;
 
@@ -199,6 +202,15 @@ static void interactive_mode(void)
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
     printf("Copyleft (C) 2014 Akos Kovacs\n\n");
     AKL_SET_FEATURE(&state, AKL_CFG_INTERACTIVE);
+
+#if ALWAYS_DUMP_INSTR
+    AKL_SET_FEATURE(&state, AKL_DEBUG_INSTR);
+#endif // ALWAYS_DUMP_INSTR
+
+#if ALWAYS_DUMP_STACK
+    AKL_SET_FEATURE(&state, AKL_DEBUG_STACK);
+#endif // ALWAYS_DUMP_INSTR
+
     init_readline();
     while (1) {
         snprintf(prompt, PROMPT_MAX, "[%d]> ", lnum);
@@ -215,14 +227,18 @@ static void interactive_mode(void)
             dev = akl_new_string_device(&state, "stdio", line);
             /*akl_list_append(in, inst->ai_program, il);*/
             ctx = akl_compile(&state, dev);
-            //if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_INSTR))
+
+            if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_INSTR)) {
                 akl_dump_ir(ctx, state.ai_fn_main);
+            }
             akl_execute(ctx);
 //            akl_clear_ir(ctx);
-            //if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_STACK))
+
+            if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_STACK)) {
                 akl_dump_stack(ctx);
+            }
             printf(" => ");
-            akl_print_value(&state, akl_stack_pop(&state));
+            akl_print_value(&state, akl_stack_pop(ctx));
             akl_print_errors(&state);
             akl_clear_errors(&state);
             akl_clear_ir(ctx);
