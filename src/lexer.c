@@ -28,8 +28,9 @@
 static void init_lexer(struct akl_io_device *dev)
 {
     assert(dev);
-    dev->iod_buffer = (char *)akl_alloc(dev->iod_state, DEF_BUFFER_SIZE);
+    dev->iod_buffer      = (char *)akl_alloc(dev->iod_state, DEF_BUFFER_SIZE);
     dev->iod_buffer_size = DEF_BUFFER_SIZE;
+    dev->iod_backlog     = tEOF;
 }
 
 void akl_lex_free(struct akl_io_device *dev)
@@ -198,6 +199,15 @@ size_t copy_word(struct akl_io_device *dev)
     return i;
 }
 
+/* Pushes tok back to the token stream.
+ * The next call of akl_lex(), instead of reading the input
+ * it will give back the token specified here. Similiar to ungetc().
+*/
+void akl_lex_putback(struct akl_io_device *dev, akl_token_t tok)
+{
+   dev->iod_backlog = tok;
+}
+
 akl_token_t
 akl_lex(struct akl_io_device *dev)
 {
@@ -207,9 +217,18 @@ akl_lex(struct akl_io_device *dev)
       positive and negative numbers must also work:
       '(++ +5)' should be valid. */
     char op = 0;
+    akl_token_t tok;
     //assert(dev == NULL);
-    if (dev->iod_buffer == NULL)
+    if (dev->iod_buffer == NULL) {
         init_lexer(dev);
+    }
+
+    if (dev->iod_backlog != tEOF) {
+        tok = dev->iod_backlog;
+        dev->iod_backlog = tEOF;
+        return tok;
+    }
+
     while ((ch = akl_io_getc(dev))) {
         /* We should avoid the interpretation of the Unix shebang */
         if (dev->iod_char_count == 1 && ch == '#') {
