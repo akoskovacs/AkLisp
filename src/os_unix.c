@@ -21,10 +21,10 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ************************************************************************/
 #include "aklisp.h"
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <sys/stat.h>
 #define HAVE_EXECINFO_H
 #define HAVE_UCONTEXT_H
 #ifdef HAVE_EXECINFO_H
