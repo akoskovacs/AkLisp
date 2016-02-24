@@ -291,8 +291,9 @@ bool_t akl_gc_pool_have_free(struct akl_gc_pool *p)
     int i;
     assert(p);
     for (i = 0; i < AKL_GC_POOL_SIZE/BITS_IN_UINT; i++) {
-        if (p->gp_freemap[i] != UINT_MAX)
+        if (p->gp_freemap[i] != UINT_MAX) {
             return TRUE;
+        }
     }
     return FALSE;
 }
@@ -303,7 +304,7 @@ int akl_gc_pool_find_free(struct akl_gc_pool *p)
     assert(p);
     /* Is the next element is usable? */
     int cnt = akl_vector_count(&p->gp_pool);
-    if (cnt < AKL_GC_POOL_SIZE && akl_gc_pool_in_use(p, cnt))
+    if (cnt < AKL_GC_POOL_SIZE && !akl_gc_pool_in_use(p, cnt))
         return cnt;
 
     /* Nope... */
@@ -322,6 +323,7 @@ static bool_t
 akl_gc_type_have_free(struct akl_state *s, struct akl_gc_type *t, struct akl_gc_pool **pool, unsigned int *ind)
 {
     struct akl_gc_pool *p = t->gt_pool_head;
+    int i;
     /* The last pool should have some free room (small optimization) */
     if (p == NULL) {
         *pool = akl_gc_pool_create(s, t);
@@ -337,9 +339,13 @@ akl_gc_type_have_free(struct akl_state *s, struct akl_gc_type *t, struct akl_gc_
 
     /* Ok. We have to check the others too :-( */
     while (p && p != t->gt_pool_last) { /* The last was already checked... */
+        /* TODO: Rework this */
         if (akl_gc_pool_have_free(p)) {
-            *ind = akl_gc_pool_find_free(p);
+            i = akl_gc_pool_find_free(p);
             *pool = p;
+            if (i == -1) {
+                continue;
+            }
             return TRUE;
         }
         p = p->gp_next;
