@@ -23,8 +23,8 @@
 #include "aklisp.h"
 
 const char *akl_type_name[10] = {
-    "nil", "atom", "number", "string", "list", "true",
-    "function", "user-data", NULL
+    "nil", "symbol", "variable", "number", "string", "list",
+    "true", "function" "userdata", NULL
 };
 
 struct akl_value TRUE_VALUE = {
@@ -67,7 +67,7 @@ void akl_init_state(struct akl_state *s, const struct akl_mem_callbacks *cbs)
     s->ai_device = NULL;
     akl_init_list(&s->ai_modules);
     akl_init_vector(s, &s->ai_utypes, 5, sizeof(struct akl_module *));
-    akl_init_vector(s, &s->ai_stack, AKL_STACK_SIZE, sizeof(struct akl_value **));
+    akl_init_list(&s->ai_stack);
     s->ai_errors   = NULL;
     akl_init_context(&s->ai_context);
     akl_init_os(s);
@@ -90,6 +90,10 @@ struct akl_state *akl_new_state(const struct akl_mem_callbacks *cbs)
 
 void akl_init_list(struct akl_list *list)
 {
+    if (list == NULL) {
+        return;
+    }
+
     AKL_GC_INIT_OBJ(list, AKL_GC_LIST);
     list->li_head   = NULL;
     list->li_last   = NULL;
@@ -116,25 +120,28 @@ void akl_init_context(struct akl_context *ctx)
     ctx->cx_lex_info  = NULL;
     ctx->cx_parent    = NULL;
     ctx->cx_frame     = NULL;
-    ctx->cx_uframe    = NULL;
+    ctx->cx_stack     = NULL;
+    ctx->cx_frame_len = 0;
 }
 
 void
-akl_init_frame(struct akl_context *ctx, struct akl_frame **f, unsigned int argc)
+akl_init_frame(struct akl_context *ctx, int len)
 {
-    /* On first run, there is nothing in the stack */
-    /* TODO: Fix for argv */
-    if (*f == NULL) {
-        *f =  AKL_MALLOC(ctx->cx_state, struct akl_frame);
-        if (*f == NULL) {
-            return;
-        }
-        (*f)->af_begin = 0;
-        (*f)->af_end   = argc;
+    int fs = len;
+    struct akl_list_entry *it = akl_list_it_end(ctx->cx_stack);
+
+    ctx->cx_frame = akl_new_list(ctx->cx_state);
+    if (fs == -1) {
         return;
     }
-    (*f)->af_begin = akl_vector_count(ctx->cx_stack);
-    (*f)->af_end   = (*f)->af_begin + argc;
+
+    ctx->cx_frame->li_count = len;
+    ctx->cx_frame_len = len;
+    ctx->cx_frame->li_last = it;
+    while (--fs && akl_list_it_has_prev(it)) {
+        akl_list_it_prev(&it);
+    }
+    ctx->cx_frame->li_head = it;
 }
 
 struct akl_context *
@@ -143,7 +150,6 @@ akl_new_context(struct akl_state *s)
     struct akl_context *ctx = AKL_MALLOC(s, struct akl_context);
     akl_init_context(ctx);
     ctx->cx_state = s;
-    ctx->cx_stack = &s->ai_stack;
     return ctx;
 }
 
@@ -508,6 +514,15 @@ bool_t akl_var_is_function(struct akl_variable *var)
     return (v != NULL) && (v->va_type == AKL_VT_FUNCTION);
 }
 
+struct akl_function *
+akl_var_to_function(struct akl_variable *var)
+{
+    struct akl_value *v = (var != NULL) ? var->vr_value: NULL;
+    if ((v != NULL) && (v->va_type == AKL_VT_FUNCTION))
+        return v->va_value.func;
+    return NULL;
+}
+
 /* NOTE: These functions give back a NULL pointer, if the conversion
   cannot be completed */
 struct akl_value *akl_to_number(struct akl_state *in, struct akl_value *v)
@@ -703,7 +718,6 @@ void akl_deregister_type(struct akl_state *s, unsigned int type)
 static int utype_finder_name(void *t, void *name)
 {
     struct akl_utype *type = (struct akl_utype *)t;
-    int cmp;
     return strcmp(type->ut_name, (const char *)name);
 }
 
