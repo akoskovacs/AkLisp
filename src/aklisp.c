@@ -424,6 +424,11 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
     if (ir == NULL || ip == NULL)
         return;
 
+    if (s && s->ai_interrupted) {
+        akl_raise_error(ctx, AKL_WARNING, "Program interruption.");
+        return;
+    }
+
     while (ip) {
         in = (struct akl_ir_instruction *)ip->le_data;
         LOOP_WATCHDOG(ip);
@@ -738,6 +743,7 @@ void akl_execute(struct akl_context *ctx)
     AKL_ASSERT(ctx && ctx->cx_state && ctx->cx_state->ai_fn_main, AKL_NOTHING);
     struct akl_function *mf = ctx->cx_state->ai_fn_main;
     struct akl_lisp_fun *mfir = &mf->fn_body.ufun;
+    ctx->cx_state->ai_interrupted = FALSE;
     //struct akl_value *v = akl_get_global_value(ctx->cx_state, "*args*");
     //ctx->cx_stack = &ctx->cx_state->ai_stack;
     //akl_frame_push(ctx,  AKL_NULLER(v));

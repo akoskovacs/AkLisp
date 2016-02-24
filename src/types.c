@@ -57,6 +57,7 @@ void akl_init_state(struct akl_state *s, const struct akl_mem_callbacks *cbs)
     } else {
         akl_set_mem_callbacks(s, cbs);
     }
+    s->ai_interrupted = FALSE;
     AKL_SET_FEATURE(s, AKL_CFG_USE_COLORS);
     AKL_SET_FEATURE(s, AKL_CFG_USE_GC);
     s->ai_fn_main = NULL;

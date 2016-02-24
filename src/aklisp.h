@@ -543,6 +543,7 @@ struct akl_state {
     #define AKL_DEBUG_STACK         0x0010
     unsigned long                   ai_config; /* Bit configuration */
     bool_t                          ai_gc_last_was_mark : 1;
+    bool_t                          ai_interrupted :1;  /* The program is stopped by an interrupt  */
 };
 
 bool_t akl_set_feature(struct akl_state *, const char *);

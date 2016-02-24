@@ -31,7 +31,7 @@
 # ifdef HAVE_UCONTEXT_H
 char* exe = 0;
 /* get REG_EIP from ucontext.h */
-#define __USE_GNU
+//#define __USE_GNU
 #include <execinfo.h>
 #include <ucontext.h>
 
@@ -198,8 +198,20 @@ void akl_module_free(struct akl_state *s, struct akl_module *mod)
     //akl_free(s, mod->am_path, strlen(mod->am_path));
 }
 
+/* Unfortunately, this must be a pointer */
+static struct akl_state *int_state;
+void interrupt_program(int sig)
+{
+   if (int_state->ai_interrupted) {
+        exit(1);
+   } else {
+        int_state->ai_interrupted = TRUE;
+   }
+}
+
 void akl_init_os(struct akl_state *s)
 {
+   int_state = s;
 #ifdef HAVE_UCONTEXT_H
 # ifdef HAVE_EXECINFO_H
  /* Install our signal handler */
@@ -211,6 +223,8 @@ void akl_init_os(struct akl_state *s)
 
   sigaction(SIGSEGV, &sa, NULL);
   sigaction(SIGUSR1, &sa, NULL);
+  signal(SIGINT, interrupt_program);
+  signal(SIGSTOP, interrupt_program);
   /* ... add any other signal here */
 # endif
 #endif
