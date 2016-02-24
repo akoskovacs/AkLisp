@@ -57,6 +57,7 @@ AKL_DEFINE_SFUN(set, ctx)
     sym = akl_lex_get_symbol(dev);
     value = akl_parse_value(ctx);
     akl_build_set(ctx, sym, value);
+    akl_build_push(ctx, value);
     return NULL;
 }
 
@@ -152,17 +153,16 @@ AKL_DEFINE_SFUN(defun, ctx)
     akl_token_t tok;
     struct akl_function *func = akl_new_function(ctx->cx_state);
     struct akl_value *fval = akl_new_function_value(ctx->cx_state, func);
+    struct akl_list *oir = ctx->cx_ir;
     struct akl_symbol *fsym;
-    struct akl_variable *fvar;
+    char *docstring = NULL;
 
     func->fn_type = AKL_FUNC_USER;
     ufun = &func->fn_body.ufun;
     akl_init_list(&ufun->uf_body);
 
     if (akl_lex(ctx->cx_dev) == tATOM) {
-        akl_lex_get_symbol(ctx->cx_dev);
-        fvar = akl_new_var(ctx->cx_state, akl_lex_get_symbol(ctx->cx_dev));
-        fsym = fvar->vr_symbol;
+        fsym = akl_lex_get_symbol(ctx->cx_dev);
     } else {
         /* TODO: Error! */
         akl_raise_error(ctx, AKL_ERROR, "Unexpected token, "
@@ -176,18 +176,27 @@ AKL_DEFINE_SFUN(defun, ctx)
     /* Eat the next left brace and interpret the body... */
     tok = akl_lex(ctx->cx_dev);
     if (tok == tSTRING) {
-        fvar->vr_desc = akl_lex_get_string(ctx->cx_dev);
-        fvar->vr_is_cdesc = FALSE;
+        docstring = akl_lex_get_string(ctx->cx_dev);
         tok = akl_lex(ctx->cx_dev);
+    } else {
+        akl_lex_putback(ctx->cx_dev, tok);
     }
+    akl_set_global_var(ctx->cx_state, fsym, docstring, FALSE, fval);
 
+    //tok = akl_lex(ctx->cx_dev);
+    akl_compile_next(ctx);
+#if 0
     if (tok == tLBRACE) {
         akl_compile_list(ctx);
     } else {
-        /* Todo: Error: no body */
-        //akl_remove_global_atom(ctx->cx_state, fatm);
+        akl_lex_putback(ctx->cx_dev, tok);
+        akl_compile_list(ctx);
     }
-    akl_build_push(ctx, fval);
+#endif
+
+    /* Build needs the old IR */
+    ctx->cx_ir = oir;
+    akl_build_push(ctx, akl_new_sym_value(ctx->cx_state, fsym));
     return NULL;
 }
 
@@ -196,6 +205,7 @@ AKL_DECLARE_FUNS(akl_spec_forms) {
     AKL_SFUN(when, "when", "Conditionally evaluate an expression"),
     AKL_SFUN(swhile, "while", "Conditional loop expression"),
     AKL_SFUN(defun, "defun!", "Define a new function"),
+    AKL_SFUN(set, "set!", "Define a new global variable"),
     AKL_END_FUNS()
 };
 
