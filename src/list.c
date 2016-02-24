@@ -21,7 +21,7 @@
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ************************************************************************/
 #include "aklisp.h"
-
+/* This function also works on sublists */
 struct akl_list_entry 
 *akl_list_append(struct akl_state *s, struct akl_list *list, void *data)
 {
@@ -84,8 +84,8 @@ akl_list_insert_head_value(struct akl_state *s, struct akl_list *list, struct ak
     return ent;
 }
 
-struct akl_value *
-akl_list_shift(struct akl_list *list)
+struct akl_list_entry *
+akl_list_shift_entry(struct akl_list *list)
 {
     assert(list);
     struct akl_list_entry *ohead = list->li_head;
@@ -97,8 +97,16 @@ akl_list_shift(struct akl_list *list)
     if (ohead == list->li_last)
         list->li_last = nhead;
 
+    list->li_count--;
     /* TODO: Can explicitly free() the ohead */
-    return (ohead) ? ohead->le_data : NULL;
+    return ohead;
+}
+
+void *
+akl_list_shift(struct akl_list *list)
+{
+    struct akl_list_entry *ent = akl_list_shift_entry(list);
+    return ent ? ent->le_data : NULL;
 }
 
 struct akl_value *akl_duplicate_value(struct akl_state *in, struct akl_value *oval)
@@ -278,17 +286,21 @@ struct akl_value *akl_car(struct akl_list *l)
     return AKL_FIRST_VALUE(l);
 }
 
-void *akl_list_pop(struct akl_list *list)
+struct akl_list_entry *
+akl_list_pop_entry(struct akl_list *list)
 {
     struct akl_list_entry *ent;
     if (list == NULL || list->li_last == NULL)
         return NULL;
 
     ent = akl_list_remove_entry(list, list->li_last);
-    if (ent != NULL) {
-        return ent->le_data;
-    }
-    return NULL;
+    return ent;
+}
+
+void *akl_list_pop(struct akl_list *list)
+{
+    struct akl_list_entry *ent = akl_list_pop_entry(list);
+    return ent ? ent->le_data : NULL;
 }
 
 unsigned int
@@ -414,70 +426,70 @@ void akl_print_list(struct akl_state *s, struct akl_list *list)
     if (AKL_IS_QUOTED(list))
         printf("\'");
     printf("(");
+    struct akl_value *v;
     AKL_LIST_FOREACH(ent, list) {
         if (ent == NULL || ent->le_data == NULL)
             break;
-        akl_print_value(s, AKL_ENTRY_VALUE(ent));
-        if (ent->le_next != NULL)
+        v = AKL_ENTRY_VALUE(ent);
+        akl_print_value(s, v );
+        if (AKL_LIST_NEXT(ent) != NULL)
             printf(" ");
     }
     printf(")");
 }
 
-struct akl_list_iterator *akl_list_begin(struct akl_state *s, struct akl_list *l)
+struct akl_list_entry *
+akl_list_it_begin(struct akl_list *l)
 {
-    struct akl_list_iterator *it = NULL;
-    if (l && s) {
-        it = AKL_MALLOC(s, struct akl_list_iterator);
-        it->current = l->li_head;
+    struct akl_list_entry *ent = NULL;
+    if (l) {
+        ent = l->li_head;
     }
-    return it;
+    return ent;
 }
 
-struct akl_list_iterator *akl_list_end(struct akl_state *s, struct akl_list *l)
+struct akl_list_entry *
+akl_list_it_end(struct akl_list *l)
 {
-    struct akl_list_iterator *it = NULL;
-    if (l && s) {
-        it = AKL_MALLOC(s, struct akl_list_iterator);
-        it->current = l->li_last;
+    struct akl_list_entry *ent = NULL;
+    if (l) {
+        ent = l->li_last;
     }
-    return it;
+    return ent;
 }
 
-bool_t akl_list_has_next(struct akl_list_iterator *it)
+bool_t akl_list_it_has_next(struct akl_list_entry *it)
 {
-   return (it && it->current);
+   return (it && it->le_next);
 }
 
-bool_t akl_list_has_prev(struct akl_list_iterator *it)
+bool_t akl_list_it_has_prev(struct akl_list_entry *it)
 {
-   return (it && it->current);
+   return (it && it->le_prev);
 }
 
-void *akl_list_next(struct akl_list_iterator *it)
+void *akl_list_it_next(struct akl_list_entry **it)
 {
-    void *p;
-    if (it && it->current) {
-        p = it->current->le_data;
-        it->current = it->current->le_next;
-        return p;
+    void *p = NULL;
+    if (it && (*it)) {
+        p = (*it)->le_data;
+        *it = (*it)->le_next;
     }
-    return NULL;
+    return p;
 }
 
-void *akl_list_prev(struct akl_list_iterator *it)
+void *akl_list_it_prev(struct akl_list_entry **it)
 {
-    void *p;
-    if (it && it->current) {
-        p = it->current->le_data;
-        it->current = it->current->le_prev;
-        return p;
+    void *p = NULL;
+    if (it && (*it)) {
+        p = (*it)->le_data;
+        *it = (*it)->le_prev;
     }
-    return NULL;
+    return p;
 }
 
-void
-akl_list_free_iterator(struct akl_state *s, struct akl_list_iterator *it)
+void *
+akl_list_it_data(struct akl_list_entry *it)
 {
-    akl_free(s, it, sizeof(struct akl_list_iterator));
+    return (it != NULL) ? it->le_data : NULL;
 }
