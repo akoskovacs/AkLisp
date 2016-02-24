@@ -66,8 +66,8 @@ void bt_sighandler(int sig, siginfo_t *info,
   /* Do something useful with siginfo_t */
   if (sig == SIGSEGV)
     printf("Got signal %d, faulty address is %p, "
-           "from %p\n", sig, info->si_addr, 
-           uc->uc_mcontext.gregs[REG_RIP]);
+           "from %#x\n", sig, info->si_addr, 
+           (unsigned int)uc->uc_mcontext.gregs[REG_RIP]);
   else
     printf("Got signal %d#92;\n", sig);
 
