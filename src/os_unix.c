@@ -32,8 +32,8 @@
 char* exe = 0;
 /* get REG_EIP from ucontext.h */
 //#define __USE_GNU
-#include <execinfo.h>
 #include <ucontext.h>
+#include <execinfo.h>
 
 static int init_exec_name() 
 {
@@ -66,8 +66,8 @@ void bt_sighandler(int sig, siginfo_t *info,
   /* Do something useful with siginfo_t */
   if (sig == SIGSEGV)
     printf("Got signal %d, faulty address is %p, "
-           "from %p\n", sig, info->si_addr, 
-           uc->uc_mcontext.gregs[REG_RIP]);
+           "from %#lx\n", sig, info->si_addr, 
+           (long)uc->uc_mcontext.gregs[REG_RIP]);
   else
     printf("Got signal %d#92;\n", sig);
 
