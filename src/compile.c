@@ -37,10 +37,11 @@ akl_ir_set_lex_info(struct akl_context *ctx, struct akl_lex_info *info)
 static int
 compare_symbols(void *f, void *s)
 {
-    return !(f == s);
+    return akl_rb_cmp_sym(f, s);
 }
 
-int argument_finder(struct akl_lisp_fun *fn, struct akl_symbol *sym)
+int
+argument_finder(struct akl_lisp_fun *fn, struct akl_symbol *sym)
 {
     int i;
     akl_vector_find(&fn->uf_args, compare_symbols, sym, &i);
@@ -51,9 +52,32 @@ static struct akl_ir_instruction *
 new_instr(struct akl_context *ctx)
 {
     struct akl_state *s = ctx->cx_state;
-    struct akl_ir_instruction *instr = AKL_MALLOC(s, struct akl_ir_instruction);
-    instr->in_linfo = NULL;
-    akl_list_append(s, (ctx)->cx_ir, instr);
+    struct akl_list *ir = ctx->cx_ir;
+    struct akl_ir_instruction *nop = AKL_MALLOC(s, struct akl_ir_instruction);
+    struct akl_ir_instruction *instr;
+    /* This is the very first instruction. We have to add the this to the IR
+     * and then a NOP also. The next call will modify this operation, so
+     * we will always know the address of the next operation for reference. */
+    if (akl_list_is_empty(ir)) {
+        instr = AKL_MALLOC(s, struct akl_ir_instruction);
+        instr->in_linfo = NULL;
+        instr->in_fun   = NULL;
+        /* Add the new instruction as the first one. */
+        akl_list_append(s, ir, instr);
+    } else {
+        /* If we already had a NOP, then just modify that accordingly.
+         * This always has to be the last one.
+        */
+        instr = (struct akl_ir_instruction *)akl_list_last(ir);
+    }
+    /* The new NOP will be always the last in the list. The next new_instr()
+     * call will have to use that as the new operation.
+     * NOTE: Cannot call akl_build_nop() because of recursion. */
+    nop->in_op    = AKL_IR_NOP;
+    nop->in_linfo = NULL;
+    nop->in_fun   = NULL;
+    /* Then the dummy NOP */
+    akl_list_append(s, ir, nop);
     return instr;
 }
 
@@ -187,11 +211,10 @@ void akl_compile_list(struct akl_context *cx)
 {
     akl_token_t tok;
     struct akl_value *v;
-    enum PREFETCH_STATUS pf_st;
+    enum PREFETCH_STATUS pf_st = PF_FN_NOT_FOUND;
     int    argc              = 0;
     bool_t felem             = TRUE;
     bool_t is_quoted         = FALSE;
-    struct akl_variable *vfn = NULL; /* Function variable */
     struct akl_function *fun = NULL;
     struct akl_symbol   *sym = NULL;
     struct akl_lex_info *call_info = NULL;
@@ -231,17 +254,15 @@ void akl_compile_list(struct akl_context *cx)
                         return;
                     }
 #endif
-                } else if (pf_st == PF_FN_NORMAL) {
-                    sym = v->va_value.symbol;
-                } else if (pf_st == PF_FN_NOT_FOUND) {
+                } else if (pf_st == PF_FN_NORMAL || pf_st == PF_FN_NOT_FOUND) {
                     /* No global functions with this name, try to resolve it later. */
-                    sym = akl_lex_get_symbol(dev);
+                    sym = v->va_value.symbol;
                 }
             } else {
                 if (is_quoted) {
                     akl_build_push(cx, v);
                 } else {
-                    akl_build_load(cx, akl_lex_get_symbol(dev));
+                    akl_build_load(cx, v->va_value.symbol);
                 }
                 argc++;
                 break;
@@ -261,15 +282,18 @@ void akl_compile_list(struct akl_context *cx)
         break;
 
         case tRBRACE:
-            /* No function name, no function to call */
+            /* No function name, no function to call and not even a special form */
             if (sym == NULL) {
-                akl_build_push(cx, akl_new_nil_value(cx->cx_state));
-                akl_raise_error(cx, AKL_WARNING, "No function to call.");
-                return;
+                if (pf_st != PF_FN_SFORM) {
+                    akl_build_push(cx, akl_new_nil_value(cx->cx_state));
+                    akl_raise_error(cx, AKL_WARNING, "No function to call.");
+                    return;
+                }
+            } else {
+                /* We are run out of arguments, it's time for a function call */
+                akl_build_call(cx, sym, fun, argc);
+                akl_ir_set_lex_info(cx, call_info);
             }
-            /* We are run out of arguments, it's time for a function call */
-            akl_build_call(cx, sym, fun, argc);
-            akl_ir_set_lex_info(cx, call_info);
         return;
 
         /* tNUMBER, tSTRING, tETC... */
@@ -306,6 +330,7 @@ struct akl_context *akl_compile(struct akl_state *s, struct akl_io_device *dev)
     AKL_ASSERT(s && dev, NULL);
     struct akl_context *cx = akl_new_context(s);
     struct akl_function *f = akl_new_function(s);
+    struct akl_ir_instruction *lip;
     akl_token_t tok;
 
     akl_init_list(&f->fn_body.ufun.uf_body);
@@ -319,6 +344,13 @@ struct akl_context *akl_compile(struct akl_state *s, struct akl_io_device *dev)
     do {
         tok = akl_compile_next(cx);
     } while (tok != tEOF);
+    /* Don't need the last NOP anymore, remove it. */
+    lip = akl_list_pop(cx->cx_ir);
+    if (lip && lip->in_op != AKL_IR_NOP) {
+       /* Something is wrong if it got here. Undo everything
+          and just pretend it will be ok again.˙*/
+        akl_list_append(s, cx->cx_ir, lip);
+    }
     return cx;
 }
 
