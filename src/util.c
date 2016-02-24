@@ -29,14 +29,20 @@ static struct akl_variable *
 set_global(struct akl_state *s, char *desc, bool_t is_cdesc
            , struct akl_value *v, struct akl_variable *var)
 {
+    struct akl_variable *ovar;
     if (var == NULL) {
         return NULL;
+    }
+    ovar = VAR_TREE_RB_FIND(&s->ai_global_vars, var);
+    if (ovar != NULL) {
+        var = ovar;
+    } else {
+        VAR_TREE_RB_INSERT(&s->ai_global_vars, var);
     }
     var->vr_value    = v;
     var->vr_desc     = desc;
     var->vr_is_cdesc = is_cdesc;
 
-    VAR_TREE_RB_INSERT(&s->ai_global_vars, var);
     return var;
 }
 
@@ -132,6 +138,13 @@ akl_get_global_variable(struct akl_state *s, char *name)
     return akl_get_global_var(s, &sym);
 }
 
+struct akl_value *
+akl_get_global_value(struct akl_state *s, char *name)
+{
+    struct akl_variable *v = akl_get_global_variable(s, name);
+    return v == NULL ? NULL : v->vr_value;
+}
+
 void
 akl_do_on_all_vars(struct akl_state *s, void (*fn) (struct akl_variable *))
 {
@@ -204,13 +217,28 @@ void show_features(struct akl_state *s, const char *fname)
     if (!s)
         return;
 
-    printf("Available options:\n");
-    for (i = 0; i < FEATURE_COUNT; i++) {
-        printf("\t%-10s\t%-30s%-10s\n", akl_features[i].af_name, akl_features[i].af_desc
-                                , AKL_IS_FEATURE_ON(s, akl_features[i].af_bit) ? "[on]" : "[off]");
+    printf("\nAvailable options:\n");
+    if (AKL_IS_FEATURE_ON(s, AKL_CFG_USE_COLORS)) {
+        /* Overcomplicated colorful joyness */
+        for (i = 0; i < FEATURE_COUNT; i++) {
+            printf("\t%s:%-10s%s\t%-30s%-10s%s\n", AKL_YELLOW, akl_features[i].af_name, AKL_END_COLOR_MARK
+                                    , akl_features[i].af_desc
+                                    , AKL_IS_FEATURE_ON(s, akl_features[i].af_bit) ? (AKL_GREEN "[on]") : (AKL_RED "[off]")
+                                    , AKL_END_COLOR_MARK);
+        }
+        printf("\nUsage:\n\tEnable: (%s%s%s %s:use-colors%s)\n"
+               "\tDisable: (%s%s%s %s:no-use-colors%s)\n"
+                    , AKL_PURPLE, fname, AKL_END_COLOR_MARK, AKL_YELLOW, AKL_END_COLOR_MARK
+                    , AKL_PURPLE, fname, AKL_END_COLOR_MARK, AKL_YELLOW, AKL_END_COLOR_MARK);
+    } else {
+        /* Sad, primitive, miserable low-tech plainness */
+        for (i = 0; i < FEATURE_COUNT; i++) {
+            printf("\t:%-10s\t%-30s%-10s\n", akl_features[i].af_name, akl_features[i].af_desc
+                                    , AKL_IS_FEATURE_ON(s, akl_features[i].af_bit) ? "[on]" : "[off]");
+        }
+        printf("\nUsage:\n\tEnable: (%s :use-colors)\n"
+               "\tDisable: (%s :no-use-colors)\n", fname, fname);
     }
-    printf("\nUsage:\n\tEnable: '(%s :use-colors)'\n"
-           "\tDisable: '(%s :no-use-colors)'\n", fname, fname);
 }
 
 bool_t akl_set_feature_to(struct akl_state *s, const char *feature, bool_t to)
