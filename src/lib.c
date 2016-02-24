@@ -31,6 +31,46 @@ AKL_DEFINE_FUN(exit, cx, argc)
     exit(0);
 }
 
+AKL_DEFINE_FUN(inc, cx, argc)
+{
+    double n = 0;
+    if (akl_get_args_strict(cx, 1, AKL_VT_NUMBER, &n) == -1) {
+        return AKL_NIL;
+    }
+
+    return AKL_NUMBER(cx, n+1);
+}
+
+AKL_DEFINE_FUN(dec, cx, argc)
+{
+    double n = 0;
+    if (akl_get_args_strict(cx, 1, AKL_VT_NUMBER, &n) == -1) {
+        return AKL_NIL;
+    }
+
+    return AKL_NUMBER(cx, n-1);
+}
+
+AKL_DEFINE_FUN(iszero, cx, argc)
+{
+    double n = 0;
+    if (akl_get_args_strict(cx, 1, AKL_VT_NUMBER, &n) == -1) {
+        return AKL_NIL;
+    }
+
+    /* TODO: Make errors better for true/nil */
+    return !n ? akl_new_true_value(cx->cx_state) : akl_new_nil_value(cx->cx_state);
+}
+
+AKL_DEFINE_FUN(isnil, cx, argc)
+{
+    struct akl_value *v = akl_frame_pop(cx);
+    if (AKL_IS_NIL(v)) {
+        return  akl_new_true_value(cx->cx_state);
+    }
+    return akl_new_nil_value(cx->cx_state);
+}
+
 AKL_DEFINE_FUN(describe, cx, argc)
 {
     struct akl_symbol *sym;
@@ -68,11 +108,6 @@ AKL_DEFINE_FUN(akl_cfg, cx, argc)
            akl_raise_error(cx, AKL_WARNING, "Cannot set feature '%s'", sname);
        return AKL_NIL;
     }
-}
-
-AKL_DEFINE_FUN(progn, cx, argc)
-{
-    return akl_frame_pop(cx);
 }
 
 AKL_DEFINE_FUN(print, cx, argc)
@@ -170,7 +205,8 @@ AKL_DEFINE_FUN(write_times, cx, argc)
     for (i = 0; i < (int)n; i++) {
         printf("%s\n", str);    
     }
-    return AKL_NIL;
+
+    return AKL_NUMBER(cx, n);
 }
 
 AKL_DEFINE_FUN(print_symbol_ptr, cx, argc)
@@ -195,15 +231,29 @@ AKL_DEFINE_FUN(hello, cx, argc)
 
 AKL_DEFINE_FUN(dump_stack, cx, argc)
 {
-    struct akl_value **vp;
+    struct akl_value *v;
+    struct akl_list_entry *ent;
     int n = 0;
     printf("stack contents:\n");
-    AKL_VECTOR_FOREACH(n, vp, cx->cx_stack) {
+    AKL_LIST_FOREACH(ent, cx->cx_stack) {
+        v = (struct akl_value *)ent->le_data;
         printf("%%%d: ", n);
-        akl_print_value(cx->cx_state, *vp);
+        akl_print_value(cx->cx_state, v);
         printf("\n");
     }
-    return akl_vector_is_empty(cx->cx_stack) ? AKL_NIL : &TRUE_VALUE;
+    return AKL_NIL;
+}
+
+AKL_DEFINE_FUN(dump_vars, cx, argc)
+{
+    struct akl_variable *var;
+    struct akl_symbol *sym;
+    struct akl_state *s = cx->cx_state;
+    RB_FOREACH(var, VAR_TREE, &s->ai_global_vars) {
+        sym = var->vr_symbol;
+        printf("%s (var: %p, symbol: %p)\n", sym->sb_name, var, sym);
+    }
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(gt, ctx, argc)
@@ -212,7 +262,7 @@ AKL_DEFINE_FUN(gt, ctx, argc)
     if (akl_get_args(ctx, 2, &a1, &a2))
         return NULL;
 
-    if (akl_compare_values(a1, a2) == 1)
+    if (akl_compare_values(a1, a2) >= 1)
         return akl_new_true_value(ctx->cx_state);
 
     return AKL_NIL;
@@ -224,7 +274,7 @@ AKL_DEFINE_FUN(lt, ctx, argc)
     if (akl_get_args(ctx, 2, &a1, &a2))
         return AKL_NIL;
 
-    if (akl_compare_values(a1, a2) == -1)
+    if (akl_compare_values(a1, a2) <= -1)
         return akl_new_true_value(ctx->cx_state);
 
     return AKL_NIL;
@@ -261,6 +311,11 @@ AKL_DEFINE_FUN(length, ctx, argc)
     return AKL_NIL;
 }
 
+AKL_DEFINE_FUN(progn, ctx, argc)
+{
+    return akl_frame_pop(ctx);
+}
+
 AKL_DEFINE_FUN(list, ctx, argc)
 {
     struct akl_value *v;
@@ -294,8 +349,7 @@ AKL_DEFINE_FUN(disassemble, ctx, argc)
         }
 
         var = akl_get_global_var(ctx->cx_state, sym);
-        v = var->vr_value;
-        if (AKL_CHECK_TYPE(v, AKL_VT_FUNCTION)) {
+        if (var && AKL_CHECK_TYPE((v = var->vr_value), AKL_VT_FUNCTION)) {
             fn = v->va_value.func;
         } else {
             return AKL_NIL;
@@ -315,7 +369,7 @@ AKL_DEFINE_NE_FUN(set, ctx, argc)
 extern void akl_stack_clear(struct akl_context *ctx, size_t c);
 AKL_DEFINE_FUN(clear_stack, ctx, argc)
 {
-    while (akl_stack_pop(ctx->cx_state))
+    while (akl_stack_pop(ctx))
         ;
     return AKL_NIL;
 }
@@ -1328,6 +1382,8 @@ static void akl_define_mod_path(struct akl_state *s)
 }
 
 AKL_DECLARE_FUNS(akl_basic_funs) {
+    AKL_FUN(inc,         "++", "Increment a number by one"),
+    AKL_FUN(dec,         "--", "Decrement a number by one"),
     AKL_FUN(plus,        "+", "Arithmetic addition"),
     AKL_FUN(minus,       "-", "Arithmetic substraction"),
     AKL_FUN(mul,         "*", "Arithmetic product"),
@@ -1335,6 +1391,8 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(eq,          "=", "Compare to values for equality"),
     AKL_FUN(gt,          ">", "Greater compare function"),
     AKL_FUN(lt,          "<", "Less-than compare function"),
+    AKL_FUN(iszero,       "zero?", "Gives true if the parameter is zero, nil otherwise"),
+    AKL_FUN(isnil,       "nil?", "Gives true if the parameter is nil"),
     AKL_FUN(list,        "list", "Create a list from the given arguments"),
     AKL_FUN(length,      "length", "Get the length of a string or the element count for a list"),
     AKL_FUN(progn,       "$", "Evaulate all elements and give back the last (primitive sequence)"),
@@ -1352,6 +1410,7 @@ AKL_DECLARE_FUNS(akl_debug_funs) {
     AKL_FUN(about,        "about", "Informations about the interpreter"),
     AKL_FUN(print,        "print", "Print a value in Lisp form"),
     AKL_FUN(display,      "display", "Display a value without formatting (with newline)"),
+    AKL_FUN(dump_vars, "dump-vars", "Display all global variables (with symbol pointers"),
     AKL_FUN(print_symbol_ptr,  "print-symbol-ptr", "Display the symbol's internal pointer"),
     AKL_END_FUNS()
 };
