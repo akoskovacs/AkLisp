@@ -115,3 +115,11 @@ delete_mod:
     akl_free_module(s, mod);
     return TRUE; 
 }
+
+void akl_free_module(struct akl_state *s, struct akl_module *mod)
+{
+    if (s && mod) {
+        AKL_FREE(s, mod);
+    }
+}
+
