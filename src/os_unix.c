@@ -20,7 +20,6 @@
  * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  ************************************************************************/
-#include "aklisp.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include <dlfcn.h>
@@ -31,9 +30,10 @@
 # ifdef HAVE_UCONTEXT_H
 char* exe = 0;
 /* get REG_EIP from ucontext.h */
-//#define __USE_GNU
+#define __USE_GNU
 #include <ucontext.h>
 #include <execinfo.h>
+#include "aklisp.h"
 
 static int init_exec_name() 
 {
