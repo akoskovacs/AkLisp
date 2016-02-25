@@ -29,11 +29,19 @@
 #ifdef HAVE_EXECINFO_H
 # ifdef HAVE_UCONTEXT_H
 char* exe = 0;
-/* get REG_EIP from ucontext.h */
 #define __USE_GNU
 #include <ucontext.h>
 #include <execinfo.h>
 #include "aklisp.h"
+
+/*  */
+#ifdef __i386__
+# define REG_IP REG_EIP
+#elif __x86_64__
+# define REG_IP REG_RIP
+#else
+# define NO_BACKTRACE
+#endif
 
 static int init_exec_name() 
 {
@@ -55,6 +63,10 @@ static const char* get_exec_name()
     return exe;
 }
 
+#ifdef NO_BACKTRACE
+void bt_sighandler(int sig, siginfo_t *info,
+                   void *secret) { }
+#else // NO_BACKTRACE
 void bt_sighandler(int sig, siginfo_t *info,
                    void *secret) {
 
@@ -67,13 +79,13 @@ void bt_sighandler(int sig, siginfo_t *info,
   if (sig == SIGSEGV)
     printf("Got signal %d, faulty address is %p, "
            "from %#lx\n", sig, info->si_addr, 
-           (long)uc->uc_mcontext.gregs[REG_RIP]);
+           (long)uc->uc_mcontext.gregs[REG_IP]);
   else
     printf("Got signal %d#92;\n", sig);
 
   trace_size = backtrace(trace, 16);
   /* overwrite sigaction with caller's address */
-  trace[1] = (void *) uc->uc_mcontext.gregs[REG_RIP];
+  trace[1] = (void *) uc->uc_mcontext.gregs[REG_IP];
 
   messages = backtrace_symbols(trace, trace_size);
   /* skip first stack frame (points here) */
@@ -87,6 +99,7 @@ void bt_sighandler(int sig, siginfo_t *info,
   }
   exit(0);
 }
+#  endif // NO_BACKTRACE
 # endif
 #endif
 
