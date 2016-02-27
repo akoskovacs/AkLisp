@@ -24,7 +24,7 @@
 
 const char *akl_type_name[10] = {
     "nil", "symbol", "variable", "number", "string", "list",
-    "true", "function" "userdata", NULL
+    "true", "function", "userdata", NULL
 };
 
 struct akl_value TRUE_VALUE = {
