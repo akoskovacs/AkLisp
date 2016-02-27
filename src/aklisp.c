@@ -162,15 +162,38 @@ double *akl_frame_pop_number(struct akl_context *ctx)
     return NULL;
 }
 
+double *akl_frame_shift_number(struct akl_context *ctx)
+{
+    struct akl_value *v = akl_frame_shift(ctx);
+    if (AKL_CHECK_TYPE(v, AKL_VT_NUMBER)) {
+        return &v->va_value.number;
+    }
+    return NULL;
+}
+
 char *akl_frame_pop_string(struct akl_context *ctx)
 {
     struct akl_value *v = akl_frame_pop(ctx);
     return AKL_GET_STRING_VALUE(v);
 }
 
-struct akl_list *akl_frame_pop_list(struct akl_context *ctx)
+char *akl_frame_shift_string(struct akl_context *ctx)
+{
+    struct akl_value *v = akl_frame_shift(ctx);
+    return AKL_GET_STRING_VALUE(v);
+}
+
+struct akl_list *
+akl_frame_pop_list(struct akl_context *ctx)
 {
     struct akl_value *v = akl_frame_pop(ctx);
+    return AKL_GET_LIST_VALUE(v);
+}
+
+struct akl_list *
+akl_frame_shift_list(struct akl_context *ctx)
+{
+    struct akl_value *v = akl_frame_shift(ctx);
     return AKL_GET_LIST_VALUE(v);
 }
 
@@ -438,7 +461,10 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
         break;
 
         case AKL_IR_SET:
-            akl_set_global_var(s, OPERAND(0, symbol), NULL, TRUE, OPERAND(1, value));
+            v = akl_stack_pop(ctx);
+            if (v != NULL) {
+                akl_set_global_var(s, OPERAND(0, symbol), NULL, TRUE, v);
+            }
             MOVE_IP(ip);
         break;
 
@@ -446,7 +472,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             sym = OPERAND(0, symbol);
             var = akl_get_global_var(s, sym);
             if (!var) {
-                akl_raise_error(ctx, AKL_ERROR, "Variable '%s' is undefined", sym->sb_name);
+                akl_raise_error(ctx, AKL_ERROR, "Variable '%s' is undefined.", sym->sb_name);
                 akl_stack_push(ctx, akl_new_nil_value(s));
             } else {
                 akl_stack_push(ctx, var->vr_value);
@@ -513,10 +539,9 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
 
         case AKL_IR_JT:
             lt = OPERAND(0, label);
-            v = akl_stack_top(ctx);
+            v = akl_stack_pop(ctx);
             /* TODO: Error on other types */
             if (AKL_IS_TRUE(v)) {
-                akl_stack_pop(ctx);
                 ir = lt->la_ir;
                 ip = lt->la_branch;
             }
@@ -524,10 +549,9 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
 
         case AKL_IR_JN:
             ln = OPERAND(0, label);
-            v = akl_stack_top(ctx);
+            v = akl_stack_pop(ctx);
             /* TODO: Error on other types */
             if (AKL_IS_NIL(v)) {
-                akl_stack_pop(ctx);
                 ir = ln->la_ir;
                 ip = ln->la_branch;
             }
@@ -536,7 +560,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
         case AKL_IR_BRANCH:
             lt = in->in_arg[0].label;
             ln = in->in_arg[1].label;
-            v = akl_stack_top(ctx);
+            v = akl_stack_pop(ctx);
             /* TODO: Error on other types */
             if (AKL_IS_NIL(v)) {
                 ir = ln->la_ir;
@@ -659,12 +683,11 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
 
             case AKL_IR_SET:
             if (AKL_IS_FEATURE_ON(s, AKL_CFG_USE_COLORS)) {
-                printf("%sset %s%s%s, ", AKL_BLUE, AKL_PURPLE
+                printf("%sset %s%s%s", AKL_BLUE, AKL_PURPLE
                            , OPERAND(0, symbol)->sb_name, AKL_END_COLOR_MARK);
             } else {
-                printf("set %s, ", OPERAND(0, symbol)->sb_name);
+                printf("set %s", OPERAND(0, symbol)->sb_name);
             }
-            akl_print_value(ctx->cx_state, OPERAND(1, value));
             break;
 
             case AKL_IR_GET:
@@ -793,7 +816,7 @@ int akl_compare_values(void *c1, void *c2)
             case AKL_VT_SYMBOL:
             /* Symbols only differ by their pointers */
             return compare_numbers((unsigned long)v1->va_value.symbol
-                                   , (unsigned long)v1->va_value.symbol);
+                                   , (unsigned long)v2->va_value.symbol);
 
             case AKL_VT_USERDATA:
             /* TODO: userdata compare function */
