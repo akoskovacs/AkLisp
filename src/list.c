@@ -327,6 +327,12 @@ struct akl_list *akl_cdr(struct akl_state *s, struct akl_list *l)
     return nhead;
 }
 
+struct akl_list *
+akl_list_tail(struct akl_state *s, struct akl_list *l)
+{
+    return akl_cdr(s, l);
+}
+
 /* Is this symbol can be found in the string array, by name? */
 bool_t akl_is_strings_include(struct akl_symbol *sym, const char **strs)
 {
