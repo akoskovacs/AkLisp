@@ -71,6 +71,42 @@ AKL_DEFINE_FUN(isnil, cx, argc)
     return akl_new_nil_value(cx->cx_state);
 }
 
+AKL_DEFINE_FUN(isstring, cx, argc)
+{
+    char *s = akl_frame_pop_string(cx);
+    if (s == NULL) {
+        return AKL_NIL;
+    }
+    return akl_new_true_value(cx->cx_state);
+}
+
+AKL_DEFINE_FUN(islist, cx, argc)
+{
+    struct akl_list *l = akl_frame_pop_list(cx);
+    if (l == NULL) {
+        return AKL_NIL;
+    }
+    return akl_new_true_value(cx->cx_state);
+}
+
+AKL_DEFINE_FUN(isnumber, cx, argc)
+{
+    double *n = akl_frame_pop_number(cx);
+    if (n == NULL) {
+        return AKL_NIL;
+    }
+    return akl_new_true_value(cx->cx_state);
+}
+
+AKL_DEFINE_FUN(issymbol, cx, argc)
+{
+    struct akl_value *v = akl_frame_pop(cx);
+    if (AKL_CHECK_TYPE(v, AKL_VT_SYMBOL)) {
+        return akl_new_true_value(cx->cx_state);
+    }
+    return AKL_NIL;
+}
+
 AKL_DEFINE_FUN(describe, cx, argc)
 {
     struct akl_symbol *sym;
@@ -194,6 +230,52 @@ AKL_DEFINE_FUN(mul, cx, argc)
     return AKL_NUMBER(cx, prod);
 }
 
+AKL_DEFINE_FUN(ddiv, cx, argc)
+{
+    double *n = akl_frame_shift_number(cx);
+    double div = 0.0;
+    if (n == NULL) {
+        return AKL_NUMBER(cx, 0.0);
+    }
+    div = (*n);
+    do {
+        n = akl_frame_shift_number(cx);
+        if (n == NULL) {
+            return AKL_NUMBER(cx, div);
+        }
+        if ((*n) == 0.0) {
+            akl_raise_error(cx, AKL_ERROR, "Zero division.");
+            return AKL_NIL;
+        }
+        div /= (*n);
+    } while (n);
+
+    return AKL_NUMBER(cx, div);
+}
+
+AKL_DEFINE_FUN(idiv, cx, argc)
+{
+    double *n = akl_frame_shift_number(cx);
+    long div = 0;
+    if (n == NULL) {
+        return AKL_NUMBER(cx, 0);
+    }
+    div = (*n);
+    do {
+        n = akl_frame_shift_number(cx);
+        if (n == NULL) {
+            return AKL_NUMBER(cx, div);
+        }
+        if (((long)(*n)) == 0) {
+            akl_raise_error(cx, AKL_ERROR, "Zero division.");
+            return AKL_NIL;
+        }
+        div /= (int)(*n);
+    } while (n);
+
+    return AKL_NUMBER(cx, div);
+}
+
 AKL_DEFINE_FUN(write_times, cx, argc)
 {
     double n;
@@ -296,10 +378,14 @@ AKL_DEFINE_FUN(length, ctx, argc)
 {
     char *t;
     struct akl_value *vp;
-    akl_get_args(ctx, 1, &vp);
+    if (akl_get_args(ctx, 1, &vp) == -1) {
+        return AKL_NIL;
+    }
+
     switch (AKL_TYPE(vp)) {
         case AKL_VT_STRING:
         t = AKL_GET_STRING_VALUE(vp);
+        /* TODO: Handle UTF-8 */
         return akl_new_number_value(ctx->cx_state, (double)strlen(t));
 
         case AKL_VT_LIST:
@@ -309,6 +395,209 @@ AKL_DEFINE_FUN(length, ctx, argc)
         akl_raise_error(ctx, AKL_ERROR, "Argument must be a list or a string!");
     }
     return AKL_NIL;
+}
+
+AKL_DEFINE_FUN(ls_index, ctx, argc)
+{
+    double *n = akl_frame_shift_number(ctx);
+    int i;
+    struct akl_value *v = akl_frame_pop(ctx);
+    char *t;
+    char *ns;
+    if (n == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "No index is given.");
+        return AKL_NIL;
+    }
+
+    if (v == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "No indexable value is given.");
+        return AKL_NIL;
+    }
+
+    i = (int)*n;
+
+    switch (AKL_TYPE(v)) {
+        case AKL_VT_STRING:
+        t = AKL_GET_STRING_VALUE(v);
+        v = NULL;
+        if (i >= 0 && i < strlen(t)) {
+            ns = akl_alloc(ctx->cx_state, sizeof(char)*2);
+            ns[0] = t[i];
+            ns[1] = '\0';
+            v = akl_new_string_value(ctx->cx_state, ns);
+        }
+        break;
+
+        case AKL_VT_LIST:
+        v = akl_list_index_value(AKL_GET_LIST_VALUE(v), i);
+        break;
+
+        default:
+        akl_raise_error(ctx, AKL_ERROR, "Argument must be a list or a string!");
+        break;
+    }
+    return AKL_NULLER(v);
+}
+
+AKL_DEFINE_FUN(ls_head, ctx, argc)
+{
+    struct akl_value *v = akl_frame_pop(ctx);
+    char *t;
+    char *ns;
+
+    if (v == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "No parameter is given.");
+        return AKL_NIL;
+    }
+
+    switch (AKL_TYPE(v)) {
+        case AKL_VT_STRING:
+        t = AKL_GET_STRING_VALUE(v);
+        v = NULL;
+        if (strlen(t) > 0) {
+            ns = akl_alloc(ctx->cx_state, sizeof(char)*2);
+            ns[0] = t[0];
+            ns[1] = '\0';
+            v = akl_new_string_value(ctx->cx_state, ns);
+        }
+        break;
+
+        case AKL_VT_LIST:
+        v = akl_list_head(AKL_GET_LIST_VALUE(v));
+        break;
+
+        default:
+        akl_raise_error(ctx, AKL_ERROR, "Argument must be a list or a string!");
+        break;
+    }
+    return AKL_NULLER(v);
+}
+
+AKL_DEFINE_FUN(ls_tail, ctx, argc)
+{
+    struct akl_value *v = akl_frame_pop(ctx);
+    struct akl_list *l;
+    char *t;
+
+    if (v == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "No parameter is given.");
+        return AKL_NIL;
+    }
+
+    switch (AKL_TYPE(v)) {
+        case AKL_VT_STRING:
+        t = AKL_GET_STRING_VALUE(v);
+        v = NULL;
+        if (strlen(t) > 0) {
+            v = akl_new_string_value(ctx->cx_state, strdup(t+1));
+        }
+        break;
+
+        case AKL_VT_LIST:
+        l = akl_list_tail(ctx->cx_state, AKL_GET_LIST_VALUE(v));
+        if (l == NULL) {
+            v = NULL;
+        } else {
+            v = akl_new_list_value(ctx->cx_state, l);
+        }
+        break;
+
+        default:
+        akl_raise_error(ctx, AKL_ERROR, "Argument must be a list or a string!");
+        break;
+    }
+    return AKL_NULLER(v);
+}
+
+AKL_DEFINE_FUN(ls_insert, ctx, argc)
+{
+    struct akl_value *iv = akl_frame_shift(ctx);
+    struct akl_value *v = akl_frame_shift(ctx);
+    struct akl_list *l;
+    char *t, *s;
+    char *ns;
+
+    if (iv == NULL || v == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "Need a list or string as parameters.");
+        return AKL_NIL;
+    }
+
+    switch (AKL_TYPE(v)) {
+        case AKL_VT_STRING:
+        t = AKL_GET_STRING_VALUE(v);
+        s = AKL_GET_STRING_VALUE(iv);
+        if (AKL_CHECK_TYPE(iv, AKL_VT_STRING)) {
+            ns = akl_alloc(ctx->cx_state, 1+strlen(t)+strlen(s));
+            strcpy(ns, s);
+            strcat(ns, t);
+            v->va_value.string = ns;
+            akl_free(ctx->cx_state, t, strlen(t));
+        } else {
+            akl_raise_error(ctx, AKL_ERROR, "Must insert string.");
+            v = NULL;
+        }
+
+        case AKL_VT_NIL:
+        l = akl_new_list(ctx->cx_state);
+        v = akl_new_list_value(ctx->cx_state, l);
+        akl_list_insert_head(ctx->cx_state, l, iv);
+        break;   break;
+
+        case AKL_VT_LIST:
+        akl_list_insert_head_value(ctx->cx_state, AKL_GET_LIST_VALUE(v), iv);
+        break;
+
+        default:
+        akl_raise_error(ctx, AKL_ERROR, "Argument must be a list or a string!");
+        break;
+    }
+    return AKL_NULLER(v);
+}
+
+AKL_DEFINE_FUN(ls_append, ctx, argc)
+{
+    struct akl_value *iv = akl_frame_shift(ctx);
+    struct akl_value *v = akl_frame_shift(ctx);
+    struct akl_list *l;
+    char *t, *s;
+    char *ns;
+
+    if (iv == NULL || v == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "Need a list or string as parameters.");
+        return AKL_NIL;
+    }
+
+    switch (AKL_TYPE(v)) {
+        case AKL_VT_STRING:
+        t = AKL_GET_STRING_VALUE(v);
+        s = AKL_GET_STRING_VALUE(iv);
+        if (AKL_CHECK_TYPE(iv, AKL_VT_STRING)) {
+            ns = akl_alloc(ctx->cx_state, 1+strlen(t)+strlen(s));
+            strcpy(ns, t);
+            strcat(ns, s);
+            v->va_value.string = ns;
+            akl_free(ctx->cx_state, t, strlen(t));
+        } else {
+            akl_raise_error(ctx, AKL_ERROR, "Must append string.");
+            v = NULL;
+        }
+        break;
+
+        case AKL_VT_LIST:
+        akl_list_append_value(ctx->cx_state, AKL_GET_LIST_VALUE(v), iv);
+        break;
+
+        case AKL_VT_NIL:
+        l = akl_new_list(ctx->cx_state);
+        v = akl_new_list_value(ctx->cx_state, l);
+        akl_list_append(ctx->cx_state, l, iv);
+        break;
+
+        default:
+        akl_raise_error(ctx, AKL_ERROR, "Argument must be a list or a string!");
+        break;
+    }
+    return AKL_NULLER(v);
 }
 
 AKL_DEFINE_FUN(progn, ctx, argc)
@@ -354,6 +643,11 @@ AKL_DEFINE_FUN(disassemble, ctx, argc)
         } else {
             return AKL_NIL;
         }
+        AKL_START_COLOR(ctx->cx_state, AKL_YELLOW);
+        if (var->vr_symbol && var->vr_symbol->sb_name) {
+            printf("\n.%s:\n", var->vr_symbol->sb_name);
+        }
+        AKL_END_COLOR(ctx->cx_state);
     } else {
         fn = ctx->cx_state->ai_fn_main;
     }
@@ -1387,14 +1681,27 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(plus,        "+", "Arithmetic addition"),
     AKL_FUN(minus,       "-", "Arithmetic substraction"),
     AKL_FUN(mul,         "*", "Arithmetic product"),
+    AKL_FUN(ddiv,        "/", "Arithmetic division"),
+    AKL_FUN(idiv,      "div", "Integer division"),
     AKL_FUN(write_times, "write-times", "Write a string out n times"),
     AKL_FUN(eq,          "=", "Compare to values for equality"),
     AKL_FUN(gt,          ">", "Greater compare function"),
     AKL_FUN(lt,          "<", "Less-than compare function"),
     AKL_FUN(iszero,       "zero?", "Gives true if the parameter is zero, nil otherwise"),
     AKL_FUN(isnil,       "nil?", "Gives true if the parameter is nil"),
+    AKL_FUN(isnumber,    "number?", "Gives true if the parameter is a number"),
+    AKL_FUN(isstring,    "string?", "Gives true if the parameter is a string"),
+    AKL_FUN(islist,      "list?", "Gives true if the parameter is a list"),
+    AKL_FUN(issymbol,    "symbol?", "Gives true if the parameter is a symbol"),
     AKL_FUN(list,        "list", "Create a list from the given arguments"),
     AKL_FUN(length,      "length", "Get the length of a string or the element count for a list"),
+    AKL_FUN(ls_index,    "index", "Index a list or a string"),
+    AKL_FUN(ls_head ,    "head", "Get the first element of a list or the first character of a string"),
+    AKL_FUN(ls_head ,    "car", "Get the first element of a list or the first character of a string"),
+    AKL_FUN(ls_tail,     "cdr", "Get the remaining elements or characters of a list or string (everything after head)"),
+    AKL_FUN(ls_tail,     "tail", "Get the remaining elements or characters of a list or string (everything after head)"),
+    AKL_FUN(ls_append,   "append!", "Add an element to the end of a list or string"),
+    AKL_FUN(ls_insert,   "insert!", "Insert an element to the start of the list or a string"),
     AKL_FUN(progn,       "$", "Evaulate all elements and give back the last (primitive sequence)"),
     AKL_FUN(akl_cfg,     "akl-cfg!", "Set/unset interpreter features"),
     AKL_FUN(describe,    "describe", "Get a global atom help string"),
