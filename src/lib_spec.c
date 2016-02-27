@@ -26,19 +26,13 @@
  * These functions are special forms. They build their own internal
  * representation by parsing the tokens.
 */
-void akl_build_label(struct akl_context *ctx, struct akl_label *l)
-{
-    l->la_ir = ctx->cx_ir;
-    l->la_branch = AKL_LIST_LAST(ctx->cx_ir);
-}
-
 AKL_DEFINE_SFUN(when, ctx)
 {
-    struct akl_label *label = akl_new_labels(ctx, 2);
+    struct akl_label *label = akl_new_labels(ctx, 1);
     akl_compile_next(ctx);
-    akl_build_jump(ctx, AKL_JMP_FALSE, label+0);
-    akl_build_label(ctx, label+0);
+    akl_build_jump(ctx, AKL_JMP_FALSE, label);
     akl_compile_next(ctx);
+    akl_build_label(ctx, label);
     return NULL;
 }
 
@@ -47,7 +41,6 @@ AKL_DEFINE_SFUN(set, ctx)
     assert(ctx && ctx->cx_state && ctx->cx_dev);
     struct akl_state *s       = ctx->cx_state;
     struct akl_io_device *dev = ctx->cx_dev;
-    struct akl_value *value;
     struct akl_symbol *sym;
     akl_token_t tok = akl_lex(dev);
     if (tok != tATOM) {
@@ -55,9 +48,8 @@ AKL_DEFINE_SFUN(set, ctx)
         return NULL;
     }
     sym = akl_lex_get_symbol(dev);
-    value = akl_parse_value(ctx);
-    akl_build_set(ctx, sym, value);
-    akl_build_push(ctx, value);
+    akl_compile_next(ctx);
+    akl_build_set(ctx, sym);
     return NULL;
 }
 
@@ -88,27 +80,18 @@ AKL_DEFINE_SFUN(sif, ctx)
 AKL_DEFINE_SFUN(swhile, ctx)
 {
 //  akl_token_t tok;
-    struct akl_label *label = akl_new_labels(ctx, 3);
-#if 0
-    if ((tok = akl_lex(ctx->cx_dev)) != tLBRACE) {
-        return NULL; /* Panic */
-    }
-#endif
+    struct akl_label *label = akl_new_labels(ctx, 2);
     /* .L0: Condition: */
-    akl_compile_next(ctx);
     akl_build_label(ctx, label+0);
-    akl_build_branch(ctx, label+2, label+1);
     akl_compile_next(ctx);
-#if 0
-    while ((tok = akl_lex(ctx->cx_dev)) != tRBRACE) {
-        akl_compile_list(ctx);
-    }
-#endif
+    akl_build_branch(ctx, label+1, label+0);
+    /* the loop itself */
+    akl_compile_next(ctx);
     /* Jump back to the condition: (with an unconditional) */
     akl_build_jump(ctx, AKL_JMP, label+0);
 
     /* .L1: Getting out of the loop... */
-    akl_build_label(ctx, label+2);
+    akl_build_label(ctx, label+1);
     return NULL;
 }
 
