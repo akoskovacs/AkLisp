@@ -54,14 +54,24 @@ new_instr(struct akl_context *ctx)
     struct akl_state *s = ctx->cx_state;
     struct akl_list *ir = ctx->cx_ir;
     struct akl_ir_instruction *nop = AKL_MALLOC(s, struct akl_ir_instruction);
-    struct akl_ir_instruction *instr;
+    nop->in_op    = AKL_IR_NOP;
+    nop->in_linfo = NULL;
+    nop->in_fun   = NULL;
+    return nop;
+}
+
+static struct akl_ir_instruction *
+create_or_get_instr(struct akl_context *ctx)
+{
+    struct akl_state *s = ctx->cx_state;
+    struct akl_list *ir = ctx->cx_ir;
+    struct akl_ir_instruction *instr = NULL;
+
     /* This is the very first instruction. We have to add the this to the IR
      * and then a NOP also. The next call will modify this operation, so
      * we will always know the address of the next operation for reference. */
     if (akl_list_is_empty(ir)) {
-        instr = AKL_MALLOC(s, struct akl_ir_instruction);
-        instr->in_linfo = NULL;
-        instr->in_fun   = NULL;
+        instr = new_instr(ctx);
         /* Add the new instruction as the first one. */
         akl_list_append(s, ir, instr);
     } else {
@@ -70,35 +80,38 @@ new_instr(struct akl_context *ctx)
         */
         instr = (struct akl_ir_instruction *)akl_list_last(ir);
     }
+    return instr;
+}
+
+static struct akl_ir_instruction *
+create_instr(struct akl_context *ctx)
+{
+    struct akl_ir_instruction *instr, *nop;
+    instr = create_or_get_instr(ctx);
     /* The new NOP will be always the last in the list. The next new_instr()
-     * call will have to use that as the new operation.
-     * NOTE: Cannot call akl_build_nop() because of recursion. */
-    nop->in_op    = AKL_IR_NOP;
-    nop->in_linfo = NULL;
-    nop->in_fun   = NULL;
-    /* Then the dummy NOP */
-    akl_list_append(s, ir, nop);
+     * call will have to use that as the new operation. */
+    nop = new_instr(ctx);
+    akl_list_append(ctx->cx_state, ctx->cx_ir, nop);
     return instr;
 }
 
 void akl_build_push(struct akl_context *ctx, struct akl_value *arg)
 {
-    struct akl_ir_instruction *push = new_instr(ctx);
+    struct akl_ir_instruction *push = create_instr(ctx);
     push->in_op           = AKL_IR_PUSH;
     push->in_arg[0].value = arg;
 }
 
-void akl_build_set(struct akl_context *ctx, struct akl_symbol *sym, struct akl_value *v)
+void akl_build_set(struct akl_context *ctx, struct akl_symbol *sym)
 {
-    struct akl_ir_instruction *set = new_instr(ctx);
+    struct akl_ir_instruction *set = create_instr(ctx);
     set->in_op            = AKL_IR_SET;
     set->in_arg[0].symbol = sym;
-    set->in_arg[1].value  = v;
 }
 
 void akl_build_get(struct akl_context *ctx, struct akl_symbol *sym)
 {
-    struct akl_ir_instruction *get = new_instr(ctx);
+    struct akl_ir_instruction *get = create_instr(ctx);
     get->in_op            = AKL_IR_GET;
     get->in_arg[0].symbol = sym;
 }
@@ -116,7 +129,7 @@ void akl_build_load(struct akl_context *ctx, struct akl_symbol *sym)
         ufun = &fn->fn_body.ufun;
         /* Get the frame offset for the currently compiled function's argument. */
         if ((ind = argument_finder(ufun, sym)) != -1) {
-            load                   = new_instr(ctx);
+            load                   = create_instr(ctx);
             load->in_op            = AKL_IR_LOAD;
             load->in_arg[0].ui_num = ind;
         } else {
@@ -129,7 +142,7 @@ void akl_build_load(struct akl_context *ctx, struct akl_symbol *sym)
 void akl_build_call(struct akl_context *ctx, struct akl_symbol *sym
                     , struct akl_function *fn, int argc)
 {
-    struct akl_ir_instruction *call = new_instr(ctx);
+    struct akl_ir_instruction *call = create_instr(ctx);
     call->in_op = AKL_IR_CALL;
     call->in_arg[0].symbol = sym;
     /* If function already fetched, this will make things faster. */
@@ -137,17 +150,27 @@ void akl_build_call(struct akl_context *ctx, struct akl_symbol *sym
     call->in_arg[1].ui_num = argc;
 }
 
+void akl_build_label(struct akl_context *ctx, struct akl_label *l)
+{
+    l->la_ir = ctx->cx_ir;
+    /* Always point to the last instruction.
+     * If that doesn't exist, create a NOP as placeholder.
+    */
+    create_or_get_instr(ctx);
+    l->la_branch = AKL_LIST_LAST(ctx->cx_ir);
+}
+
 /* It can also mean 'jmp' if the second (the false branch is NULL) */
 void akl_build_jump(struct akl_context *ctx, akl_jump_t jt, struct akl_label *l)
 {
-    struct akl_ir_instruction *branch = new_instr(ctx);
+    struct akl_ir_instruction *branch = create_instr(ctx);
     branch->in_op = (akl_ir_instruction_t)jt;
     branch->in_arg[0].label = l;
 }
 
 void akl_build_branch(struct akl_context *ctx, struct akl_label *lt, struct akl_label *lf)
 {
-    struct akl_ir_instruction *branch = new_instr(ctx);
+    struct akl_ir_instruction *branch = create_instr(ctx);
     branch->in_op = AKL_IR_BRANCH;
     branch->in_arg[0].label = lt;
     branch->in_arg[1].label = lf;
@@ -155,13 +178,13 @@ void akl_build_branch(struct akl_context *ctx, struct akl_label *lt, struct akl_
 
 void akl_build_ret(struct akl_context *ctx)
 {
-    struct akl_ir_instruction *ret = new_instr(ctx);
+    struct akl_ir_instruction *ret = create_instr(ctx);
     ret->in_op = AKL_IR_RET;
 }
 
 void akl_build_nop(struct akl_context *ctx)
 {
-    struct akl_ir_instruction *nop = new_instr(ctx);
+    struct akl_ir_instruction *nop = create_instr(ctx);
     nop->in_op = AKL_IR_NOP;
 }
 
@@ -291,8 +314,8 @@ void akl_compile_list(struct akl_context *cx)
                 }
             } else {
                 /* We are run out of arguments, it's time for a function call */
-                akl_build_call(cx, sym, fun, argc);
                 akl_ir_set_lex_info(cx, call_info);
+                akl_build_call(cx, sym, fun, argc);
             }
         return;
 
