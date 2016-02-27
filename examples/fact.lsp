@@ -1,5 +1,9 @@
 ;; Write out the factorial of a given number using range
-(display "n = ")
-;;Multiply a range of numbers from 1 to the given number
-(display "n! = " (* (range 1 (read-number))))
-(newline)
+(defun! fact (n)
+        (if (= 1 n)
+          1
+          (* n (fact (-- n)))
+        )
+)
+
+(display "4! =" (fact 4))
