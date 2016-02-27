@@ -480,8 +480,11 @@ int akl_get_args(struct akl_context *, int, ...);
 int akl_get_args_strict(struct akl_context *, int argc, ...);
 struct akl_value *akl_frame_pop(struct akl_context *);
 double *akl_frame_pop_number(struct akl_context *);
+double *akl_frame_shift_number(struct akl_context *);
 char   *akl_frame_pop_string(struct akl_context *);
+char   *akl_frame_shift_string(struct akl_context *);
 struct akl_list *akl_frame_pop_list(struct akl_context *);
+struct akl_list *akl_frame_shift_list(struct akl_context *);
 struct akl_value *akl_frame_top(struct akl_context *);
 enum   AKL_VALUE_TYPE akl_stack_top_type(struct akl_context *);
 struct akl_value *akl_frame_top(struct akl_context *);
@@ -603,13 +606,13 @@ void akl_build_branch(struct akl_context *, struct akl_label *, struct akl_label
 void akl_build_jump(struct akl_context *, akl_jump_t, struct akl_label *);
 /* Call by symbol or function */
 void akl_build_call(struct akl_context *, struct akl_symbol *, struct akl_function *, int);
-void akl_build_set(struct akl_context *, struct akl_symbol *, struct akl_value *);
+void akl_build_label(struct akl_context *, struct akl_label *);
+void akl_build_set(struct akl_context *, struct akl_symbol *);
 void akl_build_get(struct akl_context *, struct akl_symbol *);
 void akl_build_load(struct akl_context *, struct akl_symbol *);
 void akl_build_push(struct akl_context *, struct akl_value *);
 void akl_build_nop(struct akl_context *);
 void akl_build_ret(struct akl_context *);
-
 /* Helper functions for the Red-Black trees */
 
 /* Order symbols by name.
@@ -751,6 +754,7 @@ struct akl_list  *akl_parse_io(struct akl_state *, struct akl_io_device *);
 struct akl_list  *akl_parse(struct akl_state *);
 struct akl_value *akl_car(struct akl_list *);
 struct akl_list  *akl_cdr(struct akl_state *, struct akl_list *);
+struct akl_list  *akl_list_tail(struct akl_state *, struct akl_list *);
 struct akl_list_entry *akl_list_it_begin(struct akl_list *);
 struct akl_list_entry *akl_list_it_end(struct akl_list *);
 bool_t akl_list_it_has_next(struct akl_list_entry *);
