@@ -44,8 +44,12 @@ struct akl_mem_callbacks akl_mem_std_callbacks = {
 void *akl_alloc(struct akl_state *s, size_t size)
 {
     void *ptr;
-    AKL_ASSERT(s, NULL);
+    assert(s);
 
+    if (s == NULL || s->ai_mem_fn == NULL
+            || s->ai_mem_fn->mc_malloc_fn == NULL) {
+        return NULL;
+    }
     ptr = s->ai_mem_fn->mc_malloc_fn(size);
     s->ai_gc_malloc_size += size;
     if (ptr == NULL) {
@@ -66,8 +70,11 @@ void *akl_alloc(struct akl_state *s, size_t size)
 void *akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
 {
     void *ptr = NULL;
-    AKL_ASSERT(s, NULL);
-
+    assert(s);
+    if (s == NULL || s->ai_mem_fn == NULL
+            || s->ai_mem_fn->mc_calloc_fn == NULL) {
+        return NULL;
+    }
     ptr = s->ai_mem_fn->mc_calloc_fn(nmemb, size);
     s->ai_gc_malloc_size += size * nmemb;
     if (ptr == NULL) {
@@ -88,8 +95,12 @@ void *akl_calloc(struct akl_state *s, size_t nmemb, size_t size)
 void *akl_realloc(struct akl_state *s, void *ptr, size_t size)
 {
     void *p;
-    AKL_ASSERT(s, NULL);
+    assert(s);
 
+    if (s == NULL || s->ai_mem_fn == NULL
+            || s->ai_mem_fn->mc_realloc_fn == NULL) {
+        return NULL;
+    }
     p = s->ai_mem_fn->mc_realloc_fn(ptr, size);
     s->ai_gc_malloc_size += size;
     if (p == NULL) {
@@ -109,7 +120,7 @@ void *akl_realloc(struct akl_state *s, void *ptr, size_t size)
 
 void akl_free(struct akl_state *s, void *ptr, size_t size)
 {
-    if (s) {
+    if (s && s->ai_mem_fn && s->ai_mem_fn->mc_free_fn) {
         s->ai_mem_fn->mc_free_fn(ptr);
         s->ai_gc_malloc_size -= size;
     }
