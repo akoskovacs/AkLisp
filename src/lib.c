@@ -338,40 +338,59 @@ AKL_DEFINE_FUN(dump_vars, cx, argc)
     return AKL_NIL;
 }
 
-AKL_DEFINE_FUN(gt, ctx, argc)
+static int
+get_and_compare_values(struct akl_context *ctx)
 {
     struct akl_value *a1, *a2;
     if (akl_get_args(ctx, 2, &a1, &a2))
-        return NULL;
+        return -2;
 
-    if (akl_compare_values(a1, a2) >= 1)
+    return akl_compare_values(a1, a2);
+}
+
+AKL_DEFINE_FUN(gt, ctx, argc)
+{
+    if (get_and_compare_values(ctx) > 0) {
         return akl_new_true_value(ctx->cx_state);
+    }
 
-    return AKL_NIL;
+    return akl_new_nil_value(ctx->cx_state);
+}
+
+AKL_DEFINE_FUN(gteq, ctx, argc)
+{
+    if (get_and_compare_values(ctx) >= 0) {
+        return akl_new_true_value(ctx->cx_state);
+    }
+
+    return akl_new_nil_value(ctx->cx_state);
 }
 
 AKL_DEFINE_FUN(lt, ctx, argc)
 {
-    struct akl_value *a1, *a2;
-    if (akl_get_args(ctx, 2, &a1, &a2))
-        return AKL_NIL;
-
-    if (akl_compare_values(a1, a2) <= -1)
+    if (get_and_compare_values(ctx) < 0) {
         return akl_new_true_value(ctx->cx_state);
+    }
 
-    return AKL_NIL;
+    return akl_new_nil_value(ctx->cx_state);
+}
+
+AKL_DEFINE_FUN(lteq, ctx, argc)
+{
+    if (get_and_compare_values(ctx) <= 0) {
+        return akl_new_true_value(ctx->cx_state);
+    }
+
+    return akl_new_nil_value(ctx->cx_state);
 }
 
 AKL_DEFINE_FUN(eq, ctx, argc)
 {
-    struct akl_value *a1, *a2;
-    if (akl_get_args(ctx, 2, &a1, &a2))
-        return AKL_NIL;
-
-    if (akl_compare_values(a1, a2) == 0)
+    if (get_and_compare_values(ctx) == 0) {
         return akl_new_true_value(ctx->cx_state);
+    }
 
-    return AKL_NIL;
+    return akl_new_nil_value(ctx->cx_state);
 }
 
 AKL_DEFINE_FUN(length, ctx, argc)
@@ -379,7 +398,7 @@ AKL_DEFINE_FUN(length, ctx, argc)
     char *t;
     struct akl_value *vp;
     if (akl_get_args(ctx, 1, &vp) == -1) {
-        return AKL_NIL;
+        return akl_new_nil_value(ctx->cx_state);
     }
 
     switch (AKL_TYPE(vp)) {
@@ -394,7 +413,7 @@ AKL_DEFINE_FUN(length, ctx, argc)
         default:
         akl_raise_error(ctx, AKL_ERROR, "Argument must be a list or a string!");
     }
-    return AKL_NIL;
+    return akl_new_nil_value(ctx->cx_state);
 }
 
 AKL_DEFINE_FUN(ls_index, ctx, argc)
@@ -1683,11 +1702,12 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(mul,         "*", "Arithmetic product"),
     AKL_FUN(ddiv,        "/", "Arithmetic division"),
     AKL_FUN(idiv,      "div", "Integer division"),
-    AKL_FUN(write_times, "write-times", "Write a string out n times"),
     AKL_FUN(eq,          "=", "Compare to values for equality"),
     AKL_FUN(gt,          ">", "Greater compare function"),
-    AKL_FUN(lt,          "<", "Less-than compare function"),
-    AKL_FUN(iszero,       "zero?", "Gives true if the parameter is zero, nil otherwise"),
+    AKL_FUN(lt,          "<", "Lesser than"),
+    AKL_FUN(gteq,        ">=", "Greater than or equal"),
+    AKL_FUN(lteq,        "<=", "Less or equal than"),
+    AKL_FUN(iszero,      "zero?", "Gives true if the parameter is zero, nil otherwise"),
     AKL_FUN(isnil,       "nil?", "Gives true if the parameter is nil"),
     AKL_FUN(isnumber,    "number?", "Gives true if the parameter is a number"),
     AKL_FUN(isstring,    "string?", "Gives true if the parameter is a string"),
@@ -1714,11 +1734,17 @@ AKL_DECLARE_FUNS(akl_debug_funs) {
     AKL_FUN(clear_stack,  "clear-stack", "Clear the current stack"),
     AKL_FUN(disassemble,  "disassemble", "Disassemble a given function"),
     AKL_FUN(hello,        "hello", "Hello function"),
+    AKL_FUN(write_times,  "write-times", "Write a string out n times"),
     AKL_FUN(about,        "about", "Informations about the interpreter"),
     AKL_FUN(print,        "print", "Print a value in Lisp form"),
     AKL_FUN(display,      "display", "Display a value without formatting (with newline)"),
     AKL_FUN(dump_vars, "dump-vars", "Display all global variables (with symbol pointers"),
     AKL_FUN(print_symbol_ptr,  "print-symbol-ptr", "Display the symbol's internal pointer"),
+    AKL_END_FUNS()
+};
+
+AKL_DECLARE_FUNS(akl_io_funs) {
+    /* TODO */
     AKL_END_FUNS()
 };
 
