@@ -959,6 +959,7 @@ void akl_free_module(struct akl_state *, struct akl_module *);
 #define AKL_PURPLE "\x1b[35m"
 #define AKL_BRIGHT_GREEN "\x1b[1;32m"
 #define AKL_BRIGHT_YELLOW "\x1b[1;33m"
+#define AKL_BRIGHT_GRAY   "\x1b[1;30m"
 #define AKL_START_COLOR(s,c) if (AKL_IS_FEATURE_ON(s, AKL_CFG_USE_COLORS)) printf("%s", (c))
 #define AKL_COLORFUL(s,c) (AKL_IS_FEATURE_ON(s, AKL_CFG_USE_COLORS) ? c : "")
 #define AKL_END_COLORFUL(s) (AKL_IS_FEATURE_ON(s, AKL_CFG_USE_COLORS) ? AKL_END_COLOR_MARK : "")
@@ -973,6 +974,7 @@ void akl_free_module(struct akl_state *, struct akl_module *);
 #define AKL_PURPLE ""
 #define AKL_BRIGHT_GREEN ""
 #define AKL_BRIGHT_YELLOW ""
+#define AKL_BRIGHT_GRAY   ""
 #define AKL_START_COLOR(s,c)
 #define AKL_COLORFUL(s,c) ""
 #define AKL_END_COLORFUL(s) ""
