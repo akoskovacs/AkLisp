@@ -19,13 +19,13 @@ void list_eval(int level, struct akl_list *l)
     if (!l)
         return;
 
-    it = akl_list_begin(&s, l);
+    it = akl_list_it_begin(s);
     print_tabs(level);     printf("Got list: ");
     akl_print_list(&s, l); printf("\n");
 
-    while (akl_list_has_next(it)) {
+    while (akl_list_it_has_next(it)) {
         print_tabs(level);
-        v = (struct akl_value *)akl_list_next(it);
+        v = (struct akl_value *)akl_list_next(&it);
         switch (AKL_TYPE(v)) {
             case TYPE_NUMBER:
             printf("Got number: ");
