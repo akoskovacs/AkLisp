@@ -9,9 +9,9 @@ int main(int argc, char **argv) {
         line = argv[1];
 
     s = akl_new_string_interpreter("test", line, NULL);
-    akl_library_init(s, AKL_LIB_ALL);
+    akl_init_library(s, AKL_LIB_ALL);
     v = akl_exec_eval(s);
-    if (AKL_TYPE(v) == TYPE_NUMBER) { // Must be, but it's better to check
+    if (AKL_TYPE(v) == AKL_VT_NUMBER) { // Must be, but it's better to check
         printf("%s is %f\n", line,  AKL_GET_NUMBER_VALUE(v));
     } else {
         printf("NaN\n");
