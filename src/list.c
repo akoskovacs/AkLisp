@@ -351,7 +351,7 @@ void akl_print_value(struct akl_state *s, struct akl_value *val)
 {
     struct akl_symbol *sym;
     if (val == NULL || AKL_IS_NIL(val)) {
-        AKL_START_COLOR(s, AKL_GRAY);
+        AKL_START_COLOR(s, AKL_BRIGHT_GRAY);
         printf("NIL");
         AKL_END_COLOR(s);
         return;
