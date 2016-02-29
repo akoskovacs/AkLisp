@@ -24,8 +24,17 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #include <sys/stat.h>
-#define HAVE_EXECINFO_H
-#define HAVE_UCONTEXT_H
+
+/* TODO: Remove these when all 
+   functionality is ready. */
+#ifndef HAVE_EXECINFO_H
+# define HAVE_EXECINFO_H
+#endif
+
+#ifndef HAVE_UCONTEXT_H
+# define HAVE_UCONTEXT_H
+#endif
+
 #ifdef HAVE_EXECINFO_H
 # ifdef HAVE_UCONTEXT_H
 char* exe = 0;
@@ -103,15 +112,20 @@ void bt_sighandler(int sig, siginfo_t *info,
 # endif
 #endif
 
-AKL_DEFINE_FUN(getpid, ctx, argc __unused)
+AKL_DEFINE_FUN(getpid, ctx, argc)
 {
     return AKL_NUMBER(ctx, (int)getpid());
 }
 
 AKL_DEFINE_FUN(sleep, ctx, argc)
 {
-    sleep(*akl_frame_pop_number(ctx));
-    return &NIL_VALUE;
+    double *n = akl_frame_pop_number(ctx);
+    if (n == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "A number is needed.");
+        return AKL_NIL;
+    }
+    sleep((unsigned int)*n);
+    return akl_new_true_value(ctx->cx_state);
 }
 
 AKL_DEFINE_FUN(getenv, ctx, argc)
@@ -121,7 +135,7 @@ AKL_DEFINE_FUN(getenv, ctx, argc)
     if (env) {
         return AKL_STRING(ctx, strdup(env));
     }
-    return &NIL_VALUE;
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(setenv, ctx, argc)
