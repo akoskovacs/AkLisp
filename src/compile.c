@@ -150,8 +150,9 @@ void akl_build_call(struct akl_context *ctx, struct akl_symbol *sym
     call->in_arg[1].ui_num = argc;
 }
 
-void akl_build_label(struct akl_context *ctx, struct akl_label *l)
+void akl_build_label(struct akl_context *ctx, struct akl_list *labels, int lc)
 {
+    struct akl_label *l = (struct akl_label *)akl_list_index(labels, lc);
     l->la_ir = ctx->cx_ir;
     /* Always point to the last instruction.
      * If that doesn't exist, create a NOP as placeholder.
@@ -161,19 +162,19 @@ void akl_build_label(struct akl_context *ctx, struct akl_label *l)
 }
 
 /* It can also mean 'jmp' if the second (the false branch is NULL) */
-void akl_build_jump(struct akl_context *ctx, akl_jump_t jt, struct akl_label *l)
+void akl_build_jump(struct akl_context *ctx, akl_jump_t jt, struct akl_list *l, int lc)
 {
     struct akl_ir_instruction *branch = create_instr(ctx);
     branch->in_op = (akl_ir_instruction_t)jt;
-    branch->in_arg[0].label = l;
+    branch->in_arg[0].label = (struct akl_label *)akl_list_index(l, lc);
 }
 
-void akl_build_branch(struct akl_context *ctx, struct akl_label *lt, struct akl_label *lf)
+void akl_build_branch(struct akl_context *ctx, struct akl_list *l, int lt, int lf)
 {
     struct akl_ir_instruction *branch = create_instr(ctx);
     branch->in_op = AKL_IR_BRANCH;
-    branch->in_arg[0].label = lt;
-    branch->in_arg[1].label = lf;
+    branch->in_arg[0].label = (struct akl_label *)akl_list_index(l, lt);
+    branch->in_arg[1].label = (struct akl_label *)akl_list_index(l, lf);
 }
 
 void akl_build_ret(struct akl_context *ctx)
@@ -250,6 +251,11 @@ void akl_compile_list(struct akl_context *cx)
     dev = cx->cx_dev;
 
     while ((tok = akl_lex(cx->cx_dev))) {
+        if (s->ai_interrupted) {
+            s->ai_interrupted = FALSE;
+            return;
+        }
+
         if (tok == tQUOTE) {
             is_quoted = TRUE;
             tok = akl_lex(cx->cx_dev);
@@ -258,9 +264,13 @@ void akl_compile_list(struct akl_context *cx)
         switch (tok) {
         case tATOM:
             v = akl_parse_token(cx, tok, is_quoted);
+            if (v) {
+                cx->cx_lex_info = v->va_lex_info;
+            }
             if (felem) {
                 /* Prepare lexical information for the function call */
                 call_info = akl_new_lex_info(s, dev);
+                cx->cx_lex_info = call_info;
 
                 /* First place in the list, must be a function name */
                 pf_st = prefetch_function(cx, v, &fun);
@@ -321,7 +331,9 @@ void akl_compile_list(struct akl_context *cx)
 
         /* tNUMBER, tSTRING, tETC... */
         default:
-            akl_build_push(cx, akl_parse_token(cx, tok, TRUE));
+            v = akl_parse_token(cx, tok, TRUE);
+            cx->cx_lex_info = v->va_lex_info;
+            akl_build_push(cx, v);
             argc++;
             break;
         }
