@@ -28,18 +28,18 @@
 */
 AKL_DEFINE_SFUN(when, ctx)
 {
-    struct akl_label *label = akl_new_labels(ctx, 1);
+    int loff = 0;
+    struct akl_list *label = akl_new_labels(ctx, &loff, 1);
     akl_compile_next(ctx);
-    akl_build_jump(ctx, AKL_JMP_FALSE, label);
+    akl_build_jump(ctx, AKL_JMP_FALSE, label, loff+0);
     akl_compile_next(ctx);
-    akl_build_label(ctx, label);
+    akl_build_label(ctx, label, loff+0);
     return NULL;
 }
 
 AKL_DEFINE_SFUN(set, ctx)
 {
     assert(ctx && ctx->cx_state && ctx->cx_dev);
-    struct akl_state *s       = ctx->cx_state;
     struct akl_io_device *dev = ctx->cx_dev;
     struct akl_symbol *sym;
     akl_token_t tok = akl_lex(dev);
@@ -56,42 +56,41 @@ AKL_DEFINE_SFUN(set, ctx)
 AKL_DEFINE_SFUN(sif, ctx)
 {
     /* Allocate the branch */
-    struct akl_label *label = akl_new_labels(ctx, 3);
+    int loff = 0;
+    struct akl_list *labels = akl_new_labels(ctx, &loff, 2);
 
     /* Condition:*/
     akl_compile_next(ctx);
-    akl_build_branch(ctx, label+0, label+1);
+    akl_build_jump(ctx, AKL_JMP_FALSE, labels, loff+1);
 
-    /* .L0: True branch: */
-    akl_build_label(ctx, label+0);
+    /* True branch: */
     akl_compile_next(ctx);
-    akl_build_jump(ctx, AKL_JMP, label+2);
+    akl_build_jump(ctx, AKL_JMP, labels, loff+0);
 
     /* .L1: False branch: */
-    akl_build_label(ctx, label+1);
+    akl_build_label(ctx, labels, loff+1);
     akl_compile_next(ctx);
-    akl_build_jump(ctx, AKL_JMP, label+2);
 
-    /* .L2: Continue... */
-    akl_build_label(ctx, label+2);
+    /* .L0: Continue... */
+    akl_build_label(ctx, labels, loff+0);
     return NULL;
 }
 
 AKL_DEFINE_SFUN(swhile, ctx)
 {
-//  akl_token_t tok;
-    struct akl_label *label = akl_new_labels(ctx, 2);
+    int loff = 0;
+    struct akl_list *labels = akl_new_labels(ctx, &loff, 2);
     /* .L0: Condition: */
-    akl_build_label(ctx, label+0);
+    akl_build_label(ctx, labels, loff+0);
     akl_compile_next(ctx);
-    akl_build_branch(ctx, label+1, label+0);
+    akl_build_jump(ctx, AKL_JMP_FALSE, labels, loff+1);
     /* the loop itself */
     akl_compile_next(ctx);
     /* Jump back to the condition: (with an unconditional) */
-    akl_build_jump(ctx, AKL_JMP, label+0);
+    akl_build_jump(ctx, AKL_JMP, labels, loff+0);
 
     /* .L1: Getting out of the loop... */
-    akl_build_label(ctx, label+1);
+    akl_build_label(ctx, labels, loff+1);
     return NULL;
 }
 
@@ -143,6 +142,7 @@ AKL_DEFINE_SFUN(defun, ctx)
     func->fn_type = AKL_FUNC_USER;
     ufun = &func->fn_body.ufun;
     akl_init_list(&ufun->uf_body);
+    akl_init_list(&ufun->uf_labels);
 
     if (akl_lex(ctx->cx_dev) == tATOM) {
         fsym = akl_lex_get_symbol(ctx->cx_dev);
