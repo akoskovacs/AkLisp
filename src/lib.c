@@ -792,6 +792,46 @@ AKL_DEFINE_FUN(read_string, ctx, argc)
     return AKL_NIL;
 }
 
+AKL_DEFINE_FUN(not, ctx, argc)
+{
+    struct akl_value *v = akl_frame_pop(ctx);
+    if (AKL_IS_NIL(v)) {
+        return akl_new_true_value(ctx->cx_state);
+    }
+    return akl_new_nil_value(ctx->cx_state);
+}
+
+AKL_DEFINE_FUN(and, ctx, argc)
+{
+    struct akl_value *v = NULL;
+    do {
+       v = akl_frame_pop(ctx);
+       if (v == NULL) {
+           break;
+       }
+       if (AKL_IS_NIL(v)) {
+           return akl_new_nil_value(ctx->cx_state);
+       }
+
+    } while (v != NULL);
+    return akl_new_true_value(ctx->cx_state);
+}
+
+AKL_DEFINE_FUN(or, ctx, argc)
+{
+    struct akl_value *v = NULL;
+    do {
+       v = akl_frame_pop(ctx);
+       if (v == NULL) {
+           break;
+       }
+       if (AKL_IS_TRUE(v)) {
+           return akl_new_true_value(ctx->cx_state);
+       }
+    } while (v != NULL);
+    return akl_new_nil_value(ctx->cx_state);
+}
+
 #if 0
 AKL_CFUN_DEFINE(load, ctx, argc)
 {
@@ -1762,6 +1802,9 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(lt,          "<", "Lesser than"),
     AKL_FUN(gteq,        ">=", "Greater than or equal"),
     AKL_FUN(lteq,        "<=", "Less or equal than"),
+    AKL_FUN(not,         "not", "Logical not"),
+    AKL_FUN(and,         "and", "Logical and"),
+    AKL_FUN(or,          "or", "Logical or"),
     AKL_FUN(iszero,      "zero?", "Gives true if the parameter is zero, nil otherwise"),
     AKL_FUN(isnil,       "nil?", "Gives true if the parameter is nil"),
     AKL_FUN(isnumber,    "number?", "Gives true if the parameter is a number"),
