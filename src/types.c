@@ -372,6 +372,12 @@ akl_new_function_value(struct akl_state *s, struct akl_function *f)
     return v;
 }
 
+struct akl_label *
+akl_new_label(struct akl_context *ctx)
+{
+    return AKL_MALLOC(ctx->cx_state, struct akl_label);
+}
+
 void akl_init_label(struct akl_label *l, int ind)
 {
     l->la_ir     = NULL;
@@ -380,38 +386,27 @@ void akl_init_label(struct akl_label *l, int ind)
     l->la_ind    = ind;
 }
 
-#if 0
-struct akl_label *akl_new_label(struct akl_context *ctx)
+struct akl_list *
+akl_new_labels(struct akl_context *ctx, int *loff, int n)
 {
-    struct akl_lisp_fun *uf;
     struct akl_label *l;
-    assert(ctx && ctx->cx_state && ctx->cx_comp_func);
-
-    uf = &ctx->cx_comp_func->fn_body.ufun;
-    if (uf->uf_labels == NULL) {
-        uf->uf_labels = akl_new_vector(ctx->cx_state, 4, sizeof(struct akl_label));
-    }
-    l = akl_vector_reserve(uf->uf_labels);
-    akl_init_label(l, akl_vector_count(uf)-1);
-    return l;
-}
-#endif
-
-struct akl_label *akl_new_labels(struct akl_context *ctx, int n)
-{
-    struct akl_label *labels;
     struct akl_lisp_fun *uf;
-    int i;
+    int i, cnt;
     assert(ctx && ctx->cx_state && ctx->cx_comp_func);
     uf = &ctx->cx_comp_func->fn_body.ufun;
-    if (uf->uf_labels == NULL) {
-        uf->uf_labels = akl_new_vector(ctx->cx_state, 4, sizeof(struct akl_label));
+    cnt = akl_list_count(&uf->uf_labels);
+    if (loff != NULL) {
+        *loff = cnt;
     }
-    labels = (struct akl_label *)akl_vector_reserve_more(uf->uf_labels, n);
     for (i = 0; i < n; i++) {
-        akl_init_label(labels+i, i);
+        l = akl_new_label(ctx);
+        if (l == NULL) {
+            return NULL;
+        }
+        akl_init_label(l, i+cnt);
+        akl_list_append(ctx->cx_state, &uf->uf_labels, l);
     }
-    return labels;
+    return &uf->uf_labels;
 }
 
 struct akl_io_device *
