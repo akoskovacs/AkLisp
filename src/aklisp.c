@@ -339,8 +339,13 @@ akl_bound_function(struct akl_context *ctx, struct akl_symbol *sym
     *(cx) = *(ctx);
     if (fn == NULL) {
         v = akl_get_global_var(ctx->cx_state, sym);
+        if (v == NULL) {
+            akl_raise_error(ctx, AKL_ERROR, "Variable \'%s\' is not a found.", sym->sb_name);
+            return NULL;
+        }
+
         if (!akl_var_is_function(v)) {
-            akl_raise_error(ctx, AKL_ERROR, "Varibale \'%s\' is not a function", sym->sb_name);
+            akl_raise_error(ctx, AKL_ERROR, "Variable \'%s\' is not a function", sym->sb_name);
             return NULL;
         }
         fn = akl_var_to_function(v);
@@ -463,6 +468,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
         case AKL_IR_SET:
             v = akl_stack_pop(ctx);
             if (v != NULL) {
+                ctx->cx_lex_info = v->va_lex_info;
                 akl_set_global_var(s, OPERAND(0, symbol), NULL, TRUE, v);
             }
             MOVE_IP(ip);
@@ -475,17 +481,20 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
                 akl_raise_error(ctx, AKL_ERROR, "Variable '%s' is undefined.", sym->sb_name);
                 akl_stack_push(ctx, akl_new_nil_value(s));
             } else {
+                ctx->cx_lex_info = var->vr_lex_info;
                 akl_stack_push(ctx, var->vr_value);
             }
             MOVE_IP(ip);
         break;
 
         case AKL_IR_PUSH:
-            if (OPERAND(0, value) == NULL) {
-                akl_raise_error(ctx, AKL_WARNING, "Interpreter error: NULL pushed to stack");
+            v = OPERAND(0, value);
+            if (v == NULL) {
+                akl_raise_error(ctx, AKL_WARNING, "Interpreter error: NULL pushed to stack.");
                 return;
             }
-            akl_stack_push(ctx, OPERAND(0, value));
+            ctx->cx_lex_info = v->va_lex_info;
+            akl_stack_push(ctx, v);
             MOVE_IP(ip);
         break;
 
@@ -493,6 +502,7 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             /* TODO: Error if ui_num < 0 */
             v = akl_frame_at(ctx, OPERAND(0, ui_num));
             if (v) {
+                ctx->cx_lex_info = v->va_lex_info;
                 akl_stack_push(ctx, v);
             }
             MOVE_IP(ip);
@@ -544,6 +554,8 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             if (AKL_IS_TRUE(v)) {
                 ir = lt->la_ir;
                 ip = lt->la_branch;
+            } else {
+                MOVE_IP(ip);
             }
         break;
 
@@ -554,12 +566,14 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
             if (AKL_IS_NIL(v)) {
                 ir = ln->la_ir;
                 ip = ln->la_branch;
+            } else {
+                MOVE_IP(ip);
             }
         break;
 
         case AKL_IR_BRANCH:
-            lt = in->in_arg[0].label;
-            ln = in->in_arg[1].label;
+            lt = OPERAND(0, label);
+            ln = OPERAND(0, label);
             v = akl_stack_pop(ctx);
             /* TODO: Error on other types */
             if (AKL_IS_NIL(v)) {
@@ -598,7 +612,7 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
 {
     assert(ctx);
     struct akl_list *ir;
-    struct akl_list_entry *ent;
+    struct akl_list_entry *ent, *lit;
     struct akl_ir_instruction *in;
     struct akl_label *l = NULL;
     struct akl_lisp_fun *uf = NULL;
@@ -612,9 +626,7 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
         return;
     }
     uf = &fun->fn_body.ufun;
-    if (uf->uf_labels != NULL) {
-        l = (struct akl_label *)akl_vector_first(uf->uf_labels);
-    }
+    l = (struct akl_label *)akl_list_head(&uf->uf_labels);
 
     ir = &uf->uf_body;
     AKL_LIST_FOREACH(ent, ir) {
@@ -623,8 +635,12 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
            break;
 
        LOOP_WATCHDOG(ent);
-       if (l && lind < akl_vector_count(uf->uf_labels)) {
-           l = (struct akl_label *)akl_vector_at(uf->uf_labels, lind);
+       /* If this instruction is labeled, print that label first */
+       lit = akl_list_it_begin(&uf->uf_labels);
+       /* Itarate through the label's list, to find a label with
+          the same address. */
+       while (akl_list_it_has_next(lit)) {
+           l = (struct akl_label *)akl_list_it_next(&lit);
            if (l && l->la_branch == ent) {
                printf("%s.L%d:%s\n", AKL_COLORFUL(s, AKL_YELLOW)
                                    , l->la_ind, AKL_END_COLORFUL(s));
@@ -841,17 +857,22 @@ void akl_raise_error(struct akl_context *ctx
 {
     va_list ap;
     struct akl_state *s = ctx->cx_state;
-    struct akl_list *l;
     struct akl_error *err;
     int n;
-    char *np;
-    char *msg;
+    char *msg = NULL;
+    if (fmt == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "NULL given for akl_raise_error().");
+        return;
+    }
     va_start(ap, fmt);
     n = vasprintf(&msg, fmt, ap);
     va_end(ap);
     if (n < 0) {
         /* TODO: Somehow raise error from akl_raise_error() */
-        /* XXX:  Need free() here? */
+        return;
+    }
+    if (msg == NULL) {
+        /* ERROR */
         return;
     }
 
