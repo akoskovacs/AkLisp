@@ -82,7 +82,7 @@ akl_load_module(struct akl_state *s, const char *modname)
     return mod;
 
 unload_mod:
-    akl_free_module(s, mod);
+    akl_module_free(s, mod);
     return NULL;
 }
 
@@ -112,6 +112,6 @@ bool_t akl_unload_module(struct akl_state *s, const char *modname, bool_t use_fo
 
 delete_mod:
     akl_list_remove_entry(&s->ai_modules, ent);
-    akl_free_module(s, mod);
+    akl_module_free(s, mod);
     return TRUE; 
 }
