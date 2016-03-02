@@ -324,6 +324,8 @@ int main(int argc, char* const* argv)
         dev = akl_new_file_device(&state, fname, fp);
         ctx = akl_compile(&state, dev);
         akl_execute(ctx);
+        akl_print_errors(&state);
+        akl_clear_errors(&state);
     } else {
         interactive_mode();
         return 0;
