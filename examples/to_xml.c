@@ -13,24 +13,25 @@ void print_tabs(int n)
 void list_eval(int level, struct akl_list *l)
 {
     struct akl_value *v;
-    struct akl_atom *at, *tag = NULL;
+    struct akl_symbol *sym;
+    //struct akl_atom *at, *tag = NULL;
     struct akl_list *ln;
-    struct akl_list_iterator *it;
+    struct akl_list_entry *it;
     const char *fmt;
     if (!l)
         return;
 
-    it = akl_list_begin(&s, l);
+    it = akl_list_it_begin(l);
     print_tabs(level);
 
-    while (akl_list_has_next(it)) {
-        v = (struct akl_value *)akl_list_next(it);
+    while (akl_list_it_has_next(it)) {
+        v = (struct akl_value *)akl_list_it_next(&it);
         switch (AKL_TYPE(v)) {
-            case TYPE_NUMBER:
+            case AKL_VT_NUMBER:
             printf("%f ", AKL_GET_NUMBER_VALUE(v));
             break;
 
-            case TYPE_STRING:
+            case AKL_VT_STRING:
             if (akl_list_count(l) == 1)
                 fmt = "%s ";
             else
@@ -39,18 +40,12 @@ void list_eval(int level, struct akl_list *l)
             printf(fmt, AKL_GET_STRING_VALUE(v));
             break;
 
-            case TYPE_ATOM:
-            at = AKL_GET_ATOM_VALUE(v);
-            if (AKL_IS_QUOTED(v)) {
-                printf("%s=", at->at_name);    
-            } else {
-                tag = at;
-                printf("<%s ", at->at_name);
-            }
-
+            case AKL_VT_SYMBOL:
+            sym = v->va_value.symbol;
+            printf("%s=", sym->sb_name);    
             break;
 
-            case TYPE_LIST:
+            case AKL_VT_LIST:
             printf("\b>\n");
             ln = AKL_GET_LIST_VALUE(v);
             list_eval(level+1, ln);
@@ -61,11 +56,13 @@ void list_eval(int level, struct akl_list *l)
             break;
         }
     }
+    #if 0
     if (tag) {
         printf("\n");
         print_tabs(level);
         printf("</%s>", tag->at_name);
     }
+    #endif
 }
 
 int main(int argc, char **argv) {

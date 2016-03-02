@@ -15,45 +15,43 @@ void list_eval(int level, struct akl_list *l)
     struct akl_value *v;
     struct akl_atom *at;
     struct akl_list *ln;
-    struct akl_list_iterator *it;
+    struct akl_list_entry *it;
     if (!l)
         return;
 
-    it = akl_list_it_begin(s);
+    it = akl_list_it_begin(l);
     print_tabs(level);     printf("Got list: ");
     akl_print_list(&s, l); printf("\n");
 
     while (akl_list_it_has_next(it)) {
         print_tabs(level);
-        v = (struct akl_value *)akl_list_next(&it);
+        v = (struct akl_value *)akl_list_it_next(&it);
         switch (AKL_TYPE(v)) {
-            case TYPE_NUMBER:
+            case AKL_VT_NUMBER:
             printf("Got number: ");
             akl_print_value(&s, v);
             break;
 
-            case TYPE_STRING:
+            case AKL_VT_STRING:
             printf("Got string: ");
             akl_print_value(&s, v);
             break;
 
-            case TYPE_ATOM:
+            case AKL_VT_SYMBOL:
             if (AKL_IS_QUOTED(v))
                 printf("Got symbol: ");
-            else
-                printf("Got atom: ");
             akl_print_value(&s, v);
             break;
 
-            case TYPE_TRUE:
+            case AKL_VT_TRUE:
             printf("Got true");
             break;
 
-            case TYPE_NIL:
+            case AKL_VT_NIL:
             printf("Got nil");
             break;
 
-            case TYPE_LIST:
+            case AKL_VT_LIST:
             printf("Recurse!!!\n");
             ln = AKL_GET_LIST_VALUE(v);
             list_eval(level+1, ln);
