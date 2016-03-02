@@ -158,10 +158,11 @@ AKL_DEFINE_FUN(print, cx, argc)
     return !v ? AKL_NIL : v;
 }
 
-AKL_DEFINE_FUN(display, cx, argc)
+static void
+formatted_display(struct akl_context *ctx)
 {
     struct akl_value *v;
-    while ((v = akl_frame_shift(cx)) != NULL) {
+    while ((v = akl_frame_shift(ctx)) != NULL) {
         switch (v->va_type) {
             case AKL_VT_NUMBER:
             printf("%g ", AKL_GET_NUMBER_VALUE(v));
@@ -175,7 +176,18 @@ AKL_DEFINE_FUN(display, cx, argc)
             break;
         }
     }
+}
+
+AKL_DEFINE_FUN(display, cx, argc)
+{
+    formatted_display(cx);
     printf("\n");
+    return &TRUE_VALUE;
+}
+
+AKL_DEFINE_FUN(write, cx, argc)
+{
+    formatted_display(cx);
     return &TRUE_VALUE;
 }
 
@@ -384,6 +396,15 @@ AKL_DEFINE_FUN(lteq, ctx, argc)
     return akl_new_nil_value(ctx->cx_state);
 }
 
+AKL_DEFINE_FUN(neq, ctx, argc)
+{
+    if (get_and_compare_values(ctx) != 0) {
+        return akl_new_true_value(ctx->cx_state);
+    }
+
+    return akl_new_nil_value(ctx->cx_state);
+}
+
 AKL_DEFINE_FUN(eq, ctx, argc)
 {
     if (get_and_compare_values(ctx) == 0) {
@@ -392,6 +413,7 @@ AKL_DEFINE_FUN(eq, ctx, argc)
 
     return akl_new_nil_value(ctx->cx_state);
 }
+
 
 AKL_DEFINE_FUN(length, ctx, argc)
 {
@@ -736,6 +758,38 @@ AKL_DEFINE_FUN(about, ctx, argc)
     printf("\tallocated memory: %u bytes\n", s->ai_gc_malloc_size);
     
     return &TRUE_VALUE;
+}
+
+AKL_DEFINE_FUN(read_number, ctx, argc)
+{
+    double n = 0.0;
+    char ch;
+    if (fscanf(stdin, "%lf", &n) <= 0) {
+        /* Flush the input stream, so the next read-number
+           can work again. */
+        while ((ch = getchar()) != '\n' && ch != EOF)
+            ;
+        return AKL_NIL;
+    }
+    return AKL_NUMBER(ctx, n);
+}
+
+AKL_DEFINE_FUN(read_string, ctx, argc)
+{
+    char *str = NULL;
+    size_t n;
+    ssize_t len;
+    if ((len = getline(&str, &n, stdin)) == -1) {
+        return AKL_NIL;
+    }
+    if (str != NULL) {
+        if (str[--len] == '\n') {
+            str[len] = '\0';
+        }
+        return akl_new_string_value(ctx->cx_state, str);
+    }
+
+    return AKL_NIL;
 }
 
 #if 0
@@ -1701,7 +1755,8 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(minus,       "-", "Arithmetic substraction"),
     AKL_FUN(mul,         "*", "Arithmetic product"),
     AKL_FUN(ddiv,        "/", "Arithmetic division"),
-    AKL_FUN(idiv,      "div", "Integer division"),
+    AKL_FUN(idiv,        "div", "Integer division"),
+    AKL_FUN(neq,         "!=", "Compare to values for inequality"),
     AKL_FUN(eq,          "=", "Compare to values for equality"),
     AKL_FUN(gt,          ">", "Greater compare function"),
     AKL_FUN(lt,          "<", "Lesser than"),
@@ -1736,15 +1791,18 @@ AKL_DECLARE_FUNS(akl_debug_funs) {
     AKL_FUN(hello,        "hello", "Hello function"),
     AKL_FUN(write_times,  "write-times", "Write a string out n times"),
     AKL_FUN(about,        "about", "Informations about the interpreter"),
-    AKL_FUN(print,        "print", "Print a value in Lisp form"),
-    AKL_FUN(display,      "display", "Display a value without formatting (with newline)"),
     AKL_FUN(dump_vars, "dump-vars", "Display all global variables (with symbol pointers"),
     AKL_FUN(print_symbol_ptr,  "print-symbol-ptr", "Display the symbol's internal pointer"),
     AKL_END_FUNS()
 };
 
 AKL_DECLARE_FUNS(akl_io_funs) {
-    /* TODO */
+    AKL_FUN(print,        "print", "Print a value in Lisp form"),
+    AKL_FUN(display,      "display", "Display a value without formatting (with newline)"),
+    AKL_FUN(write,        "write", "Display a value without formatting (without newline)"),
+    AKL_FUN(read_number,  "read-number", "Read a number from the standard input"),
+    AKL_FUN(read_string,  "read-string", "Read a string from the standard input"),
+    AKL_FUN(read_string,  "getline", "Read a string from the standard input"),
     AKL_END_FUNS()
 };
 
@@ -1752,6 +1810,7 @@ void akl_init_library(struct akl_state *s, enum AKL_INIT_FLAGS flags)
 {
     akl_declare_functions(s, akl_basic_funs);
     akl_declare_functions(s, akl_debug_funs);
+    akl_declare_functions(s, akl_io_funs);
     akl_spec_library_init(s, flags);
     akl_define_mod_path(s);
 #if 0
