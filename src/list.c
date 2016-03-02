@@ -189,7 +189,7 @@ akl_list_find_value(struct akl_list *list, struct akl_value *val, unsigned int *
 }
 
 struct akl_list_entry *
-akl_list_index(struct akl_list *list, int index)
+akl_list_index_entry(struct akl_list *list, int index)
 {
     assert(list && !AKL_IS_NIL(list));
     struct akl_list_entry *ent;
@@ -213,10 +213,16 @@ akl_list_index(struct akl_list *list, int index)
     return ent;
 }
 
-struct akl_value *akl_list_index_value(struct akl_list *list, int index)
+void *akl_list_index(struct akl_list *list, int index)
 {
-    struct akl_list_entry *ent = akl_list_index(list, index);
-    return ent ? (struct akl_value *)ent->le_data : NULL;
+    struct akl_list_entry *ent = akl_list_index_entry(list, index);
+    return ent ? ent->le_data : NULL;
+}
+
+struct akl_value *
+akl_list_index_value(struct akl_list *list, int index)
+{
+    return (struct akl_value *)akl_list_index(list, index);
 }
 
 void *akl_list_last(struct akl_list *list)
