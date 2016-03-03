@@ -45,12 +45,9 @@ test_res_t list_index(void)
 {
     int i;
     bool_t right = TRUE;
-    struct akl_list_entry *ent = akl_list_index(list, 5);
-    right = ent->le_data == (void *)nums+5;
-    ent = akl_list_index(list, -2);
-    right = right && (ent->le_data == (void *)nums+8);
-    ent = akl_list_index(list, 0);
-    right = right && (ent->le_data == (void *)nums);
+    right = akl_list_index(list, 5) == (void *)nums+5;
+    right = right && (akl_list_index(list, -2) == (void *)nums+8);
+    right = right && (akl_list_index(list, 0) == (void *)nums);
     return right;
 }
 
