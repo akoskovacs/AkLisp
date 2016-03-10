@@ -514,6 +514,42 @@ AKL_DEFINE_FUN(ls_head, ctx, argc)
     return AKL_NULLER(v);
 }
 
+AKL_DEFINE_FUN(ls_last, ctx, argc)
+{
+    struct akl_value *v = akl_frame_pop(ctx);
+    char *t;
+    char *ns;
+    size_t stlen;
+
+    if (v == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "No parameter is given.");
+        return AKL_NIL;
+    }
+
+    switch (AKL_TYPE(v)) {
+        case AKL_VT_STRING:
+        t = AKL_GET_STRING_VALUE(v);
+        v = NULL;
+        stlen = strlen(t);
+        if (stlen > 0) {
+            ns = akl_alloc(ctx->cx_state, 2);
+            ns[0] = t[stlen-1];
+            ns[1] = '\0';
+            v = akl_new_string_value(ctx->cx_state, ns);
+        }
+        break;
+
+        case AKL_VT_LIST:
+        v = akl_list_last(AKL_GET_LIST_VALUE(v));
+        break;
+
+        default:
+        akl_raise_error(ctx, AKL_ERROR, "Argument must be a list or a string!");
+        break;
+    }
+    return AKL_NULLER(v);
+}
+
 AKL_DEFINE_FUN(ls_tail, ctx, argc)
 {
     struct akl_value *v = akl_frame_pop(ctx);
@@ -536,6 +572,10 @@ AKL_DEFINE_FUN(ls_tail, ctx, argc)
 
         case AKL_VT_LIST:
         l = akl_list_tail(ctx->cx_state, AKL_GET_LIST_VALUE(v));
+        if (l == NULL) {
+            return AKL_NIL;
+        }
+        l->is_quoted = TRUE;
         if (l == NULL) {
             v = NULL;
         } else {
@@ -653,18 +693,90 @@ AKL_DEFINE_FUN(list, ctx, argc)
     while ((v = akl_frame_shift(ctx))) {
         akl_list_append_value(ctx->cx_state, list, v);
     }
+    list->is_quoted = TRUE;
     return akl_new_list_value(ctx->cx_state, list);
 }
 
 AKL_DEFINE_FUN(map, ctx, argc)
 {
-    struct akl_symbol *sym;
-    struct akl_list *lp;
+    struct akl_function *fn;
+    struct akl_list *lp, *nl;
+    struct akl_list_entry *it;
+    struct akl_value *v;
+    struct akl_context *cx;
+    int fargc;
     // TODO: Change TYPE_* to bit masks.
-    if (akl_get_args_strict(ctx, 2, AKL_VT_SYMBOL, &sym, AKL_VT_LIST, &lp) == -1) {
-       return NULL;
+    if (akl_get_args_strict(ctx, 2, AKL_VT_FUNCTION, &fn, AKL_VT_LIST, &lp) == -1) {
+       return AKL_NIL;
     }
-    return akl_call_symbol(ctx, NULL, sym, akl_list_count(lp));
+    it = akl_list_it_begin(lp);
+    fargc = akl_list_count(lp);
+    cx = akl_bound_function(ctx, NULL, fn);
+    nl = akl_new_list(ctx->cx_state);
+    nl->is_quoted = TRUE;
+    while ((v = akl_list_it_next(&it)) != NULL) {
+        akl_stack_push(ctx, v);
+        akl_call_function_bound(cx, fargc);
+        akl_list_append_value(ctx->cx_state, nl, akl_stack_pop(ctx));
+    }
+
+    return akl_new_list_value(ctx->cx_state, nl);
+}
+
+static struct akl_value *
+times_impl(struct akl_context *ctx, bool_t is_indexed)
+{
+    struct akl_function *fn;
+    struct akl_context *cx;
+    struct akl_list *nl;
+    int i;
+    double times_arg;
+    // TODO: Change TYPE_* to bit masks.
+    if (akl_get_args_strict(ctx, 2, AKL_VT_NUMBER, &times_arg
+                                , AKL_VT_FUNCTION, &fn) == -1) {
+       return AKL_NIL;
+    }
+    cx = akl_bound_function(ctx, NULL, fn);
+    nl = akl_new_list(ctx->cx_state);
+    nl->is_quoted = TRUE;
+    for (i = 0; i < (int)times_arg; i++) {
+        if (is_indexed) {
+            akl_stack_push(cx, AKL_NUMBER(cx, i));
+        }
+        akl_call_function_bound(cx, (is_indexed) ? 1 : 0);
+        akl_list_append_value(ctx->cx_state, nl, akl_stack_pop(ctx));
+    }
+
+    return akl_new_list_value(ctx->cx_state, nl);
+}
+
+AKL_DEFINE_FUN(times, ctx, argc)
+{
+    return times_impl(ctx, FALSE);
+}
+
+AKL_DEFINE_FUN(times_index, ctx, argc)
+{
+    return times_impl(ctx, TRUE);
+}
+
+AKL_DEFINE_FUN(range, ctx, argc)
+{
+    double fp, tp;
+    struct akl_list *list;
+    int f, t;
+    if (akl_get_args_strict(ctx, 2, AKL_VT_NUMBER, &fp, AKL_VT_NUMBER, &tp) == -1) {
+        return AKL_NIL;
+    }
+
+    f = (int)fp;
+    t = (int)tp;
+    list = akl_new_list(ctx->cx_state);
+    list->is_quoted = TRUE;
+    for (;f <= t; f++) {
+       akl_list_append_value(ctx->cx_state, list, AKL_NUMBER(ctx, (double)f));
+    }
+    return akl_new_list_value(ctx->cx_state, list);
 }
 
 AKL_DEFINE_FUN(disassemble, ctx, argc)
@@ -690,7 +802,7 @@ AKL_DEFINE_FUN(disassemble, ctx, argc)
         }
         AKL_END_COLOR(ctx->cx_state);
     } else {
-        fn = ctx->cx_state->ai_fn_main;
+        fn = ctx->cx_fn_main;
     }
     akl_dump_ir(ctx, fn);
     return AKL_NIL;
@@ -830,6 +942,87 @@ AKL_DEFINE_FUN(or, ctx, argc)
        }
     } while (v != NULL);
     return akl_new_nil_value(ctx->cx_state);
+}
+
+AKL_DEFINE_FUN(load, ctx, argc)
+{
+    struct akl_io_device *dev;
+    struct akl_context *cx;
+    const char *fname;
+    FILE *fp;
+    if (akl_get_args_strict(ctx, 1, AKL_VT_STRING, &fname) == -1) {
+        return AKL_NIL;
+    }
+
+    if ((fp = fopen(fname, "r")) == NULL) {
+        akl_raise_error(ctx, AKL_ERROR, "Cannot load '%s', cannot open file.", fname);
+        return AKL_NIL;
+    }
+    dev = akl_new_file_device(ctx->cx_state, fname, fp);
+    cx  = akl_compile(ctx->cx_state, dev);
+    cx->cx_parent = ctx;
+    akl_execute(cx);
+    return akl_new_true_value(ctx->cx_state);
+}
+
+AKL_DEFINE_FUN(toint, ctx, argc)
+{
+    int n;
+    struct akl_value *v;
+    struct akl_symbol *sym;
+    char *str;
+    if (akl_get_args(ctx, 1, &v) == -1) {
+        return AKL_NIL;
+    }
+
+    switch (AKL_TYPE(v)) {
+        case AKL_VT_NIL:
+        n = 0;
+        break;
+
+        case AKL_VT_NUMBER:
+        n = (int)AKL_GET_NUMBER_VALUE(v);
+        break;
+
+        case AKL_VT_STRING:
+        str = AKL_GET_STRING_VALUE(v);
+        if (str != NULL) {
+            n = (int)atoi(str);
+        } else {
+            return AKL_NIL;
+        }
+        break;
+
+        case AKL_VT_SYMBOL:
+        sym = v->va_value.symbol;
+        if (sym != NULL && sym->sb_name) {
+            n = (int)atoi(sym->sb_name);
+        } else {
+            return AKL_NIL;
+        }
+        break;
+    }
+    return AKL_NUMBER(ctx, n);
+}
+
+AKL_DEFINE_FUN(tonumber, ctx, argc)
+{
+    struct akl_value *v;
+    if (akl_get_args(ctx, 1, &v) == -1) {
+        return AKL_NIL;
+    }
+    return akl_to_number(ctx->cx_state, v);
+}
+
+AKL_DEFINE_FUN(tostr, ctx, argc)
+{
+    double n;
+    struct akl_value *v;
+    if (akl_get_args(ctx, 1, &v) == -1) {
+        return AKL_NIL;
+    }
+
+    return akl_to_string(ctx->cx_state, v);
 }
 
 #if 0
@@ -1811,6 +2004,9 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(isstring,    "string?", "Gives true if the parameter is a string"),
     AKL_FUN(islist,      "list?", "Gives true if the parameter is a list"),
     AKL_FUN(issymbol,    "symbol?", "Gives true if the parameter is a symbol"),
+    AKL_FUN(tonumber,    "number", "Converts values to a floating point number"),
+    AKL_FUN(toint,       "int", "Converts values to an integer number"),
+    AKL_FUN(tostr,       "string", "Converts values to a string"),
     AKL_FUN(list,        "list", "Create a list from the given arguments"),
     AKL_FUN(length,      "length", "Get the length of a string or the element count for a list"),
     AKL_FUN(ls_index,    "index", "Index a list or a string"),
@@ -1818,11 +2014,16 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(ls_head ,    "car", "Get the first element of a list or the first character of a string"),
     AKL_FUN(ls_tail,     "cdr", "Get the remaining elements or characters of a list or string (everything after head)"),
     AKL_FUN(ls_tail,     "tail", "Get the remaining elements or characters of a list or string (everything after head)"),
+    AKL_FUN(ls_last ,    "last", "Get the last element of a list or the last character of a string"),
     AKL_FUN(ls_append,   "append!", "Add an element to the end of a list or string"),
     AKL_FUN(ls_insert,   "insert!", "Insert an element to the start of the list or a string"),
+    AKL_FUN(range,       "range", "Make a list of numbers from a range"),
     AKL_FUN(progn,       "$", "Evaulate all elements and give back the last (primitive sequence)"),
     AKL_FUN(akl_cfg,     "akl-cfg!", "Set/unset interpreter features"),
     AKL_FUN(describe,    "describe", "Get a global atom help string"),
+    AKL_FUN(map,         "map", "Call a function on list elements"),
+    AKL_FUN(times,       "times", "Call a function n times"),
+    AKL_FUN(times_index, "times-index", "Call a function n times (also passing the index to the function)"),
     AKL_FUN(exit,        "exit!", "Exit"),
     AKL_END_FUNS()
 };
@@ -1849,11 +2050,23 @@ AKL_DECLARE_FUNS(akl_io_funs) {
     AKL_END_FUNS()
 };
 
+AKL_DECLARE_FUNS(akl_module_funs) {
+    AKL_FUN(load,  "load", "Load a file or module"),
+    AKL_END_FUNS()
+};
+
 void akl_init_library(struct akl_state *s, enum AKL_INIT_FLAGS flags)
 {
-    akl_declare_functions(s, akl_basic_funs);
+    if (flags & AKL_LIB_BASIC) {
+        akl_declare_functions(s, akl_basic_funs);
+    }
     akl_declare_functions(s, akl_debug_funs);
-    akl_declare_functions(s, akl_io_funs);
+    if (flags & AKL_LIB_FILE) {
+        akl_declare_functions(s, akl_io_funs);
+    }
+    if (flags & AKL_LIB_SYSTEM) {
+        akl_declare_functions(s, akl_module_funs);
+    }
     akl_spec_library_init(s, flags);
     akl_define_mod_path(s);
 #if 0
