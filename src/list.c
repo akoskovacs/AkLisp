@@ -414,7 +414,13 @@ void akl_print_value(struct akl_state *s, struct akl_value *val)
         AKL_END_COLOR(s);
         break;
 
-        case AKL_VT_NIL: case AKL_VT_FUNCTION:
+        case AKL_VT_FUNCTION:
+        AKL_START_COLOR(s, AKL_YELLOW);
+        printf("<FUNCTION>");
+        AKL_END_COLOR(s);
+        break;
+
+        case AKL_VT_NIL:
         //case TYPE_CFUN: case TYPE_BUILTIN:
         /* Nothing to do... */
         break;
@@ -443,7 +449,7 @@ void akl_print_list(struct akl_state *s, struct akl_list *list)
         if (ent == NULL || ent->le_data == NULL)
             break;
         v = AKL_ENTRY_VALUE(ent);
-        akl_print_value(s, v );
+        akl_print_value(s, v);
         if (AKL_LIST_NEXT(ent) != NULL)
             printf(" ");
     }
