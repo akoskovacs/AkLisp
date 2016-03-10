@@ -107,23 +107,35 @@ bool_t akl_io_eof(struct akl_io_device *dev)
     return TRUE; 
 }
 
+static bool_t
+is_valid_in_number(char ch)
+{
+    if (isdigit(ch)) {
+        return TRUE;
+    }
+
+    switch (tolower(ch)) {
+        case 'e':
+        case '+': case '-':
+        case 'x': case '.':
+        case 'a': case 'b':
+        case 'c': case 'd': case 'f':
+        return TRUE;
+    }
+    return FALSE;
+}
+
 size_t copy_number(struct akl_io_device *dev, char op)
 {
     int ch;
     size_t i = 0;
-    bool_t is_hexa = FALSE;
     assert(dev);
     if (op != 0)
         put_buffer(dev, i++, op);
-
     while ((ch = akl_io_getc(dev))) {
         /* The second character can be 'x' (because of the hexa numbers) */
         /* TODO: Rework the number parsing */
-        if (isdigit(ch) || ch == '.' 
-                || ch == 'e' || ch == 'E' 
-                || ch == '+' || ch == '-') { // TODO: Only after e|E
-            put_buffer(dev, i++, ch);
-        } else if (is_hexa) {
+        if (is_valid_in_number(ch)) {
             put_buffer(dev, i++, ch);
         } else {
             akl_io_ungetc(ch, dev);
@@ -137,7 +149,7 @@ size_t copy_number(struct akl_io_device *dev, char op)
 
 size_t copy_string(struct akl_io_device *dev)
 {
-    int ch;
+    char ch;
     size_t i = 0;
     assert(dev);
     
@@ -163,7 +175,7 @@ size_t copy_string(struct akl_io_device *dev)
 
 size_t copy_atom(struct akl_io_device *dev)
 {
-    int ch;
+    char ch;
     size_t i = 0;
     assert(dev);
 
@@ -182,7 +194,7 @@ size_t copy_atom(struct akl_io_device *dev)
 
 size_t copy_word(struct akl_io_device *dev)
 {
-    int ch;
+    char ch;
     size_t i = 0;
     assert(dev);
 
@@ -211,7 +223,7 @@ void akl_lex_putback(struct akl_io_device *dev, akl_token_t tok)
 akl_token_t
 akl_lex(struct akl_io_device *dev)
 {
-    int ch;
+    char ch;
     /* We should take care of the '+', '++',
       and etc., style functions. Moreover the
       positive and negative numbers must also work:
@@ -291,6 +303,9 @@ akl_lex(struct akl_io_device *dev)
                     return tEOF;
             }
         } else if (isalpha(ch) || ispunct(ch)) {
+            if (op == '+' || op == '-') {
+                akl_io_ungetc(op, dev);
+            }
             akl_io_ungetc(ch, dev);
             copy_atom(dev);
             if ((strcasecmp(dev->iod_buffer, "NIL")) == 0)
