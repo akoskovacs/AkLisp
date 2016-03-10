@@ -29,9 +29,6 @@
 #include <getopt.h>
 #endif // HAVE_GETOPT_H
 
-#define ALWAYS_DUMP_STACK 1
-#define ALWAYS_DUMP_INSTR 1
-
 #define PROMPT_MAX 10
 static struct akl_state state;
 
@@ -144,6 +141,7 @@ const static struct option akl_options[] = {
     { "assemble"   , no_argument,       0, 'a' },
     { "compile"    , no_argument,       0, 'c' },
     { "define"     , no_argument,       0, 'D' },
+    { "debug"      , no_argument,       0, 'd' },
     { "eval"       , required_argument, 0, 'e' },
     { "interactive", no_argument,       0, 'i' },
     { "config"     , required_argument, 0, 'C' },
@@ -155,8 +153,9 @@ const static struct option akl_options[] = {
 
 const char *akl_option_desc[] = {
     "Compile an AkLisp assembly file", "Compile an AkLisp program to bytecode"
-    , "Define a variable from command-line", "Evaulate a command-line expression"
-    , "Force interactive mode", "Pass configuration setting to akl-cfg!", "Disable colors"
+    , "Define a variable from command-line", "Set self debugging on (stack and instructions)"
+    , "Evaluate a command-line expression", "Force interactive mode"
+    , "Pass configuration setting to akl-cfg!", "Disable colors"
     , "This help message", "Print the version number"
 };
 
@@ -194,7 +193,6 @@ static void interactive_mode(void)
 {
     char prompt[PROMPT_MAX];
     int lnum = 1;
-    struct akl_value *value;
     char *line;
     struct akl_io_device *dev;
     struct akl_context *ctx;
@@ -202,14 +200,6 @@ static void interactive_mode(void)
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
     printf("Copyleft (C) 2014 Akos Kovacs\n\n");
     AKL_SET_FEATURE(&state, AKL_CFG_INTERACTIVE);
-
-#if ALWAYS_DUMP_INSTR
-    AKL_SET_FEATURE(&state, AKL_DEBUG_INSTR);
-#endif // ALWAYS_DUMP_INSTR
-
-#if ALWAYS_DUMP_STACK
-    AKL_SET_FEATURE(&state, AKL_DEBUG_STACK);
-#endif // ALWAYS_DUMP_INSTR
 
     init_readline();
     while (1) {
@@ -229,7 +219,7 @@ static void interactive_mode(void)
             ctx = akl_compile(&state, dev);
 
             if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_INSTR)) {
-                akl_dump_ir(ctx, state.ai_fn_main);
+                akl_dump_ir(ctx, ctx->cx_fn_main);
             }
             akl_execute(ctx);
 //            akl_clear_ir(ctx);
@@ -266,7 +256,7 @@ int main(int argc, char* const* argv)
     akl_init_library(&state, AKL_LIB_ALL);
 
 #ifdef HAVE_GETOPT_H
-    while((c = getopt_long(argc, argv, "aD:C:e:chiv", akl_options, &opt_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "aD:dC:e:chiv", akl_options, &opt_index)) != -1) {
         if (no_color_flag)
             AKL_UNSET_FEATURE(&state, AKL_CFG_USE_COLORS);
 
@@ -288,16 +278,19 @@ int main(int argc, char* const* argv)
             return 0;
 
             case 'D':
-                cmd_parse_define(optarg);
+            cmd_parse_define(optarg);
             break;
 
             case 'C':
-                akl_set_feature(&state, optarg);
+            akl_set_feature(&state, optarg);
             break;
 
+            case 'd':
+            AKL_SET_FEATURE(&state, AKL_DEBUG_INSTR);
+            AKL_SET_FEATURE(&state, AKL_DEBUG_STACK);
             case 'i':
-            default:
             interactive_mode();
+            default:
             break;
         }
     }
