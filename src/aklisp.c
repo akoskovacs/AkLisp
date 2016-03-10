@@ -331,13 +331,12 @@ akl_bound_function(struct akl_context *ctx, struct akl_symbol *sym
         return NULL;
     }
 
-    if (sym == NULL) {
-        akl_raise_error(ctx, AKL_ERROR, "Function \'%s\' is not found", sym->sb_name);
-        return NULL;
-    }
-
     *(cx) = *(ctx);
     if (fn == NULL) {
+        if (sym == NULL) {
+            akl_raise_error(ctx, AKL_ERROR, "Interpreter error: Function and symbol can't be NULL at the same time.");
+            return NULL;
+        }
         v = akl_get_global_var(ctx->cx_state, sym);
         if (v == NULL) {
             akl_raise_error(ctx, AKL_ERROR, "Variable \'%s\' is not a found.", sym->sb_name);
@@ -351,7 +350,11 @@ akl_bound_function(struct akl_context *ctx, struct akl_symbol *sym
         fn = akl_var_to_function(v);
     }
     cx->cx_func = fn;
-    cx->cx_func_name = sym->sb_name;
+    if (sym == NULL) {
+        cx->cx_func_name = "lambda";
+    } else {
+        cx->cx_func_name = sym->sb_name;
+    }
     cx->cx_parent = ctx;
     return cx;
 }
@@ -398,10 +401,13 @@ struct akl_value *akl_call_function_bound(struct akl_context *cx, int argc)
     return value;
 }
 
-struct akl_value *akl_call_symbol(struct akl_context *ctx, struct akl_context *cx
+struct akl_value *
+akl_call_symbol(struct akl_context *ctx, struct akl_context *cx
                     , struct akl_symbol *sym, int argc)
 {
-    assert(ctx && sym);
+    if (ctx == NULL) {
+        return NULL;
+    }
     if (cx == NULL) {
         cx = akl_bound_function(ctx, sym, NULL);
         if (cx == NULL) {
@@ -411,12 +417,16 @@ struct akl_value *akl_call_symbol(struct akl_context *ctx, struct akl_context *c
     return akl_call_function_bound(cx, argc);
 }
 
-void
+struct akl_function *
 akl_call_sform(struct akl_context *ctx, struct akl_symbol *fsym
                , struct akl_function *sform)
 {
     struct akl_context *cx = akl_bound_function(ctx, fsym, sform);
-    cx->cx_func->fn_body.scfun(cx);
+    if (cx && cx->cx_func && cx->cx_func->fn_body.scfun) {
+        return cx->cx_func->fn_body.scfun(cx);
+    }
+    /* ERROR */
+    return NULL;
 }
 
 struct akl_value *
@@ -424,7 +434,14 @@ akl_call_function(struct akl_context *ctx, struct akl_context *cx
                             , const char *fname, int argc)
 {
     assert(ctx && fname);
-    struct akl_symbol *sym = akl_get_symbol(ctx->cx_state, (char *)fname);
+    struct akl_symbol *sym = NULL;
+    if (fname != NULL) {
+        sym = akl_get_symbol(ctx->cx_state, (char *)fname);
+        if (sym == NULL) {
+            akl_raise_error(ctx, AKL_ERROR, "Function \'%s\' is not found", sym->sb_name);
+            return AKL_NIL;
+        }
+    }
     return akl_call_symbol(ctx, cx, sym, argc);
 }
 
@@ -452,12 +469,12 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
     if (ir == NULL || ip == NULL)
         return;
 
-    if (s && s->ai_interrupted) {
-        akl_raise_error(ctx, AKL_WARNING, "Program interruption.");
-        return;
-    }
-
     while (ip) {
+        if (s && s->ai_interrupted) {
+            akl_raise_error(ctx, AKL_WARNING, "Program interruption.");
+            return;
+        }
+
         in = (struct akl_ir_instruction *)ip->le_data;
         LOOP_WATCHDOG(ip);
         switch (in->in_op) {
@@ -466,7 +483,8 @@ akl_ir_exec_branch(struct akl_context *ctx, struct akl_list_entry *ip)
         break;
 
         case AKL_IR_SET:
-            v = akl_stack_pop(ctx);
+            /* Set does not remove the top stack value */
+            v = akl_stack_top(ctx);
             if (v != NULL) {
                 ctx->cx_lex_info = v->va_lex_info;
                 akl_set_global_var(s, OPERAND(0, symbol), NULL, TRUE, v);
@@ -639,8 +657,7 @@ void akl_dump_ir(struct akl_context *ctx, struct akl_function *fun)
        lit = akl_list_it_begin(&uf->uf_labels);
        /* Itarate through the label's list, to find a label with
           the same address. */
-       while (akl_list_it_has_next(lit)) {
-           l = (struct akl_label *)akl_list_it_next(&lit);
+       while ((l = akl_list_it_next(&lit)) != NULL) {
            if (l && l->la_branch == ent) {
                printf("%s.L%d:%s\n", AKL_COLORFUL(s, AKL_YELLOW)
                                    , l->la_ind, AKL_END_COLORFUL(s));
@@ -779,8 +796,8 @@ void akl_execute_ir(struct akl_context *ctx)
 
 void akl_execute(struct akl_context *ctx)
 {
-    AKL_ASSERT(ctx && ctx->cx_state && ctx->cx_state->ai_fn_main, AKL_NOTHING);
-    struct akl_function *mf = ctx->cx_state->ai_fn_main;
+    AKL_ASSERT(ctx && ctx->cx_state && ctx->cx_fn_main, AKL_NOTHING);
+    struct akl_function *mf = ctx->cx_fn_main;
     struct akl_lisp_fun *mfir = &mf->fn_body.ufun;
     ctx->cx_state->ai_interrupted = FALSE;
     //struct akl_value *v = akl_get_global_value(ctx->cx_state, "*args*");
