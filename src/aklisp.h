@@ -117,7 +117,7 @@ typedef enum { DEVICE_FILE, DEVICE_STRING } device_type_t;
 /* Ordinary C functions a.k.a. normal S-expressions*/
 typedef struct akl_value*(*akl_cfun_t)(struct akl_context *, int);
 /* Special C functions a.k.a. special forms */
-typedef void (*akl_sfun_t)(struct akl_context *);
+typedef struct akl_function *(*akl_sfun_t)(struct akl_context *);
 typedef unsigned int akl_utype_t;
 typedef unsigned char akl_byte_t;
 typedef int (*akl_cmp_fn_t)(void *, void *);
@@ -284,6 +284,7 @@ struct akl_context {
     struct akl_function  *cx_comp_func; /* The function under compilation */
     struct akl_io_device *cx_dev;       /* The current I/O device */
     struct akl_lex_info  *cx_lex_info;  /* Current lexical information */
+    struct akl_function  *cx_fn_main;   /* The main function */
 };
 
 struct akl_context *akl_new_context(struct akl_state *);
@@ -431,7 +432,7 @@ struct akl_function {
 #define AKL_ARG_REST     -2
 };
 
-void
+struct akl_function *
 akl_call_sform(struct akl_context *, struct akl_symbol *, struct akl_function *);
 struct akl_value *
 akl_call_function_bound(struct akl_context *, int);
@@ -440,6 +441,8 @@ struct akl_value *
 akl_call_symbol(struct akl_context *, struct akl_context *, struct akl_symbol *, int);
 struct akl_value *
 akl_call_function(struct akl_context *, struct akl_context *, const char *, int);
+struct akl_context *
+akl_bound_function(struct akl_context *, struct akl_symbol *, struct akl_function *);
 
 struct akl_gc_pool {
     struct akl_vector    gp_pool;
@@ -535,7 +538,6 @@ struct akl_state {
     struct akl_vector               ai_utypes;
     /* Currently loaded modules */
     struct akl_list                 ai_modules;
-    struct akl_function            *ai_fn_main;   /* The main function */
     struct akl_context              ai_context;   /* The main context  */
     struct akl_list                 ai_stack;     /* The main stack list */
     struct akl_list                *ai_errors;    /* Collection of the errors (if any, default NULL) */
@@ -601,7 +603,7 @@ struct akl_ir_instruction {
     struct akl_lex_info     *in_linfo; /* Lexical information of this instruction */
 };
 
-void akl_compile_list(struct akl_context *);
+struct akl_function *akl_compile_list(struct akl_context *);
 void akl_build_branch(struct akl_context *, struct akl_list *, int, int);
 void akl_build_jump(struct akl_context *, akl_jump_t, struct akl_list *, int);
 /* Call by symbol or function */
@@ -742,7 +744,7 @@ char   *akl_lex_get_string(struct akl_io_device *);
 double  akl_lex_get_number(struct akl_io_device *);
 struct akl_symbol *akl_lex_get_symbol(struct akl_io_device *);
 
-akl_token_t akl_compile_next(struct akl_context *);
+akl_token_t akl_compile_next(struct akl_context *, struct akl_function **fn);
 struct akl_value *
 akl_parse_token(struct akl_context *, akl_token_t, bool_t);
 struct akl_list  *akl_parse_list(struct akl_context *);
