@@ -60,7 +60,6 @@ void akl_init_state(struct akl_state *s, const struct akl_mem_callbacks *cbs)
     s->ai_interrupted = FALSE;
     AKL_SET_FEATURE(s, AKL_CFG_USE_COLORS);
     AKL_SET_FEATURE(s, AKL_CFG_USE_GC);
-    s->ai_fn_main = NULL;
     akl_gc_init(s);
 
     RB_INIT(&s->ai_symbols);
@@ -122,6 +121,7 @@ void akl_init_context(struct akl_context *ctx)
     ctx->cx_parent    = NULL;
     ctx->cx_frame     = NULL;
     ctx->cx_stack     = NULL;
+    ctx->cx_fn_main   = NULL;
     ctx->cx_frame_len = 0;
 }
 
