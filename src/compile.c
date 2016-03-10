@@ -231,7 +231,8 @@ prefetch_function(struct akl_context *cx, struct akl_value *val, struct akl_func
 }
 
 /* Build the intermediate representation for an unquoted list */
-void akl_compile_list(struct akl_context *cx)
+struct akl_function *
+akl_compile_list(struct akl_context *cx)
 {
     akl_token_t tok;
     struct akl_value *v;
@@ -239,7 +240,7 @@ void akl_compile_list(struct akl_context *cx)
     int    argc              = 0;
     bool_t felem             = TRUE;
     bool_t is_quoted         = FALSE;
-    struct akl_function *fun = NULL;
+    struct akl_function *fun = NULL, *f = NULL;
     struct akl_symbol   *sym = NULL;
     struct akl_lex_info *call_info = NULL;
 
@@ -276,17 +277,7 @@ void akl_compile_list(struct akl_context *cx)
                 pf_st = prefetch_function(cx, v, &fun);
                 if (pf_st == PF_FN_SFORM) {
                     /* It's a special form, call it immediately. */
-                    akl_call_sform(cx, v->va_value.symbol, fun);
-#if 0
-                    if (AKL_CHECK_TYPE(v, AKL_VT_FUNCTION)) {
-                        /* Special function gave back another function.
-                           Could be a lambda, build a 'call' for this at the end. */
-                        fun = v->va_value.func;
-                    } else {
-                        /* Nothing more to do in this list. */
-                        return;
-                    }
-#endif
+                    fun = akl_call_sform(cx, v->va_value.symbol, fun);
                 } else if (pf_st == PF_FN_NORMAL || pf_st == PF_FN_NOT_FOUND) {
                     /* No global functions with this name, try to resolve it later. */
                     sym = v->va_value.symbol;
@@ -309,7 +300,14 @@ void akl_compile_list(struct akl_context *cx)
                 akl_build_push(cx, akl_parse_token(cx, tok, TRUE));
             } else {
                 /* Not quoted, compile it recursively. */
-                akl_compile_list(cx);
+                f = akl_compile_list(cx);
+                if (f != NULL) {
+                    if (felem) {
+                        fun = f;
+                    } else {
+                        akl_build_push(cx, akl_new_function_value(cx->cx_state, f));
+                    }
+                }
             }
             argc++;
         break;
@@ -317,17 +315,20 @@ void akl_compile_list(struct akl_context *cx)
         case tRBRACE:
             /* No function name, no function to call and not even a special form */
             if (sym == NULL) {
+                if (fun != NULL) {
+                    return fun;
+                }
                 if (pf_st != PF_FN_SFORM) {
                     akl_build_push(cx, akl_new_nil_value(cx->cx_state));
                     akl_raise_error(cx, AKL_WARNING, "No function to call.");
-                    return;
+                    return NULL;
                 }
             } else {
                 /* We are run out of arguments, it's time for a function call */
                 akl_ir_set_lex_info(cx, call_info);
                 akl_build_call(cx, sym, fun, argc);
             }
-        return;
+        return NULL;
 
         /* tNUMBER, tSTRING, tETC... */
         default:
@@ -340,15 +341,25 @@ void akl_compile_list(struct akl_context *cx)
         is_quoted = FALSE;
         felem = FALSE;
     }
+    return NULL;
 }
 
-akl_token_t akl_compile_next(struct akl_context *ctx)
+akl_token_t
+akl_compile_next(struct akl_context *ctx, struct akl_function **fn)
 {
     assert(ctx && ctx->cx_dev);
     akl_token_t tok = akl_lex(ctx->cx_dev);
+    struct akl_function *f;
+
+    if (fn != NULL) {
+        *fn = NULL;
+    }
 
     if (tok == tLBRACE) {
-        akl_compile_list(ctx);
+        f = akl_compile_list(ctx);
+        if (f != NULL && fn != NULL) {
+           *fn = f;
+        }
     } else if (tok == tQUOTE) {
         tok = akl_lex(ctx->cx_dev);
         akl_build_push(ctx, akl_parse_token(ctx, tok, TRUE));
@@ -370,14 +381,14 @@ struct akl_context *akl_compile(struct akl_state *s, struct akl_io_device *dev)
 
     akl_init_list(&f->fn_body.ufun.uf_body);
     f->fn_type = AKL_FUNC_USER;
-    s->ai_fn_main = f;
+    cx->cx_fn_main = f;
 
     cx->cx_dev = dev;
     cx->cx_comp_func = f;
     cx->cx_ir = &f->fn_body.ufun.uf_body;
 
     do {
-        tok = akl_compile_next(cx);
+        tok = akl_compile_next(cx, NULL);
     } while (tok != tEOF);
     /* Don't need the last NOP anymore, remove it. */
     lip = akl_list_pop(cx->cx_ir);
