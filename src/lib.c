@@ -59,14 +59,14 @@ AKL_DEFINE_FUN(iszero, cx, argc)
     }
 
     /* TODO: Make errors better for true/nil */
-    return !n ? akl_new_true_value(cx->cx_state) : akl_new_nil_value(cx->cx_state);
+    return !n ? AKL_TRUE : akl_new_nil_value(cx->cx_state);
 }
 
 AKL_DEFINE_FUN(isnil, cx, argc)
 {
     struct akl_value *v = akl_frame_pop(cx);
     if (AKL_IS_NIL(v)) {
-        return  akl_new_true_value(cx->cx_state);
+        return  AKL_TRUE;
     }
     return akl_new_nil_value(cx->cx_state);
 }
@@ -77,7 +77,7 @@ AKL_DEFINE_FUN(isstring, cx, argc)
     if (s == NULL) {
         return AKL_NIL;
     }
-    return akl_new_true_value(cx->cx_state);
+    return AKL_TRUE;
 }
 
 AKL_DEFINE_FUN(islist, cx, argc)
@@ -86,7 +86,7 @@ AKL_DEFINE_FUN(islist, cx, argc)
     struct akl_value *lv = akl_frame_pop(cx);
     if (lv != NULL && (AKL_CHECK_TYPE(lv, AKL_VT_LIST) 
             || AKL_CHECK_TYPE(lv, AKL_VT_NIL))) {
-        return akl_new_true_value(cx->cx_state);
+        return AKL_TRUE;
     }
     return AKL_NIL;
 }
@@ -97,14 +97,14 @@ AKL_DEFINE_FUN(isnumber, cx, argc)
     if (n == NULL) {
         return AKL_NIL;
     }
-    return akl_new_true_value(cx->cx_state);
+    return AKL_TRUE;
 }
 
 AKL_DEFINE_FUN(issymbol, cx, argc)
 {
     struct akl_value *v = akl_frame_pop(cx);
     if (AKL_CHECK_TYPE(v, AKL_VT_SYMBOL)) {
-        return akl_new_true_value(cx->cx_state);
+        return AKL_TRUE;
     }
     return AKL_NIL;
 }
@@ -138,7 +138,7 @@ AKL_DEFINE_FUN(akl_cfg, cx, argc)
     }
     sname = sym->sb_name;
     if (akl_set_feature(s, sname)) {
-        return akl_new_true_value(s);
+        return AKL_TRUE;
     } else {
        if (strcmp(sname, "help") == 0)
            show_features(s, cx->cx_func_name);
@@ -364,7 +364,7 @@ get_and_compare_values(struct akl_context *ctx)
 AKL_DEFINE_FUN(gt, ctx, argc)
 {
     if (get_and_compare_values(ctx) > 0) {
-        return akl_new_true_value(ctx->cx_state);
+        return AKL_TRUE;
     }
 
     return akl_new_nil_value(ctx->cx_state);
@@ -373,7 +373,7 @@ AKL_DEFINE_FUN(gt, ctx, argc)
 AKL_DEFINE_FUN(gteq, ctx, argc)
 {
     if (get_and_compare_values(ctx) >= 0) {
-        return akl_new_true_value(ctx->cx_state);
+        return AKL_TRUE;
     }
 
     return akl_new_nil_value(ctx->cx_state);
@@ -382,7 +382,7 @@ AKL_DEFINE_FUN(gteq, ctx, argc)
 AKL_DEFINE_FUN(lt, ctx, argc)
 {
     if (get_and_compare_values(ctx) < 0) {
-        return akl_new_true_value(ctx->cx_state);
+        return AKL_TRUE;
     }
 
     return akl_new_nil_value(ctx->cx_state);
@@ -391,7 +391,7 @@ AKL_DEFINE_FUN(lt, ctx, argc)
 AKL_DEFINE_FUN(lteq, ctx, argc)
 {
     if (get_and_compare_values(ctx) <= 0) {
-        return akl_new_true_value(ctx->cx_state);
+        return AKL_TRUE;
     }
 
     return akl_new_nil_value(ctx->cx_state);
@@ -400,7 +400,7 @@ AKL_DEFINE_FUN(lteq, ctx, argc)
 AKL_DEFINE_FUN(neq, ctx, argc)
 {
     if (get_and_compare_values(ctx) != 0) {
-        return akl_new_true_value(ctx->cx_state);
+        return AKL_TRUE;
     }
 
     return akl_new_nil_value(ctx->cx_state);
@@ -409,7 +409,7 @@ AKL_DEFINE_FUN(neq, ctx, argc)
 AKL_DEFINE_FUN(eq, ctx, argc)
 {
     if (get_and_compare_values(ctx) == 0) {
-        return akl_new_true_value(ctx->cx_state);
+        return AKL_TRUE;
     }
 
     return akl_new_nil_value(ctx->cx_state);
@@ -909,7 +909,7 @@ AKL_DEFINE_FUN(not, ctx, argc)
 {
     struct akl_value *v = akl_frame_pop(ctx);
     if (AKL_IS_NIL(v)) {
-        return akl_new_true_value(ctx->cx_state);
+        return AKL_TRUE;
     }
     return akl_new_nil_value(ctx->cx_state);
 }
@@ -927,7 +927,7 @@ AKL_DEFINE_FUN(and, ctx, argc)
        }
 
     } while (v != NULL);
-    return akl_new_true_value(ctx->cx_state);
+    return AKL_TRUE;
 }
 
 AKL_DEFINE_FUN(or, ctx, argc)
@@ -939,7 +939,7 @@ AKL_DEFINE_FUN(or, ctx, argc)
            break;
        }
        if (AKL_IS_TRUE(v)) {
-           return akl_new_true_value(ctx->cx_state);
+           return AKL_TRUE;
        }
     } while (v != NULL);
     return akl_new_nil_value(ctx->cx_state);
@@ -963,7 +963,7 @@ AKL_DEFINE_FUN(load, ctx, argc)
     cx  = akl_compile(ctx->cx_state, dev);
     cx->cx_parent = ctx;
     akl_execute(cx);
-    return akl_new_true_value(ctx->cx_state);
+    return AKL_TRUE;
 }
 
 AKL_DEFINE_FUN(toint, ctx, argc)

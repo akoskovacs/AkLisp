@@ -215,6 +215,7 @@ extern struct akl_value {
     bool_t                   is_nil    : 1;
 } NIL_VALUE, TRUE_VALUE;
 #define AKL_NIL &NIL_VALUE
+#define AKL_TRUE &TRUE_VALUE
 
 struct akl_symbol {
     char                   *sb_name;
