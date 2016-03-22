@@ -59,7 +59,7 @@ AKL_DEFINE_FUN(iszero, cx, argc)
     }
 
     /* TODO: Make errors better for true/nil */
-    return !n ? AKL_TRUE : akl_new_nil_value(cx->cx_state);
+    return !n ? AKL_TRUE : AKL_NIL;
 }
 
 AKL_DEFINE_FUN(isnil, cx, argc)
@@ -68,7 +68,7 @@ AKL_DEFINE_FUN(isnil, cx, argc)
     if (AKL_IS_NIL(v)) {
         return  AKL_TRUE;
     }
-    return akl_new_nil_value(cx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(isstring, cx, argc)
@@ -321,7 +321,7 @@ AKL_DEFINE_FUN(print_symbol_ptr, cx, argc)
 AKL_DEFINE_FUN(hello, cx, argc)
 {
     printf("This is a hello world function!\n");
-    return akl_new_nil_value(cx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(dump_stack, cx, argc)
@@ -367,7 +367,7 @@ AKL_DEFINE_FUN(gt, ctx, argc)
         return AKL_TRUE;
     }
 
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(gteq, ctx, argc)
@@ -376,7 +376,7 @@ AKL_DEFINE_FUN(gteq, ctx, argc)
         return AKL_TRUE;
     }
 
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(lt, ctx, argc)
@@ -385,7 +385,7 @@ AKL_DEFINE_FUN(lt, ctx, argc)
         return AKL_TRUE;
     }
 
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(lteq, ctx, argc)
@@ -394,7 +394,7 @@ AKL_DEFINE_FUN(lteq, ctx, argc)
         return AKL_TRUE;
     }
 
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(neq, ctx, argc)
@@ -403,7 +403,7 @@ AKL_DEFINE_FUN(neq, ctx, argc)
         return AKL_TRUE;
     }
 
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(eq, ctx, argc)
@@ -412,7 +412,7 @@ AKL_DEFINE_FUN(eq, ctx, argc)
         return AKL_TRUE;
     }
 
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 
@@ -421,7 +421,7 @@ AKL_DEFINE_FUN(length, ctx, argc)
     char *t;
     struct akl_value *vp;
     if (akl_get_args(ctx, 1, &vp) == -1) {
-        return akl_new_nil_value(ctx->cx_state);
+        return AKL_NIL;
     }
 
     switch (AKL_TYPE(vp)) {
@@ -436,7 +436,7 @@ AKL_DEFINE_FUN(length, ctx, argc)
         default:
         akl_raise_error(ctx, AKL_ERROR, "Argument must be a list or a string!");
     }
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(ls_index, ctx, argc)
@@ -911,7 +911,7 @@ AKL_DEFINE_FUN(not, ctx, argc)
     if (AKL_IS_NIL(v)) {
         return AKL_TRUE;
     }
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(and, ctx, argc)
@@ -923,7 +923,7 @@ AKL_DEFINE_FUN(and, ctx, argc)
            break;
        }
        if (AKL_IS_NIL(v)) {
-           return akl_new_nil_value(ctx->cx_state);
+           return AKL_NIL;
        }
 
     } while (v != NULL);
@@ -942,7 +942,7 @@ AKL_DEFINE_FUN(or, ctx, argc)
            return AKL_TRUE;
        }
     } while (v != NULL);
-    return akl_new_nil_value(ctx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(load, ctx, argc)
