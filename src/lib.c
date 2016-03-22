@@ -82,11 +82,13 @@ AKL_DEFINE_FUN(isstring, cx, argc)
 
 AKL_DEFINE_FUN(islist, cx, argc)
 {
-    struct akl_list *l = akl_frame_pop_list(cx);
-    if (l == NULL) {
-        return AKL_NIL;
+    /* Nil is a list too */
+    struct akl_value *lv = akl_frame_pop(cx);
+    if (lv != NULL && (AKL_CHECK_TYPE(lv, AKL_VT_LIST) 
+            || AKL_CHECK_TYPE(lv, AKL_VT_NIL))) {
+        return akl_new_true_value(cx->cx_state);
     }
-    return akl_new_true_value(cx->cx_state);
+    return AKL_NIL;
 }
 
 AKL_DEFINE_FUN(isnumber, cx, argc)
@@ -151,7 +153,6 @@ AKL_DEFINE_FUN(print, cx, argc)
     struct akl_value *v;
     while ((v = akl_frame_shift(cx)) != NULL) {
         akl_print_value(cx->cx_state, v);
-        printf(" ");
     }
 
     printf("\n");
@@ -165,11 +166,11 @@ formatted_display(struct akl_context *ctx)
     while ((v = akl_frame_shift(ctx)) != NULL) {
         switch (v->va_type) {
             case AKL_VT_NUMBER:
-            printf("%g ", AKL_GET_NUMBER_VALUE(v));
+            printf("%g", AKL_GET_NUMBER_VALUE(v));
             break;
 
             case AKL_VT_STRING:
-            printf("%s ", AKL_GET_STRING_VALUE(v));
+            printf("%s", AKL_GET_STRING_VALUE(v));
             break;
 
             default:
