@@ -23,8 +23,8 @@
 #include "aklisp.h"
 
 const char *akl_type_name[10] = {
-    "nil", "symbol", "variable", "number", "string", "list",
-    "true", "function", "userdata", NULL
+    "nil", "true", "symbol", "variable", "number"
+  , "string", "list", "function", "userdata", NULL
 };
 
 struct akl_value TRUE_VALUE = {
