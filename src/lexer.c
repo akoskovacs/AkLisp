@@ -393,8 +393,9 @@ double akl_lex_get_number(struct akl_io_device *dev)
 {
     double n;
     unsigned int o; /* Should be type safe */
+    char tch = dev->iod_buffer[1];
     /* strtod() do not handle octal numbers */
-    if (dev->iod_buffer[0] == '0' && tolower(dev->iod_buffer[1]) != 'x') {
+    if (dev->iod_buffer[0] == '0' && (tch != 'x' && tch != '.')) {
         sscanf(dev->iod_buffer, "%o", &o);
         n = (double)o;
     } else {
