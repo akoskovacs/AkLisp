@@ -239,24 +239,22 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
 {
     assert(ctx && ctx->cx_state);
     struct akl_value *vp;
-    enum AKL_VALUE_TYPE t;
+    int t;      /* Could be enum AKL_VALUE_TYPE or enum AKL_VALUE_TYPE_EXT */
     va_list ap;
-    int cnt = 1;
+    int cnt        = 1;
+    int arg_count  = akl_frame_get_count(ctx);
+    int arg_noopt  = 0; /* Non-optional argument count */
+    bool_t arg_opt = FALSE;
 
     struct akl_symbol **sym; struct akl_function **fun; struct akl_userdata **udata;
     struct akl_list **list; double *num; bool_t *b; char **str;
-
-    if (argc != akl_frame_get_count(ctx)) {
-        akl_raise_error(ctx, AKL_ERROR, "%s: Expected %d argument%s, but got %d"
-              , ctx->cx_func_name, argc, (argc>1)?"s":"", akl_frame_get_count(ctx));
-        return -1;
-    }
+    struct akl_value **val;
     if (argc == 0)
         return -1;
 
     va_start(ap, argc);
     while (argc--) {
-        t = va_arg(ap, enum AKL_VALUE_TYPE);
+        t = va_arg(ap, int);
         vp = akl_frame_shift(ctx);
         if (vp == NULL) {
             akl_raise_error(ctx, AKL_ERROR
@@ -264,15 +262,37 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
             return -1;
         }
         /* The expected type must be the same with the current type,
-            unless if that is a nil or a true */
-        if ((t != AKL_VT_NIL || t != AKL_VT_TRUE) && t != vp->va_type) {
-            ctx->cx_lex_info = vp->va_lex_info;
-            akl_raise_error(ctx, AKL_ERROR, "%s: Expected %s but got %s"
-                , ctx->cx_func_name, akl_type_name[t], akl_type_name[vp->va_type]);
+            unless if that is a nil or a true or a pseudotype like AKL_VT_ANY */
+        if ((t > AKL_VT_TRUE) && t != vp->va_type) {
+            /* If the next argument is optional, skip it and don't complain */
+            if (arg_opt) {
+                val = va_arg(ap, struct akl_value **);
+                arg_opt = FALSE;
+            } else {
+                ctx->cx_lex_info = vp->va_lex_info;
+                akl_raise_error(ctx, AKL_ERROR, "%s: Expected %s but got %s"
+                    , ctx->cx_func_name, akl_type_name[t], akl_type_name[vp->va_type]);
+            }
             return -1;
         }
         /* Set the caller's pointer to the right value (with the right type) */
+        arg_noopt++;
         switch (t) {
+            case AKL_VT_ANY:
+            val  = va_arg(ap, struct akl_value **);
+            *val = vp;
+            break;
+
+            case AKL_VT_OPT:
+            arg_opt = TRUE;
+            arg_noopt--;
+            /* TODO */
+            break;
+
+            case AKL_VT_REST:
+            /* TODO: Collect the rest of the parameters as a list */
+            break;
+
             case AKL_VT_SYMBOL:
             sym = va_arg(ap, struct akl_symbol **);
             *sym = vp->va_value.symbol;
@@ -313,6 +333,12 @@ int akl_get_args_strict(struct akl_context *ctx, int argc, ...)
             *b = AKL_IS_NIL(vp) ? FALSE : TRUE;
             break;
         }
+    }
+
+    if (arg_count != arg_noopt) {
+        akl_raise_error(ctx, AKL_ERROR, "%s: Expected %d argument%s, but got %d"
+              , ctx->cx_func_name, argc, (argc>1)?"s":"", arg_noopt);
+        return -1;
     }
     va_end(ap);
     return 0;
@@ -816,7 +842,7 @@ akl_exec_eval(struct akl_state *s)
     return akl_stack_pop(&s->ai_context);
 }
 
-static int compare_numbers(int n1, int n2)
+static int compare_numbers(long n1, long n2)
 {
     if (n1 == n2)
         return 0;
@@ -833,6 +859,10 @@ int akl_compare_values(void *c1, void *c2)
     char *a, *b;
     struct akl_value *v1 = (struct akl_value *)c1;
     struct akl_value *v2 = (struct akl_value *)c2;
+    struct akl_list *l1, *l2;
+    struct akl_list_entry *e1, *e2;
+    long l1c, l2c, r;
+
     if (v1->va_type == v2->va_type) {
         switch (v1->va_type) {
             case AKL_VT_NUMBER:
@@ -848,8 +878,8 @@ int akl_compare_values(void *c1, void *c2)
 
             case AKL_VT_SYMBOL:
             /* Symbols only differ by their pointers */
-            return compare_numbers((unsigned long)v1->va_value.symbol
-                                   , (unsigned long)v2->va_value.symbol);
+            return compare_numbers((long)v1->va_value.symbol
+                                   , (long)v2->va_value.symbol);
 
             case AKL_VT_USERDATA:
             /* TODO: userdata compare function */
@@ -862,6 +892,29 @@ int akl_compare_values(void *c1, void *c2)
             case AKL_VT_TRUE:
             return 0;
 
+            case AKL_VT_LIST:
+            l1 = AKL_GET_LIST_VALUE(v1);
+            l2 = AKL_GET_LIST_VALUE(v2);
+            l1c = akl_list_count(l1); 
+            l2c = akl_list_count(l2); 
+            e1 = akl_list_it_begin(l1);
+            e2 = akl_list_it_begin(l2);
+            v1 = v2 = NULL;
+
+            while (1) {
+                if (akl_list_it_has_next(e1)) {
+                    v1 = akl_list_it_next(&e1); 
+                }
+                if (akl_list_it_has_next(e2)) {
+                    v2 = akl_list_it_next(&e1); 
+                }
+                r = akl_compare_values(v1, v2);
+                if (r != 0) {
+                    break;
+                }
+            }
+            return r;
+
             default:
             break;
         }
@@ -869,12 +922,43 @@ int akl_compare_values(void *c1, void *c2)
     return -1;
 }
 
+static bool_t
+is_lex_info_equal(struct akl_lex_info *l1, struct akl_lex_info *l2)
+{
+    if (l1 == NULL || l2 == NULL 
+            || l1->li_name == NULL || l2->li_name == NULL) {
+        return FALSE;
+    }
+    return (l1->li_line == l2->li_line) && (l1->li_count == l2->li_count)
+        && (strcmp(l1->li_name, l2->li_name) == 0);
+}
+
+static bool_t 
+is_error_exist(struct akl_context *ctx, char *msg, enum AKL_ALERT_TYPE t, struct akl_error **match)
+{
+    struct akl_list_entry *ent;
+    struct akl_state *s = ctx->cx_state;
+    struct akl_error *err;
+
+    AKL_LIST_FOREACH_BACK(ent, s->ai_errors) {
+        err = (struct akl_error *)ent->le_data;
+        /* If the error structure is already there, no need for an other
+           lex_info to describe it (free and replace the current one) */
+        if (err && is_lex_info_equal(ctx->cx_lex_info, err->err_info)
+                && (err->err_type == t) && (strcmp(err->err_msg, msg) == 0)) {
+            *match = err;
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 void akl_raise_error(struct akl_context *ctx
                , enum AKL_ALERT_TYPE type, const char *fmt, ...)
 {
     va_list ap;
     struct akl_state *s = ctx->cx_state;
-    struct akl_error *err;
+    struct akl_error *err, *erp;
     int n;
     char *msg = NULL;
     if (fmt == NULL) {
@@ -897,11 +981,14 @@ void akl_raise_error(struct akl_context *ctx
         if (s->ai_errors == NULL) {
             s->ai_errors = akl_new_list(s);
         }
-        err = AKL_MALLOC(s, struct akl_error);
-        err->err_info = ctx->cx_lex_info;
-        err->err_type = type;
-        err->err_msg = msg;
-        akl_list_append(s, s->ai_errors, (void *)err);
+        /* If the last error is exactly same as this, don't create an other one */
+        if (!is_error_exist(ctx, msg, type, &erp)) {
+            err = AKL_MALLOC(s, struct akl_error);
+            err->err_info = ctx->cx_lex_info;
+            err->err_type = type;
+            err->err_msg = msg;
+            akl_list_append(s, s->ai_errors, (void *)err);
+        }
     }
 }
 

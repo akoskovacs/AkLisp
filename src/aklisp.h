@@ -86,16 +86,24 @@ struct akl_vector;
 struct akl_function;
 struct akl_context;
 
+/* The order is critical */
 enum AKL_VALUE_TYPE {
     AKL_VT_NIL,
+    AKL_VT_TRUE,
     AKL_VT_SYMBOL,
     AKL_VT_VARIABLE,
     AKL_VT_NUMBER,
     AKL_VT_STRING,
     AKL_VT_LIST,
-    AKL_VT_TRUE,
     AKL_VT_FUNCTION,
     AKL_VT_USERDATA
+};
+
+/* Used in type specifiers */
+enum AKL_VALUE_TYPE_EXT {
+    AKL_VT_ANY     = -1,
+    AKL_VT_OPT     = -2,
+    AKL_VT_REST    = -3
 };
 
 typedef enum {
@@ -468,7 +476,9 @@ struct akl_gc_type {
  *   struct akl_value *a1, *a2, *a3;
  *   akl_get_value_args(ctx, 3, &a1, &a2, &a3);
  * ...
- * Returns -1 on error
+ * Returns -1 on error.
+ * For argument type specifiers AKL_VT_ANY, AKL_VT_ANY_OPT 
+ * and AKL_VT_REST is also accepted.
 */
 int akl_get_args(struct akl_context *, int, ...);
 /*
@@ -479,6 +489,8 @@ int akl_get_args(struct akl_context *, int, ...);
  *   bool_t is_nil;
  *   akl_get_value_args(ctx, 3, TYPE_NIL, &is_nil, TYPE_FUNCTION, &f, TYPE_NUMBER, &num);
  * ...
+ * For argument type specifiers AKL_VT_ANY, AKL_VT_ANY_OPT 
+ * and AKL_VT_REST is also accepted.
  * Returns -1 on error
 */
 int akl_get_args_strict(struct akl_context *, int argc, ...);

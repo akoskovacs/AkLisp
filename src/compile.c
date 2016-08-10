@@ -254,7 +254,7 @@ akl_compile_list(struct akl_context *cx)
     while ((tok = akl_lex(cx->cx_dev))) {
         if (s->ai_interrupted) {
             s->ai_interrupted = FALSE;
-            return;
+            return NULL;
         }
 
         if (tok == tQUOTE) {
