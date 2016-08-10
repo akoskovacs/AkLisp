@@ -36,6 +36,46 @@ test_res_t list_foreach(void)
     return TEST_OK;
 }
 
+test_res_t list_foreach_back(void)
+{
+    int i = NR_NUMS-1;
+    struct akl_list_entry *ent;
+    AKL_LIST_FOREACH_BACK(ent, list) {
+        if (ent->le_data != (void *)nums+i)
+            return TEST_FAIL;
+        i--;
+    }
+    return TEST_OK;
+}
+
+test_res_t list_it_next(void)
+{
+    struct akl_list_entry *it = akl_list_it_begin(list);
+    int i = 0;
+    void *data;
+    while (akl_list_it_has_next(it)) {
+        data = akl_list_it_next(&it);
+        if (data != (void *)nums+i)
+            return TEST_FAIL;
+        i++;
+    }
+    return TEST_OK;
+}
+
+test_res_t list_it_prev(void)
+{
+    struct akl_list_entry *it = akl_list_it_end(list);
+    int i = NR_NUMS-1;
+    void *data;
+    while (akl_list_it_has_prev(it)) {
+        data = akl_list_it_prev(&it);
+        if (data != (void *)nums+i)
+            return TEST_FAIL;
+        i--;
+    }
+    return TEST_OK;
+}
+
 test_res_t list_size(void)
 {
     return akl_list_count(list) == NR_NUMS;
@@ -94,6 +134,9 @@ int main()
         { list_create, "akl_new_list() can create a list" },
         { list_append, "akl_list_append() can add elements to a list" },
         { list_foreach, "AKL_LIST_FOREACH() can iterate through the elements" },
+        { list_foreach_back, "AKL_LIST_FOREACH_BACK() can iterate through the elements backwards" },
+        { list_it_next, "akl_list_it_next() can iterate through the elements" },
+        { list_it_prev, "akl_list_it_prev() can iterate through the elements backwards" },
         { list_size, "akl_list_count() gives back the size of the list" },
         { list_index, "akl_list_index() can get back different elements" },
         { list_first, "AKL_LIST_FIRST() can get the first element" },
