@@ -132,7 +132,7 @@ AKL_DEFINE_FUN(akl_cfg, cx, argc)
     struct akl_symbol *sym;
     const char *sname;
     struct akl_state *s = cx->cx_state;
-    if (akl_get_args_strict(cx, 1, AKL_VT_SYMBOL, &sym) == -1) {
+    if (akl_get_args_strict(cx, 1, AKL_VT_OPT, AKL_VT_SYMBOL, &sym) == -1) {
        show_features(s, cx->cx_func_name);
        return AKL_NIL;
     }
@@ -289,6 +289,16 @@ AKL_DEFINE_FUN(idiv, cx, argc)
     return AKL_NUMBER(cx, div);
 }
 
+AKL_DEFINE_FUN(mod, cx, argc)
+{
+    double a, b;
+    if (akl_get_args_strict(cx, 2, AKL_VT_NUMBER, &a, AKL_VT_NUMBER, &b) == -1) {
+        return AKL_NIL;
+    }
+
+    return AKL_NUMBER(cx, (int)a % (int)b);
+}
+
 AKL_DEFINE_FUN(write_times, cx, argc)
 {
     double n;
@@ -314,6 +324,7 @@ AKL_DEFINE_FUN(print_symbol_ptr, cx, argc)
         printf("name: %s, ptr: %p\n", sym->sb_name, (void *)sym);
     } else {
         akl_raise_error(cx, AKL_WARNING, "Parameter is not a symbol");
+        val = AKL_NIL;
     }
     return val;
 }
@@ -722,6 +733,28 @@ AKL_DEFINE_FUN(map, ctx, argc)
     }
 
     return akl_new_list_value(ctx->cx_state, nl);
+}
+
+AKL_DEFINE_FUN(foldl, ctx, argc)
+{
+    struct akl_function *fn;
+    struct akl_list *lp;
+    struct akl_list_entry *it;
+    struct akl_value *v, *vl;
+    struct akl_context *cx;
+    if (akl_get_args_strict(ctx, 3, AKL_VT_FUNCTION, &fn, AKL_VT_ANY, &v, AKL_VT_LIST, &lp) == -1) {
+       return AKL_NIL;
+    }
+    it = akl_list_it_begin(lp);
+    cx = akl_bound_function(ctx, NULL, fn);
+    while ((vl = akl_list_it_next(&it)) != NULL) {
+        akl_stack_push(cx, v);
+        akl_stack_push(cx, vl);
+        akl_call_function_bound(cx, 2);
+        v = akl_stack_pop(cx);
+    }
+
+    return v;
 }
 
 static struct akl_value *
@@ -1990,6 +2023,8 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(mul,         "*", "Arithmetic product"),
     AKL_FUN(ddiv,        "/", "Arithmetic division"),
     AKL_FUN(idiv,        "div", "Integer division"),
+    AKL_FUN(mod,         "mod", "Integeral modulus"),
+    AKL_FUN(mod,         "%", "Integeral modulus"),
     AKL_FUN(neq,         "!=", "Compare to values for inequality"),
     AKL_FUN(eq,          "=", "Compare to values for equality"),
     AKL_FUN(gt,          ">", "Greater compare function"),
@@ -2023,6 +2058,8 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(akl_cfg,     "akl-cfg!", "Set/unset interpreter features"),
     AKL_FUN(describe,    "describe", "Get a global atom help string"),
     AKL_FUN(map,         "map", "Call a function on list elements"),
+    AKL_FUN(foldl,       "foldl", "Fold a list from left"),
+    AKL_FUN(foldl,       "fold", "Fold a list from left"),
     AKL_FUN(times,       "times", "Call a function n times"),
     AKL_FUN(times_index, "times-index", "Call a function n times (also passing the index to the function)"),
     AKL_FUN(exit,        "exit!", "Exit"),
