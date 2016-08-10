@@ -26,7 +26,8 @@
 #include "../config.h"
 
 #if HAVE_GETOPT_H
-#include <getopt.h>
+# include <getopt.h>
+# define AKL_HISTORY_FILE "./config/AkLisp/.history"
 #endif // HAVE_GETOPT_H
 
 #define PROMPT_MAX 10
@@ -37,13 +38,13 @@ static struct akl_state state;
 #include <readline/history.h>
 
 /* Give back a possible completion of 'text', by traversing
- through the red black tree of all global atoms. */
+ through the red black tree of all global symbols. */
 static char *
-akl_generator(const char *text, int st)
+akl_symbol_generator(const char *text, int st)
 {
-    static struct akl_symbol *sym;
+    static struct akl_symbol *sym = NULL;
     static size_t tlen = 0;
-    /* If this is the first run, initialize the 'atom' with
+    /* If this is the first run, initialize the symbol with
       the first element of the red black tree. */
     if (!st) {
         sym = RB_MIN(SYM_TREE, &state.ai_symbols);
@@ -61,14 +62,44 @@ akl_generator(const char *text, int st)
     return NULL;
 }
 
+/* Give back a possible completion of 'text', by traversing
+ through the red black tree of all global functions. */
+static char *
+akl_var_generator(const char *text, int st)
+{
+    static struct akl_variable *var = NULL;
+    static size_t tlen = 0;
+    struct akl_symbol *sym;
+    /* If this is the first run, initialize the symbol with
+      the first element of the red black tree. */
+    if (!st) {
+        var = RB_MIN(VAR_TREE, &state.ai_global_vars);
+        tlen = strlen(text);
+    } else {
+        var = RB_NEXT(VAR_TREE, &state.ai_global_vars, var);
+    }
+
+    while (var != NULL) {
+        sym = var->vr_symbol;
+        if (strncasecmp(sym->sb_name, text, tlen) == 0)
+            return strdup(sym->sb_name);
+
+        var = RB_NEXT(VAR_TREE, &state.ai_global_vars, var);
+    }
+    return NULL;
+}
+
 /* Create an array of strings, containing the possible
-  completions of the given 'text', using 'akl_generator'.*/
+  completions of the given 'text', using 'akl_*_generator'.*/
 static char **
 akl_completion(char *text, int start, int end)
 {
     char **matches = (char **)NULL;
-    if (rl_line_buffer[start-1] == '(')
-        matches = rl_completion_matches(text, akl_generator);
+    if (rl_line_buffer[start-1] == ':') {
+        matches = rl_completion_matches(text, akl_symbol_generator);
+    } else {
+        matches = rl_completion_matches(text, akl_var_generator);
+    }
 
     return matches;
 }
@@ -91,6 +122,14 @@ static int akl_insert_strterm(int count, int key)
 
 static int akl_char_delete(int count, int key)
 {
+    char cch, nch;
+    cch = rl_line_buffer[rl_point];
+    nch = rl_line_buffer[rl_point+1];
+    rl_message("%c %c delete", cch, nch);
+    if ((cch == '(' && nch == ')') || (cch == '"' && nch == cch)) {
+        rl_delete_text(rl_point, rl_point+1);
+    }
+#if 0
     int i;
     int cpos = rl_point;
     int epos = cpos+1;
@@ -101,7 +140,7 @@ static int akl_char_delete(int count, int key)
             break;
         }
     }
-    rl_delete_text(cpos, epos-cpos);
+#endif
     return 0;
 }
 
@@ -112,6 +151,8 @@ static void init_readline(void)
     rl_bind_key('(', akl_insert_rbrace);
     rl_bind_key('"', akl_insert_strterm);
     rl_bind_key('\b', akl_char_delete);
+    using_history();
+    read_history(AKL_HISTORY_FILE);
 }
 
 #else //HAVE_READLINE
@@ -137,13 +178,16 @@ static char *readline(char *prompt)
 #ifdef HAVE_GETOPT_H
 
 int no_color_flag;
+int eval_flag;
+int compile_flag;
+int force_interact_flag;
 const static struct option akl_options[] = {
     { "assemble"   , no_argument,       0, 'a' },
-    { "compile"    , no_argument,       0, 'c' },
+    { "compile"    , no_argument,       &compile_flag, 'c' },
     { "define"     , no_argument,       0, 'D' },
     { "debug"      , no_argument,       0, 'd' },
-    { "eval"       , required_argument, 0, 'e' },
-    { "interactive", no_argument,       0, 'i' },
+    { "eval"       , required_argument, &eval_flag, 'e' },
+    { "interactive", no_argument,       &force_interact_flag, 'i' },
     { "config"     , required_argument, 0, 'C' },
     { "no-colors"  , no_argument,       &no_color_flag,  1  },
     { "help"       , no_argument,       0, 'h' },
@@ -189,16 +233,35 @@ static void cmd_parse_define(const char *opt)
 #endif // HAVE_GETOPT_H
 
 /* End of command line functions */
+void eval_dev(struct akl_io_device *dev)
+{
+    struct akl_context *ctx;
+    ctx = akl_compile(&state, dev);
+    if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_INSTR)) {
+        akl_dump_ir(ctx, ctx->cx_fn_main);
+    }
+    akl_execute(ctx);
+    if (AKL_IS_FEATURE_ON(&state, AKL_CFG_INTERACTIVE)) {
+        printf(" => ");
+        akl_print_value(&state, akl_stack_pop(ctx));
+    }
+    if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_STACK)) {
+        akl_dump_stack(ctx);
+    }
+    akl_print_errors(&state);
+    akl_clear_errors(&state);
+    akl_clear_ir(ctx);
+}
+
 static void interactive_mode(void)
 {
     char prompt[PROMPT_MAX];
     int lnum = 1;
     char *line;
     struct akl_io_device *dev;
-    struct akl_context *ctx;
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
-    printf("Copyleft (C) 2014 Akos Kovacs\n\n");
+    printf("Copyleft (C) 2016 Akos Kovacs\n\n");
     AKL_SET_FEATURE(&state, AKL_CFG_INTERACTIVE);
 
     init_readline();
@@ -209,29 +272,14 @@ static void interactive_mode(void)
         line = readline(prompt);
         if (line == NULL || strcmp(line, "exit") == 0) {
             printf("Bye!\n");
+            write_history(AKL_HISTORY_FILE);
             free(line);
             return;
         }
         if (line && *line) {
             add_history(line);
             dev = akl_new_string_device(&state, "stdio", line);
-            /*akl_list_append(in, inst->ai_program, il);*/
-            ctx = akl_compile(&state, dev);
-
-            if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_INSTR)) {
-                akl_dump_ir(ctx, ctx->cx_fn_main);
-            }
-            akl_execute(ctx);
-//            akl_clear_ir(ctx);
-
-            if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_STACK)) {
-                akl_dump_stack(ctx);
-            }
-            printf(" => ");
-            akl_print_value(&state, akl_stack_pop(ctx));
-            akl_print_errors(&state);
-            akl_clear_errors(&state);
-            akl_clear_ir(ctx);
+            eval_dev(dev);
             printf("\n");
 #if HAVE_READLINE
             free(line);
@@ -241,19 +289,26 @@ static void interactive_mode(void)
     }
 }
 
+void init_aklisp(void)
+{
+    /* Use normal allocation functions */
+    akl_init_state(&state, NULL);
+    /* Include every function */
+    akl_init_library(&state, AKL_LIB_ALL);
+}
+
 int main(int argc, char* const* argv)
 {
     FILE *fp;
     int c;
     int opt_index = 1;
-    struct akl_io_device *dev;
-    struct akl_context *ctx;
+    struct akl_io_device *dev = NULL;
     struct akl_list args;
-    const char *fname;
+    struct akl_value *args_value = AKL_NIL, *file_value = AKL_NIL;
+    const char *fname = NULL, *eval_arg = NULL;
 
-    akl_init_state(&state, NULL);
+    init_aklisp();
     akl_init_list(&args);
-    akl_init_library(&state, AKL_LIB_ALL);
 
 #ifdef HAVE_GETOPT_H
     while ((c = getopt_long(argc, argv, "aD:dC:e:chiv", akl_options, &opt_index)) != -1) {
@@ -265,13 +320,13 @@ int main(int argc, char* const* argv)
             printf("Assembling\n");
             return 0;
 
-            case 'e':
-            printf("Eval this line \'%s\'\n", optarg);
-            return 0;
-
             case 'h':
             print_help();
             return 0;
+
+            case 'e':
+            eval_arg = optarg;
+            break;
 
             case 'v':
             printf("AkLisp v%d.%d-%s\n", VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
@@ -288,41 +343,59 @@ int main(int argc, char* const* argv)
             case 'd':
             AKL_SET_FEATURE(&state, AKL_DEBUG_INSTR);
             AKL_SET_FEATURE(&state, AKL_DEBUG_STACK);
-            case 'i':
-            interactive_mode();
+            break;
+
             default:
             break;
         }
     }
 #endif // HAVE_GETOPT_H
-    if (opt_index < argc) {
-        fname = argv[opt_index];
+    if (optind < argc) {
+        fname = argv[optind];
+
+        while (optind < argc) {
+            akl_list_append_value(&state, &args
+                , akl_new_string_value(&state, strdup(argv[optind++])));
+        }
+    }
+
+    /* If there are no other arguments, the *args* will be NIL */
+    if (akl_list_count(&args) > 0) {
+            args_value = akl_new_list_value(&state, &args);
+    }
+    akl_set_global_variable(&state, AKL_CSTR("*args*")
+        , AKL_CSTR("The list of command-line arguments"), args_value);
+
+    /* Sometimes is good to have an short way */
+    akl_set_global_variable(&state, AKL_CSTR("*argc*")
+        , AKL_CSTR("Count of the command-line arguments '(length *args*)'")
+        , akl_new_number_value(&state, akl_list_count(&args)));
+
+    if (eval_arg) {
+        dev = akl_new_string_device(&state, "eval", eval_arg);
+    } else if (fname != NULL) {
         fp = fopen(fname, "r");
         if (fp == NULL) {
             fprintf(stderr, "ERROR: Cannot open file %s!\n", fname);
             return -1;
         }
-        while (opt_index < argc) {
-            akl_list_append_value(&state, &args
-                , akl_new_string_value(&state, strdup(argv[opt_index++])));
-        }
-        AKL_UNSET_FEATURE(&state, AKL_CFG_INTERACTIVE);
-
-        akl_set_global_variable(&state, AKL_CSTR("*args*"), AKL_CSTR("The list of command-line arguments")
-            , akl_new_list_value(&state, &args));
-
-        akl_set_global_variable(&state, AKL_CSTR("*file*"), AKL_CSTR("The current file")
-            , akl_new_string_value(&state, strdup(fname)));
-
         dev = akl_new_file_device(&state, fname, fp);
-        ctx = akl_compile(&state, dev);
-        akl_execute(ctx);
-        akl_print_errors(&state);
-        akl_clear_errors(&state);
+        file_value = akl_new_string_value(&state, strdup(fname));
+    }
+    akl_set_global_variable(&state, AKL_CSTR("*file*")
+        , AKL_CSTR("The current file"), file_value);
+
+    if (dev != NULL) {
+        AKL_UNSET_FEATURE(&state, AKL_CFG_INTERACTIVE);
+        eval_dev(dev);
+#if 0
+        if (force_interact_flag) {
+            init_aklisp(); /* Must reinitialize the interpreter */
+            interactive_mode();
+        }
+#endif
     } else {
         interactive_mode();
-        return 0;
     }
-
     return 0;
 }
