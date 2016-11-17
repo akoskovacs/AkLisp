@@ -8,11 +8,11 @@
  * distribute, sublicense, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
  * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
@@ -84,7 +84,7 @@ AKL_DEFINE_FUN(islist, cx, argc)
 {
     /* Nil is a list too */
     struct akl_value *lv = akl_frame_pop(cx);
-    if (lv != NULL && (AKL_CHECK_TYPE(lv, AKL_VT_LIST) 
+    if (lv != NULL && (AKL_CHECK_TYPE(lv, AKL_VT_LIST)
             || AKL_CHECK_TYPE(lv, AKL_VT_NIL))) {
         return AKL_TRUE;
     }
@@ -308,7 +308,7 @@ AKL_DEFINE_FUN(write_times, cx, argc)
         return AKL_NIL;
 
     for (i = 0; i < (int)n; i++) {
-        printf("%s\n", str);    
+        printf("%s\n", str);
     }
 
     return AKL_NUMBER(cx, n);
@@ -902,7 +902,7 @@ AKL_DEFINE_FUN(about, ctx, argc)
     }
     printf("\nGC statistics:\n");
     printf("\tallocated memory: %u bytes\n", s->ai_gc_malloc_size);
-    
+
     return &TRUE_VALUE;
 }
 
@@ -1057,6 +1057,35 @@ AKL_DEFINE_FUN(tostr, ctx, argc)
     }
 
     return akl_to_string(ctx->cx_state, v);
+}
+
+AKL_DEFINE_FUN(split, cx, argc) {
+    struct akl_value *vstr, *vdelim, *strent;
+    char *str, *sub, *delim = " ";
+    struct akl_list *ret = NULL;
+
+    vstr = akl_frame_shift(cx);
+    if (!AKL_CHECK_TYPE(vstr, AKL_VT_STRING)) {
+        akl_raise_error(cx, AKL_ERROR, "No string to split!");
+        return AKL_NIL;
+    }
+    vdelim = akl_frame_shift(cx);
+    if (vdelim != NULL) {
+        if (AKL_CHECK_TYPE(vdelim, AKL_VT_STRING)) {
+            delim = AKL_GET_STRING_VALUE(vdelim);
+        } else {
+            akl_raise_error(cx, AKL_WARNING, "Delimiter is not a string! Falling back to default delimiter.");
+        }
+    }
+    str = strdup(AKL_GET_STRING_VALUE(vstr));
+    ret = akl_new_list(cx->cx_state);
+    ret->is_quoted = TRUE;
+    while ((sub = strtok(str, delim)) != NULL) {
+        strent = akl_new_string_value(cx->cx_state, sub);
+        akl_list_append_value(cx->cx_state, ret, strent);
+        str = NULL;
+    }
+    return AKL_LIST(cx, ret);
 }
 
 #if 0
@@ -1407,7 +1436,7 @@ AKL_BUILTIN_DEFINE(constp, in, args)
             atom = akl_get_global_atom(in, akl_get_atom_name_value(a1));
             return (atom && atom->at_is_const == TRUE) ? &TRUE_VALUE : &NIL_VALUE;
 
-            case TYPE_LIST: case TYPE_USERDATA: 
+            case TYPE_LIST: case TYPE_USERDATA:
             return &NIL_VALUE;
 
             default:
@@ -1509,7 +1538,7 @@ AKL_BUILTIN_DEFINE(decf, in, args)
 void print_help(struct akl_atom *a)
 {
     if (a != NULL && a->at_value != NULL) {
-        if (a->at_value->va_type == TYPE_CFUN 
+        if (a->at_value->va_type == TYPE_CFUN
                 || a->at_value->va_type == TYPE_BUILTIN) {
             if (a->at_desc != NULL)
                 printf("%s - %s\n", a->at_name, a->at_desc);
@@ -1572,7 +1601,7 @@ AKL_CFUN_DEFINE(range, in, args)
         targ = AKL_LIST_SECOND(args)->le_next->le_value;
         if (targ && targ->va_type == TYPE_NUMBER)
             rt = AKL_GET_NUMBER_VALUE(targ);
-        else 
+        else
             rt = 1;
     } else {
         rt = 1;
@@ -1784,7 +1813,7 @@ AKL_CFUN_DEFINE(zerop, in, args)
     struct akl_value *val = AKL_FIRST_VALUE(args);
     if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
         n = AKL_GET_NUMBER_VALUE(val);
-        if (n == 0) 
+        if (n == 0)
             return &TRUE_VALUE;
         else
             return &NIL_VALUE;
@@ -1799,7 +1828,7 @@ AKL_CFUN_DEFINE(evenp, in, args)
     struct akl_value *val = AKL_FIRST_VALUE(args);
     if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
         n = (int)AKL_GET_NUMBER_VALUE(val);
-        if ((n % 2) == 0) 
+        if ((n % 2) == 0)
             return &TRUE_VALUE;
         else
             return &NIL_VALUE;
@@ -1814,7 +1843,7 @@ AKL_CFUN_DEFINE(oddp, in, args)
     struct akl_value *val = AKL_FIRST_VALUE(args);
     if (AKL_CHECK_TYPE(val, TYPE_NUMBER)) {
         n = (int)AKL_GET_NUMBER_VALUE(val);
-        if ((n % 2) != 0) 
+        if ((n % 2) != 0)
             return &TRUE_VALUE;
         else
             return &NIL_VALUE;
@@ -1928,7 +1957,7 @@ AKL_CFUN_DEFINE(cons, in, args)
 
     if (a1 == NULL || a2 == NULL || a2->va_type != TYPE_LIST)
         return &NIL_VALUE;
-   
+
     akl_list_insert_value_head(in, AKL_GET_LIST_VALUE(a2), a1);
     return a2;
 }
@@ -2053,6 +2082,7 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(ls_last ,    "last", "Get the last element of a list or the last character of a string"),
     AKL_FUN(ls_append,   "append!", "Add an element to the end of a list or string"),
     AKL_FUN(ls_insert,   "insert!", "Insert an element to the start of the list or a string"),
+    AKL_FUN(split,       "split", "Split a string by a delimiter (default is space) into a list"),
     AKL_FUN(range,       "range", "Make a list of numbers from a range"),
     AKL_FUN(progn,       "$", "Evaulate all elements and give back the last (primitive sequence)"),
     AKL_FUN(akl_cfg,     "akl-cfg!", "Set/unset interpreter features"),
@@ -2190,7 +2220,7 @@ void akl_init_library(struct akl_state *s, enum AKL_INIT_FLAGS flags)
         AKL_ADD_BUILTIN(in, or, "OR", "Evaluate arguments from right to left, returning the first"
             " non-NIL value, otherwise just NIL");
     }
-        
+
     if (flags & AKL_LIB_SYSTEM) {
         AKL_ADD_CFUN(in, display, "DISPLAY", "Print numbers or strings to the screen");
         AKL_ADD_CFUN(in, help,    "HELP", "Print the builtin functions");
