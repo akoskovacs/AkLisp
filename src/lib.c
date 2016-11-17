@@ -718,7 +718,7 @@ AKL_DEFINE_FUN(map, ctx, argc)
     struct akl_context *cx;
     int fargc;
     // TODO: Change TYPE_* to bit masks.
-    if (akl_get_args_strict(ctx, 2, AKL_VT_FUNCTION, &fn, AKL_VT_LIST, &lp) == -1) {
+    if (akl_get_args_strict(ctx, 2, AKL_VT_LIST, &lp, AKL_VT_FUNCTION, &fn) == -1) {
        return AKL_NIL;
     }
     it = akl_list_it_begin(lp);
@@ -735,6 +735,34 @@ AKL_DEFINE_FUN(map, ctx, argc)
     return akl_new_list_value(ctx->cx_state, nl);
 }
 
+AKL_DEFINE_FUN(map_index, ctx, argc)
+{
+    struct akl_function *fn;
+    struct akl_list *lp, *nl;
+    struct akl_list_entry *it;
+    struct akl_value *v;
+    struct akl_context *cx;
+    int ind = 0;
+    int fargc;
+    // TODO: Change TYPE_* to bit masks.
+    if (akl_get_args_strict(ctx, 2, AKL_VT_LIST, &lp, AKL_VT_FUNCTION, &lp) == -1) {
+       return AKL_NIL;
+    }
+    it = akl_list_it_begin(lp);
+    fargc = akl_list_count(lp);
+    cx = akl_bound_function(ctx, NULL, fn);
+    nl = akl_new_list(ctx->cx_state);
+    nl->is_quoted = TRUE;
+    while ((v = akl_list_it_next(&it)) != NULL) {
+        akl_stack_push(ctx, AKL_NUMBER(ctx, ind++));
+        akl_stack_push(ctx, v);
+        akl_call_function_bound(cx, fargc);
+        akl_list_append_value(ctx->cx_state, nl, akl_stack_pop(ctx));
+    }
+
+    return akl_new_list_value(ctx->cx_state, nl);
+}
+
 AKL_DEFINE_FUN(foldl, ctx, argc)
 {
     struct akl_function *fn;
@@ -742,7 +770,7 @@ AKL_DEFINE_FUN(foldl, ctx, argc)
     struct akl_list_entry *it;
     struct akl_value *v, *vl;
     struct akl_context *cx;
-    if (akl_get_args_strict(ctx, 3, AKL_VT_FUNCTION, &fn, AKL_VT_ANY, &v, AKL_VT_LIST, &lp) == -1) {
+    if (akl_get_args_strict(ctx, 3, AKL_VT_ANY, &v, AKL_VT_LIST, &lp, AKL_VT_FUNCTION, &fn) == -1) {
        return AKL_NIL;
     }
     it = akl_list_it_begin(lp);
@@ -2088,6 +2116,7 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(akl_cfg,     "akl-cfg!", "Set/unset interpreter features"),
     AKL_FUN(describe,    "describe", "Get a global atom help string"),
     AKL_FUN(map,         "map", "Call a function on list elements"),
+    AKL_FUN(map_index,   "map-index", "Call a function on list with the elements' index (from 0) and the elements themselves"),
     AKL_FUN(foldl,       "foldl", "Fold a list from left"),
     AKL_FUN(foldl,       "fold", "Fold a list from left"),
     AKL_FUN(times,       "times", "Call a function n times"),
