@@ -745,7 +745,7 @@ AKL_DEFINE_FUN(map_index, ctx, argc)
     int ind = 0;
     int fargc;
     // TODO: Change TYPE_* to bit masks.
-    if (akl_get_args_strict(ctx, 2, AKL_VT_LIST, &lp, AKL_VT_FUNCTION, &lp) == -1) {
+    if (akl_get_args_strict(ctx, 2, AKL_VT_LIST, &lp, AKL_VT_FUNCTION, &fn) == -1) {
        return AKL_NIL;
     }
     it = akl_list_it_begin(lp);
