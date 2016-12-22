@@ -870,6 +870,56 @@ AKL_DEFINE_FUN(disassemble, ctx, argc)
     return AKL_NIL;
 }
 
+static struct tm *akl_time(void)
+{
+    time_t curr;
+    time(&curr);
+    return localtime(&curr);
+}
+
+static const char *day_names[] = {
+    "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"
+};
+
+static struct akl_value *
+add_time_to_list(struct akl_context *ctx, struct tm *time, struct akl_list *l)
+{
+    struct akl_state *s = ctx->cx_state;
+    struct akl_value *lv;
+    akl_list_append_value(s, l, AKL_NUMBER(ctx, time->tm_hour));
+    akl_list_append_value(s, l, AKL_NUMBER(ctx, time->tm_min));
+    akl_list_append_value(s, l, AKL_NUMBER(ctx, time->tm_sec));
+
+    lv = akl_new_list_value(s, l);
+    l->is_quoted  = TRUE;
+    lv->is_quoted = TRUE;
+    return lv;
+}
+
+AKL_DEFINE_FUN(getdatetime, ctx, argc)
+{
+    struct akl_state *s = ctx->cx_state;
+    struct akl_list *l  = akl_new_list(s);
+    struct tm *time     = akl_time();
+    struct akl_symbol *day_of_week;
+    struct akl_value  *dow;
+
+    akl_list_append_value(s, l, AKL_NUMBER(ctx, time->tm_year + 1900));
+    akl_list_append_value(s, l, AKL_NUMBER(ctx, time->tm_mon));
+    akl_list_append_value(s, l, AKL_NUMBER(ctx, time->tm_mday));
+    day_of_week    = akl_new_symbol(s, (char *)day_names[time->tm_wday], TRUE);
+    dow            = akl_new_sym_value(s, day_of_week);
+    dow->is_quoted = TRUE;
+    akl_list_append_value(s, l, dow);
+    return add_time_to_list(ctx, time, l);
+}
+
+AKL_DEFINE_FUN(gettime, ctx, argc)
+{
+    struct akl_list *l  = akl_new_list(ctx->cx_state);
+    return add_time_to_list(ctx, akl_time(), l);
+}
+
 AKL_DEFINE_NE_FUN(set, ctx, argc)
 {
     return AKL_NIL;
@@ -1105,7 +1155,8 @@ AKL_DEFINE_FUN(split, cx, argc) {
             akl_raise_error(cx, AKL_WARNING, "Delimiter is not a string! Falling back to default delimiter.");
         }
     }
-    str = strdup(AKL_GET_STRING_VALUE(vstr));
+    str = AKL_GET_STRING_VALUE(vstr);
+    str = (str != NULL) ? strdup(str) : NULL;
     ret = akl_new_list(cx->cx_state);
     ret->is_quoted = TRUE;
     while ((sub = strtok(str, delim)) != NULL) {
@@ -1989,12 +2040,6 @@ AKL_CFUN_DEFINE(cons, in, args)
     akl_list_insert_value_head(in, AKL_GET_LIST_VALUE(a2), a1);
     return a2;
 }
-static struct tm *akl_time(void)
-{
-    time_t curr;
-    time(&curr);
-    return localtime(&curr);
-}
 
 AKL_CFUN_DEFINE(date_year, in, args __unused)
 {
@@ -2054,7 +2099,9 @@ struct akl_list *akl_split(struct akl_state *s, const char *str, const char *sp)
                 } else {
                     ch = '\0';
                     akl_vector_push(&sv, &ch);
-                    akl_list_append_value(s, l, akl_new_string_value(s, strdup(sv.av_vector)));
+                    if (sv.av_vector != NULL) {
+                        akl_list_append_value(s, l, akl_new_string_value(s, strdup(sv.av_vector)));
+                    }
                 }
             } else {
                 ch = *str;
@@ -2104,6 +2151,7 @@ AKL_DECLARE_FUNS(akl_basic_funs) {
     AKL_FUN(length,      "length", "Get the length of a string or the element count for a list"),
     AKL_FUN(ls_index,    "index", "Index a list or a string"),
     AKL_FUN(ls_head ,    "head", "Get the first element of a list or the first character of a string"),
+    AKL_FUN(ls_head ,    "first", "Get the first element of a list or the first character of a string"),
     AKL_FUN(ls_head ,    "car", "Get the first element of a list or the first character of a string"),
     AKL_FUN(ls_tail,     "cdr", "Get the remaining elements or characters of a list or string (everything after head)"),
     AKL_FUN(ls_tail,     "tail", "Get the remaining elements or characters of a list or string (everything after head)"),
@@ -2147,6 +2195,15 @@ AKL_DECLARE_FUNS(akl_io_funs) {
     AKL_END_FUNS()
 };
 
+AKL_DECLARE_FUNS(akl_sys_funs) {
+    AKL_FUN(getdatetime,  "get-date-time", "Get the current date and time in a list with the elements:"
+                                           " '(year month[0-11] day[1-31] day-of-the-week[:monday, :thuesday, ...]"
+                                           " hour[0-23] min[0-59] sec[0-60])"),
+    AKL_FUN(gettime,      "get-time",      "Current time in a list, in the order of: "
+                                           "'(hour[0-23] min[0-59] sec[0-60])"),
+    AKL_END_FUNS()
+};
+
 AKL_DECLARE_FUNS(akl_module_funs) {
     AKL_FUN(load,  "load", "Load a file or module"),
     AKL_END_FUNS()
@@ -2163,6 +2220,7 @@ void akl_init_library(struct akl_state *s, enum AKL_INIT_FLAGS flags)
     }
     if (flags & AKL_LIB_SYSTEM) {
         akl_declare_functions(s, akl_module_funs);
+        akl_declare_functions(s, akl_sys_funs);
     }
     akl_spec_library_init(s, flags);
     akl_define_mod_path(s);
