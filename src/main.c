@@ -179,6 +179,7 @@ static char *readline(char *prompt)
 
 int no_color_flag;
 int eval_flag;
+int peval_flag;
 int compile_flag;
 int force_interact_flag;
 const static struct option akl_options[] = {
@@ -186,7 +187,8 @@ const static struct option akl_options[] = {
     { "compile"    , no_argument,       &compile_flag, 'c' },
     { "define"     , no_argument,       0, 'D' },
     { "debug"      , no_argument,       0, 'd' },
-    { "eval"       , required_argument, &eval_flag, 'e' },
+    { "eval"       , required_argument, &eval_flag,  'e' },
+    { "peval"      , required_argument, &peval_flag, 'E' },
     { "interactive", no_argument,       &force_interact_flag, 'i' },
     { "config"     , required_argument, 0, 'C' },
     { "no-colors"  , no_argument,       &no_color_flag,  1  },
@@ -198,8 +200,8 @@ const static struct option akl_options[] = {
 const char *akl_option_desc[] = {
     "Compile an AkLisp assembly file", "Compile an AkLisp program to bytecode"
     , "Define a variable from command-line", "Set self debugging on (stack and instructions)"
-    , "Evaluate a command-line expression", "Force interactive mode"
-    , "Pass configuration setting to akl-cfg!", "Disable colors"
+    , "Evaluate a command-line expression", "Evaluate a command-line expression and print the result"
+    , "Force interactive mode", "Pass configuration setting to akl-cfg!", "Disable colors"
     , "This help message", "Print the version number"
 };
 
@@ -243,7 +245,13 @@ void eval_dev(struct akl_io_device *dev)
     akl_execute(ctx);
     if (AKL_IS_FEATURE_ON(&state, AKL_CFG_INTERACTIVE)) {
         printf(" => ");
+    }
+    /* Only print the evaluated expression, when interactive or -E is used */
+    if (AKL_IS_FEATURE_ON(&state, AKL_CFG_INTERACTIVE) || peval_flag) {
         akl_print_value(&state, akl_stack_pop(ctx));
+        if (peval_flag) {
+            printf("\n");
+        }
     }
     if (AKL_IS_FEATURE_ON(&state, AKL_DEBUG_STACK)) {
         akl_dump_stack(ctx);
@@ -311,7 +319,7 @@ int main(int argc, char* const* argv)
     akl_init_list(&args);
 
 #ifdef HAVE_GETOPT_H
-    while ((c = getopt_long(argc, argv, "aD:dC:e:chiv", akl_options, &opt_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "aD:dC:e:E:chiv", akl_options, &opt_index)) != -1) {
         if (no_color_flag)
             AKL_UNSET_FEATURE(&state, AKL_CFG_USE_COLORS);
 
@@ -324,6 +332,8 @@ int main(int argc, char* const* argv)
             print_help();
             return 0;
 
+            case 'E':
+            peval_flag = 1; /* getopt_long() does not want to set this */
             case 'e':
             eval_arg = optarg;
             break;
