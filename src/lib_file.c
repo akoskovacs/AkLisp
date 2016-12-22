@@ -35,59 +35,43 @@ static void file_utype_desctruct(struct akl_state *in, void *obj)
     }
 }
 
-/*
- * Get the file descriptor from the first argument. If that is mandatory, give error
- * with the caller's function name otherwise use 'sv'.
-*/
-static FILE *file_get_fp(struct akl_state *s, struct akl_list *args
-                            , struct akl_atom *sv, const char *fname, bool_t mandatory)
+static FILE *
+unpack_file_userdata(struct akl_userdata *ud)
 {
-    struct akl_value *a1 = AKL_FIRST_VALUE(args);
-    if ((!args || !a1) && sv)
-        return (FILE *)akl_get_userdata_value(sv->at_value)->ud_private;
-
-    if (akl_check_user_type(a1, akl_file_utype)) {
-        return (FILE *)akl_get_userdata_value(a1)->ud_private;
+    if (ud != NULL) {
+        return (FILE *)ud->ud_private;
     }
-    if (mandatory)
-        akl_add_error(s, AKL_ERROR, a1->va_lex_info
-              , "%s: The first argument must be a file descriptor.\n", fname);
     return NULL;
 }
 
 
-AKL_CFUN_DEFINE(file_open, in, args)
+AKL_DEFINE_FUN(file_open, ctx, argc)
 {
     FILE *fp = NULL;
     const char *fname = NULL;
-    const char *mode = NULL;
-    struct akl_value *a1 = AKL_FIRST_VALUE(args);
-    struct akl_value *a2 = AKL_SECOND_VALUE(args);
-    if (AKL_CHECK_TYPE(a1, TYPE_STRING))
-        fname = AKL_GET_STRING_VALUE(a1);
-
-    if (AKL_CHECK_TYPE(a2, TYPE_STRING))
-        mode = AKL_GET_STRING_VALUE(a2);
-    else
-        mode = "r";
-
-    if (fname && mode)
-        fp = fopen(fname, mode);
+    struct akl_symbol *mode;
+    if (akl_get_args_strict(ctx, 2, AKL_VT_STRING, &fname, AKL_VT_SYMBOL, &mode) == -1) {
+        return AKL_NIL;
+    }
+    fp = fopen(fname, mode->sb_name);
     if (fp) {
         return akl_new_user_value(in, akl_file_utype, (void *)fp);
     }
-    return &NIL_VALUE;
+    return AKL_NIL;
 }
 
 AKL_CFUN_DEFINE(file_close, in, args)
 {
     struct akl_userdata *udata;
-    FILE *fp = file_get_fp(in, args, NULL, "CLOSE", TRUE);
-    if (fp) {
-        fclose(fp);
-        return &TRUE_VALUE;
+    FILE *fp;
+    if (akl_get_args_strict(ctx, 1, AKL_VT_USERDATA, &udata) == -1) {
+        return AKL_NIL;
     }
-    return &NIL_VALUE;
+    if ((fp = unpack_file_userdata(udata)) != NULL) {
+        fclose(fp);
+        return AKL_TRUE;
+    }
+    return AKL_NIL;
 }
 
 /* A stupid (f)printf() implementation. */
@@ -309,51 +293,28 @@ AKL_CFUN_DEFINE(file_tell, in, args)
     return &TRUE_VALUE;
 }
 
-static void create_std_desc(struct akl_state *s, akl_utype_t tid)
-{
-    akl_stdin = akl_new_atom(s, strdup("STDIN"));
-    akl_stdout = akl_new_atom(s, strdup("STDOUT"));
-    akl_stderr = akl_new_atom(s, strdup("STDERR"));
-
-    akl_stdin->at_value = akl_new_user_value(s, tid, stdin);
-    akl_stdin->at_desc = "The descriptor of the standard input";
-
-    akl_stdout->at_value = akl_new_user_value(s, tid, stdout);
-    akl_stdout->at_desc = "The descriptor of the standard output";
-
-    akl_stderr->at_value = akl_new_user_value(s, tid, stderr);
-    akl_stderr->at_desc = "The descriptor of the standard error stream";
-
-    akl_stdin->at_is_const = akl_stdout->at_is_const
-        = akl_stderr->at_is_const = TRUE;
-
-    akl_add_global_atom(s, akl_stdin);
-    akl_add_global_atom(s, akl_stdout);
-    akl_add_global_atom(s, akl_stderr);
-}
-
-static void destroy_std_desc(struct akl_state *s)
-{
-    akl_remove_global_atom(s, akl_stdin);
-    akl_remove_global_atom(s, akl_stdout);
-    akl_remove_global_atom(s, akl_stderr);
+AKL_DECLARE_FUNS(file_io_funs) {
+    AKL_FUN(file_open, "file-open", "Open a file for a given operation (read, write)"),
+    AKL_FUN(file_close, "file-close", "Close a file"),
+    AKL_FUN(file_printf, "print", "Write a string to a stream (with C-style formatting)"),
+    AKL_FUN(file_getline, "getline", "Get a line from a stream"),
+    AKL_FUN(file_read_number, "read-number", "Read a number from the standard input"),
+    AKL_FUN(file_read_string, "read-word", "Read a word from the standard input"),
+    AKL_FUN(file_read_string, "read-word", "Read a word from the standard input"),
+    AKL_FUN(file_newline, "newline", "Just put out a newline character to the standard output"),
+    AKL_FUN(file_seek, "file-seek", "Sets the file position"),
+    AKL_FUN(file_tell, "file-tell", "Tells the current file position"),
+    AKL_FUN(file_rewind, "file-rewind", "Sets the current file position to the beginning of the file"),
+    AKL_END_FUNS()
 }
 
 void akl_init_file(struct akl_state *s)
 {
     akl_file_utype = akl_register_type(s, "FILE", file_utype_desctruct);
-    create_std_desc(s, akl_file_utype);
-    AKL_ADD_CFUN(s, file_open, "FILE-OPEN", "Open a file for a given operation (read, write)");
-    AKL_ADD_CFUN(s, file_close, "FILE-CLOSE", "Close a file");
-    AKL_ADD_CFUN(s, file_printf, "PRINT", "Write a string to a stream (with C-style formatting)");
-    AKL_ADD_CFUN(s, file_getline, "GETLINE", "Get a line from a stream");
-    AKL_ADD_CFUN(s, file_read_number, "READ-NUMBER", "Read a number from the standard input");
-    AKL_ADD_CFUN(s, file_read_string, "READ-WORD", "Read a word from the standard input");
-    AKL_ADD_CFUN(s, file_read_string, "READ-WORD", "Read a word from the standard input");
-    AKL_ADD_CFUN(s, file_newline, "NEWLINE", "Just put out a newline character to the standard output");
-    AKL_ADD_CFUN(s, file_seek, "FILE-SEEK", "Sets the file position");
-    AKL_ADD_CFUN(s, file_tell, "FILE-TELL", "Tells the current file position");
-    AKL_ADD_CFUN(s, file_rewind, "FILE-REWIND", "Sets the current file position to the beginning of the file");
+    akl_stdin = akl_new_symbol(s, AKL_CSTR("stdin"));
+    akl_stout = akl_new_symbol(s, AKL_CSTR("stdout"));
+    akl_sterr = akl_new_symbol(s, AKL_CSTR("stderr"));
+    akl_declare_functions(s, file_io_funs);
 }
 
 #if 0
