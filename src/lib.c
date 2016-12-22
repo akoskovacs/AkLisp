@@ -23,8 +23,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <libgen.h>
 
 #include "aklisp.h"
+
+#define PATH_MAX 255
 
 AKL_DEFINE_FUN(exit, cx, argc)
 {
@@ -1056,14 +1059,37 @@ AKL_DEFINE_FUN(or, ctx, argc)
     return AKL_NIL;
 }
 
+const char *akl_lex_get_filename(struct akl_io_device *dev);
+
 AKL_DEFINE_FUN(load, ctx, argc)
 {
     struct akl_io_device *dev;
     struct akl_context *cx;
-    const char *fname;
+    char *fname;
+    char path[PATH_MAX];
     FILE *fp;
     if (akl_get_args_strict(ctx, 1, AKL_VT_STRING, &fname) == -1) {
         return AKL_NIL;
+    }
+    if (fname[0] == '.' && fname[1] == '/') {
+        char *curr_fname = (char *)akl_lex_get_filename(ctx->cx_dev);
+        if (curr_fname != NULL) {
+            curr_fname = realpath(curr_fname, NULL);
+        }
+        char *dname      = NULL;
+        /* TODO: Make this portable... */
+        if (curr_fname) {
+            /* Script relative paths have to work */
+            dname = dirname(curr_fname);
+        }
+        if (dname) {
+            strncpy(path, dname, sizeof(path));
+            free(curr_fname);
+
+            strncat(path, fname+1, sizeof(path));
+            path[sizeof(path)-1] = '\0';
+            fname = path;
+        }
     }
 
     if ((fp = fopen(fname, "r")) == NULL) {
