@@ -1,3 +1,4 @@
-(display "Hello! How old are you: ")
-(set! AGE (read-number))
-(display "You were born in: " (- (date-year) AGE))(newline)
+(write "Hello! How old are you: ")
+(set! age (read-number))
+(set! year (first (get-date-time)))
+(display "You were born in: " (- year age))
