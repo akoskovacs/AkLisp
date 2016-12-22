@@ -1,10 +1,11 @@
-(display "Water tempature (in C): ")
-(set! TEMP (read-number))
+(write "Water tempature (in C): ")
+(set! temp (read-number))
+(when (nil? temp) ($ (display "This is a wrong number!") (exit! 1))
+  
 (display "The water is " 
-    (cond 
-        ((> TEMP 100) "steam.")
-        ((< TEMP 0) "ice.")
-        (T "just water.")
+    (if (<= temp 0) "ice." 
+      (if (< temp 100) "just water."
+        (when (>= temp 100) "steam.")
+      )
    )
 )
-(newline)
