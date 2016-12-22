@@ -719,19 +719,17 @@ AKL_DEFINE_FUN(map, ctx, argc)
     struct akl_list_entry *it;
     struct akl_value *v;
     struct akl_context *cx;
-    int fargc;
     // TODO: Change TYPE_* to bit masks.
     if (akl_get_args_strict(ctx, 2, AKL_VT_LIST, &lp, AKL_VT_FUNCTION, &fn) == -1) {
        return AKL_NIL;
     }
     it = akl_list_it_begin(lp);
-    fargc = akl_list_count(lp);
     cx = akl_bound_function(ctx, NULL, fn);
     nl = akl_new_list(ctx->cx_state);
     nl->is_quoted = TRUE;
     while ((v = akl_list_it_next(&it)) != NULL) {
         akl_stack_push(ctx, v);
-        akl_call_function_bound(cx, fargc);
+        akl_call_function_bound(cx, 1); /* TODO: How to go with more arguments? */
         akl_list_append_value(ctx->cx_state, nl, akl_stack_pop(ctx));
     }
 
@@ -746,20 +744,18 @@ AKL_DEFINE_FUN(map_index, ctx, argc)
     struct akl_value *v;
     struct akl_context *cx;
     int ind = 0;
-    int fargc;
     // TODO: Change TYPE_* to bit masks.
     if (akl_get_args_strict(ctx, 2, AKL_VT_LIST, &lp, AKL_VT_FUNCTION, &fn) == -1) {
        return AKL_NIL;
     }
     it = akl_list_it_begin(lp);
-    fargc = akl_list_count(lp);
     cx = akl_bound_function(ctx, NULL, fn);
     nl = akl_new_list(ctx->cx_state);
     nl->is_quoted = TRUE;
     while ((v = akl_list_it_next(&it)) != NULL) {
         akl_stack_push(ctx, AKL_NUMBER(ctx, ind++));
         akl_stack_push(ctx, v);
-        akl_call_function_bound(cx, fargc);
+        akl_call_function_bound(cx, 1);
         akl_list_append_value(ctx->cx_state, nl, akl_stack_pop(ctx));
     }
 
