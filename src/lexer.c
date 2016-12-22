@@ -167,8 +167,9 @@ size_t copy_string(struct akl_io_device *dev)
         } else {
             break;
         }
-        if (akl_io_eof(dev))
+        if (akl_io_eof(dev)) {
             break;
+        }
     }
     return i;
 }
@@ -180,14 +181,15 @@ size_t copy_atom(struct akl_io_device *dev)
     assert(dev);
 
     while ((ch = akl_io_getc(dev))) {
-        if (ch != ' ' && ch != ')' && ch != '\n') {
+        if (ch != ' ' && ch != '(' && ch != ')' && ch != '\n') {
             put_buffer(dev, i++, tolower(ch));
         } else {
             akl_io_ungetc(ch, dev);
             break;
         }
-        if (akl_io_eof(dev))
+        if (akl_io_eof(dev)) {
             break;
+        }
     }
     return i;
 }
