@@ -1,11 +1,12 @@
 ;; Greet the user according to the time of day
-(display "What is your name: ")
-(set! NAME (read-word)) ; Who is it?
-(set! HOUR (first (time))) ; What's the time?
-(cond
-  ((> HOUR 18) (display "Good evening " ))
-  ((> HOUR 12) (display "Good aftenoon " ))
-  ((< HOUR 12) (display "Good morning " ))
+(write "What is your name: ")
+(set! name (read-string))      ; Read to the name global variable
+(set! hour (first (get-time))) ; The first element of the list is the hour
+
+(if (< hour 12) (write "Good morning")
+  (if (< hour 18) (write "Good aftenoon")
+    (when (>= hour 18) (write "Good evening"))
+  )
 )
-(display NAME "!")(newline)
+(display ", " name "!")
 
