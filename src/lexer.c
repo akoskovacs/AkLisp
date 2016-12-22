@@ -43,6 +43,14 @@ void akl_lex_free(struct akl_io_device *dev)
     dev->iod_buffer = NULL;
 }
 
+const char *akl_lex_get_filename(struct akl_io_device *dev)
+{
+    if (dev && dev->iod_type == DEVICE_FILE) {
+        return dev->iod_name;
+    }
+    return NULL;
+}
+
 static void 
 put_buffer(struct akl_io_device *dev, int pos, char ch)
 {
@@ -269,7 +277,7 @@ akl_lex(struct akl_io_device *dev)
             copy_number(dev, op);
             op = 0;
             return tNUMBER;
-        } else if (ch == ' ' || ch == '\n') {
+        } else if (ch == ' ' || ch == '\n' || ch == ')') {
             dev->iod_column = dev->iod_char_count+1;
             if (op != 0) {
                 if (op == '+')
@@ -277,8 +285,14 @@ akl_lex(struct akl_io_device *dev)
                 else
                     strcpy(dev->iod_buffer, "-");
                 op = 0;
+                if (ch == ')') {
+                    akl_io_ungetc(ch, dev);
+                }
                 return tATOM;
             } else {
+                if (ch == ')') {
+                    return tRBRACE;
+                }
                 continue;
             }
         } else if (ch == '"') {
@@ -295,8 +309,6 @@ akl_lex(struct akl_io_device *dev)
                 return tNIL;
             akl_io_ungetc(ch, dev);
             return tLBRACE;
-        } else if (ch == ')') {
-            return tRBRACE;
         } else if (ch == '\'' || ch == ':') {
             return tQUOTE;
         } else if (ch == ';') {
