@@ -1,0 +1,5 @@
+(display "File: " *file*)
+(display "Args: ")
+(print *args*)
+(set! *argc* (length *args*))
+(display "Has " *argc* (if (= 1 *argc*) " argument" " arguments") " (in *args*).")
