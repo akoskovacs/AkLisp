@@ -6,11 +6,13 @@
         )
 )
 
+; Comment-out to disasseble bytecode
+;(disassemble :fact)
+
+; Read the next number
 (defun! get-fact ()
-        ($ (write "Please, give me a number: ")
-           (read-number))
+        ($ (write "Please, give me a number: ") (read-number))
 )
-(disassemble :fact)
 
 (defun! read-factorial (n)
         (if (nil? n)
