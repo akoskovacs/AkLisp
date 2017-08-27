@@ -269,7 +269,7 @@ static void interactive_mode(void)
     struct akl_io_device *dev;
     printf("Interactive AkLisp version %d.%d-%s\n"
         , VER_MAJOR, VER_MINOR, VER_ADDITIONAL);
-    printf("Copyleft (C) 2016 Akos Kovacs\n\n");
+    printf("Copyleft (C) 2017 Akos Kovacs\n\n");
     AKL_SET_FEATURE(&state, AKL_CFG_INTERACTIVE);
 
     init_readline();
