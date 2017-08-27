@@ -2,11 +2,12 @@
 AkLisp is a tiny, hobby Lisp dialect. It is embeddable, user-friendly and relatively fast.
 
 ```
-WARNING! This is an experimental (wip: Work in progress) branch of AkLisp. Code might not work or not even build.
+WARNING! This is an experimental (wip: Work in progress) branch of AkLisp.
+Code might not work or not even build.
 ```
 
 ## About AkLisp
-> [Lisp](http://en.wikipedia.org/wiki/Lisp_(programming_language\)) is a family of computer programming languages, with a long history and a distincitve parenthesized *Polish notation*.o
+> [Lisp](http://en.wikipedia.org/wiki/Lisp_(programming_language)) is a family of computer programming languages, with a long history and a distincitve parenthesized *Polish notation*.
 
 **AkLisp is a Lisp/Scheme style language, without backward compatibility.**
 
@@ -197,6 +198,7 @@ Which dumps something similar to this:
 	nop
 ```
 An incomplete list of the operations performed, is shown here:
+
 | Operation code | Example      | Meaning                                                             |
 |----------------|--------------|---------------------------------------------------------------------|
 | **load**       | `load %0`    | Loads the first parameter to the stack                              |
@@ -204,6 +206,7 @@ An incomplete list of the operations performed, is shown here:
 | **call**       | `call <=, 2` | Call function `<=` with `2` parameters pushed to the stack          |
 | **jn**         | `jn .L1`     | Jump to label `.L1`, if the value at the top of the stack is `NIL`  |
 | **jmp**        | `jmp .L0`    | Jump to label `.L0` without condition                               |
+
 The bytecode is appended to an internal list by the `akl_build_*()` functions. Then the virtual machine defined in `src/aklisp.c` executes the emitted bytecode instructions:
 ```c
 static void
@@ -284,15 +287,16 @@ Copyleft (C) 2017 Akos Kovacs
   - [x] Bytecode emitter [bug #5](https://github.com/akoskovacs/AkLisp/issues/5)
   - [x] Bytecode assembly printer
   - [x] Virtual machine
-  - [] Saveable and executable binary bytecode file representation
-  - [] Working GC *(garbage collector)* *[partly done]*
-  - [] Testing framework *[partly done]*
-  - [] Bytecode assembly parser *[implementation started]*
-  - [] Make C modules work again
-  - [] Bytecode optimization
-  - [] Windows?
-  - [] `nop` elimination
-  - [] Bugs, bugs, bugs...
+  - [ ] Saveable and executable binary bytecode file representation
+  - [ ] Working GC *(garbage collector)* *[partly done]*
+  - [ ] Testing framework *[partly done]*
+  - [ ] Bytecode assembly parser *[implementation started]*
+  - [ ] Make C modules work again
+  - [ ] Bytecode optimization
+  - [ ] Windows?
+  - [ ] Better documentation
+  - [ ] `nop` elimination
+  - [ ] Bugs, bugs, bugs...
 
 ## License
 AkLisp is licensed under the permissive MIT license.
