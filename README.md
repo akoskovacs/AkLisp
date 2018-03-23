@@ -11,19 +11,19 @@ Code might not work or not even build.
 
 **AkLisp is a Lisp/Scheme style language, without backward compatibility.**
 
-Every expression is written in the form of nested lists. In Lisp-style languages, the elements of the list is surrounded by parantheses, where the first element is the function and the other elements are the arguments of the function. The list elements are separated by whitespaces. Consider the following example in C:
+Every expression is formed as a nested lists. In Lisp-style languages, the elements are surrounded with parantheses, where the first entry is the function while the following elements are the arguments of the function. The list elements are separated by whitespaces. Consider the following example in C:
 ```c
 int a = (10 + 2) * 2;
 ```
-Which is written in Lisp as:
+Which is expressed in Lisp as:
 ```lisp
 (set! a (* 2 (+ 10 2)))
 ```
-Both set the *a* variable to 24. *`AkLisp` currently only supports global variables and function parameters.*
+Both set the *a* variable to 24. The biggest difference is the that C uses infix, while `AkLisp` uses the prefix format. The `!` at the end of the function name is only a notion, that signifies that the function could change its arguments or the interpreter's context (like the variables). *`AkLisp` currently only supports global variables and function parameters.*
 
 Every list is automatically evaluated if they are not quoted. To quote a list, just write a \' before the list, like:
 ```lisp
-'(+ 1 2 3) ; Will be threated as data
+'(+ 1 2 3) ; Will be treated as data
 ```
 Every list is implemented as a singly linked list in the interpreter. You can devide lists to a head and tail. The head is the first element. And the tail is a list of the subsequent elements.
 ```lisp
@@ -34,9 +34,9 @@ Every list is implemented as a singly linked list in the interpreter. You can de
 ; Therefore the second element can be easy gathered with:
 (head (tail '(:one 2 3 :four)))     ; => 2, the second element
 ```
-`:one`, `:four` are Ruby-like symbols used as lightweight identifiers for data. They are only created once, but could be converted to string with the `string` function.
+`:one`, `:four` are Ruby-like symbols used as lightweight identifiers for data. These are only created once, but could be converted to a string with the `string` function.
 
-To help code reuse, you can define functions, just as in most high-level languages. 
+To encourage code reuse, you can define functions, just as in most high-level languages. :sunglasses:
 
 This example shows a function, called `say-hello` which has an empty parameter list `()` and a body `(display "Hello, world!")`. 
 
