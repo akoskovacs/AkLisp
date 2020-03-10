@@ -24,6 +24,8 @@
 #include <unistd.h>
 #include <dlfcn.h>
 #include <sys/stat.h>
+#define __USE_GNU 1
+#include <signal.h>
 
 /* TODO: Remove these when all 
    functionality is ready. */
@@ -38,7 +40,6 @@
 #ifdef HAVE_EXECINFO_H
 # ifdef HAVE_UCONTEXT_H
 char* exe = 0;
-#define __USE_GNU
 #include <ucontext.h>
 #include <execinfo.h>
 #include "aklisp.h"
