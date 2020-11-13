@@ -1,0 +1,14 @@
+before_script:
+    - apt-get update -qq && apt-get -y -qq install build-essential libreadline-dev cmake
+    - gcc --version
+    - make -v
+    - cmake --version
+
+stages:
+    - build
+
+build:
+    stage: build
+    script:
+    - cmake .
+    - make
