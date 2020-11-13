@@ -5,22 +5,22 @@ const char fail_str_color[] = AKL_RED "FAILED" AKL_END_COLOR_MARK ;
 const char ok_str[] = "OK";
 const char ok_str_color[] = AKL_GREEN "OK" AKL_END_COLOR_MARK ;
 const char dot_str[] = ".";
-size_t term_width;
+size_t term_width = 80;
 
 
 int get_term_width(void)
 {
+    int cols = 80;
 #ifdef USE_TPUT
     FILE *tput = popen("tput cols", "r");
-    int cols = 0;
     if (!tput)
-        cols = 80;
+	goto retcol;
 
     fscanf(tput, "%d", &cols);
-    return cols;
-#else
-    return 80;
 #endif
+
+retcol:
+    return cols;
 }
 
 void print_status(const char *desc, test_res_t res)
