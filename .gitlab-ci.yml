@@ -6,9 +6,15 @@ before_script:
 
 stages:
     - build
+    - test
 
 build:
     stage: build
     script:
     - cmake .
     - make
+
+build:
+    stage: test
+    script:
+    - make test
