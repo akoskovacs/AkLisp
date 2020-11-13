@@ -13,8 +13,4 @@ build:
     script:
     - cmake .
     - make
-
-test:
-    stage: test
-    script:
     - make test
