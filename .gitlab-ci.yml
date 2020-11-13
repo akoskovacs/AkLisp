@@ -5,8 +5,8 @@ before_script:
     - cmake --version
 
 stages:
-    - test
     - build
+    - test
 
 build:
     stage: build
@@ -14,7 +14,7 @@ build:
     - cmake .
     - make
 
-build:
+test:
     stage: test
     script:
     - make test
