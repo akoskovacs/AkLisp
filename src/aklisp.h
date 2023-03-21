@@ -118,7 +118,7 @@ typedef enum {
     tQUOTE
 } akl_token_t;
 
-const char *akl_type_name[10];
+extern const char *akl_type_name[10];
 
 typedef enum { FALSE, TRUE } bool_t;
 typedef enum { DEVICE_FILE, DEVICE_STRING } device_type_t;
@@ -358,7 +358,7 @@ struct akl_module __module_desc = { \
     .am_unload = unload  \
 }
 
-#define AKL_MODULE const static struct akl_module __mod_desc = 
+#define AKL_MODULE const extern struct akl_module __mod_desc =
 #define AKL_MOD_NAME(name)        .am_name  = (name)
 #define AKL_MOD_HELP(desc)        .am_desc  = (desc)
 #define AKL_MOD_DESCRIPTION(desc) .am_desc  = (desc)
@@ -477,7 +477,7 @@ struct akl_gc_type {
  *   akl_get_value_args(ctx, 3, &a1, &a2, &a3);
  * ...
  * Returns -1 on error.
- * For argument type specifiers AKL_VT_ANY, AKL_VT_ANY_OPT 
+ * For argument type specifiers AKL_VT_ANY, AKL_VT_ANY_OPT
  * and AKL_VT_REST is also accepted.
 */
 int akl_get_args(struct akl_context *, int, ...);
@@ -489,7 +489,7 @@ int akl_get_args(struct akl_context *, int, ...);
  *   bool_t is_nil;
  *   akl_get_value_args(ctx, 3, TYPE_NIL, &is_nil, TYPE_FUNCTION, &f, TYPE_NUMBER, &num);
  * ...
- * For argument type specifiers AKL_VT_ANY, AKL_VT_ANY_OPT 
+ * For argument type specifiers AKL_VT_ANY, AKL_VT_ANY_OPT
  * and AKL_VT_REST is also accepted.
  * Returns -1 on error
 */
@@ -535,7 +535,7 @@ struct akl_mem_callbacks {
     akl_nomem_action_t (*mc_nomem_fn)(struct akl_state *);
 };
 
-struct akl_mem_callbacks akl_mem_std_callbacks;
+extern struct akl_mem_callbacks akl_mem_std_callbacks;
 void   akl_set_mem_callbacks(struct akl_state *, const struct akl_mem_callbacks *);
 
 /* An instance of the interpreter */
@@ -595,7 +595,7 @@ typedef enum {
 } akl_ir_instruction_t;
 
 #define AKL_NR_INSTRUCTIONS 14
-const char *akl_ir_instruction_set[AKL_NR_INSTRUCTIONS];
+extern const char *akl_ir_instruction_set[AKL_NR_INSTRUCTIONS];
 
 typedef enum {
     AKL_JMP       = AKL_IR_JMP,

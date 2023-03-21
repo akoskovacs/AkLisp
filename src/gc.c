@@ -254,7 +254,7 @@ void akl_gc_mark(struct akl_state *s)
 void akl_gc_mark_all(struct akl_state *s)
 {
     struct akl_atom *atom;
-    if (!AKL_IS_FEATURE_ON(s, AKL_CFG_USE_GC)) 
+    if (!AKL_IS_FEATURE_ON(s, AKL_CFG_USE_GC))
         return;
 #if 0
     RB_FOREACH(atom, ATOM_TREE, &s->ai_atom_head) {
@@ -266,7 +266,7 @@ void akl_gc_mark_all(struct akl_state *s)
 
 void akl_gc_unmark_all(struct akl_state *s)
 {
-    if (!AKL_IS_FEATURE_ON(s, AKL_CFG_USE_GC)) 
+    if (!AKL_IS_FEATURE_ON(s, AKL_CFG_USE_GC))
         return;
 }
 
@@ -330,7 +330,7 @@ int akl_gc_pool_find_free(struct akl_gc_pool *p)
     return -1;
 }
 
-static bool_t 
+static bool_t
 akl_gc_type_have_free(struct akl_state *s, struct akl_gc_type *t, struct akl_gc_pool **pool, unsigned int *ind)
 {
     struct akl_gc_pool *p = t->gt_pool_head;

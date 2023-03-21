@@ -155,7 +155,7 @@ akl_new_context(struct akl_state *s)
 }
 
 static struct akl_symbol *
-get_or_create_symbol(struct akl_state *s, char *name) 
+get_or_create_symbol(struct akl_state *s, char *name)
 {
     struct akl_symbol *sym = akl_get_symbol(s, name);
 

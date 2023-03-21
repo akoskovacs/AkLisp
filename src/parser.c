@@ -8,11 +8,11 @@
  * distribute, sublicense, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
  * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
@@ -298,7 +298,7 @@ void akl_asm_parse_instr(struct akl_context *ctx)
         case AKL_IR_GET:
         case AKL_IR_SET:
         break;
-        
+
         /* All branching parsed here: */
         case AKL_IR_JMP: case AKL_IR_JT:
         case AKL_IR_JN: case AKL_IR_BRANCH:
@@ -350,8 +350,8 @@ void akl_asm_parse(struct akl_context *ctx)
     struct akl_io_device *dev = ctx->cx_dev;
     while ((tok = akl_asm_lex(dev)) != tASM_EOF) {
         if (tok == tASM_FDECL) {
-            akl_asm_parse_func(ctx); 
-        } 
+            akl_asm_parse_func(ctx);
+        }
     }
 }
 #else // AKL_ASSEMBLY
